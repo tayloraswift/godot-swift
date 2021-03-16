@@ -1,0 +1,167 @@
+#!/usr/bin/python3
+import os, shutil, subprocess, argparse, json
+
+# def relink(source, destination):
+#     pivot = '{0}.link'.format(source)
+#     try:
+#         os.remove(pivot)
+#     except FileNotFoundError:
+#         pass 
+#     os.symlink(source, pivot)
+#     os.rename(pivot, destination)
+        
+def shell(arguments, silent = False, environment = {}):
+    print(' '.join(arguments))
+    
+    result = subprocess.run(arguments, capture_output = silent, encoding = 'utf-8', 
+        env = { ** os.environ, ** environment })
+    
+    # if not silent and result.stderr:
+    #     print(result.stderr)
+    
+    result.check_returncode()
+    return result.stdout
+
+def filter_files( * extensions , directory = '.', root = None, basename = None):
+    for current_root, directories, files in os.walk(directory):
+        if root is str and current_root != root:
+            continue 
+        
+        for file in files:
+            for suffix in extensions:
+                if type(suffix) is str:
+                    suffix = (suffix,)
+                
+                name = file 
+                for extension in reversed(suffix):
+                    name, tail = os.path.splitext(name)
+                    if tail != '.{0}'.format(extension):
+                        break 
+                else:
+                    if basename is None or name == basename:
+                        yield os.path.join(current_root, '{0}{1}'.format(name, tail))
+                    break 
+
+def clear_files( * extensions , directory = '.', root = None, basename = None):
+    for file in filter_files( * extensions, directory = directory, root = root, basename = basename):
+        os.remove(file)
+    # remove empty directories
+    for current_root, directories, files in os.walk(directory, topdown = False):
+        if not directories and not files:
+            os.rmdir(current_root)
+
+def emit_gdnlib(resource_path, product):
+    return """[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=true
+
+[entry]
+
+X11.64="{0}/lib{1}.so"
+Windows.64=""
+OSX.64=""
+
+[dependencies]
+
+X11.64=[]
+Windows.64=[]
+OSX.64=[]
+    """.format(resource_path, product)
+
+def emit_gdns(resource_path, symbol):
+    return """[gd_resource type="NativeScript" load_steps=2 format=2]
+
+[ext_resource path="{0}/library.gdnlib" type="GDNativeLibrary" id=1]
+
+[resource]
+
+resource_name = "{1}"
+class_name = "{1}"
+library = ExtResource( 1 )
+    """.format(resource_path, symbol)
+
+def godot_project_root(install):
+    install   = os.path.abspath(install)
+    directory = os.path.dirname(install)
+    while not os.path.isdir(directory) or 'project.godot' not in os.listdir(directory):
+        parent = os.path.dirname(directory)
+        if directory != parent:
+            directory = parent 
+        else:
+            return None, None
+    # always use '/' separator for resource paths
+    return directory, 'res:/{0}'.format('/'.join(os.path.split(os.path.relpath(install, start = directory))))
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--configuration', type = str, choices = ('debug', 'release'),
+        default = 'debug', 
+        help    = 'build configuration')
+    parser.add_argument('-i', '--install', type = str, 
+        default = None, 
+        help    = 'installation directory')
+    
+    options = parser.parse_args()
+    flags   = (argument for flag in (
+        ('ENABLE_ARC_SANITIZER',) if options.configuration == 'debug' else ()) 
+        for argument in ('-Xswiftc', '-D{0}'.format(flag)))
+    
+    # build the library
+    shell(('swift', 'build', '-c', options.configuration, * flags ), 
+        environment = {'SWIFTPM_ENABLE_PLUGINS': '1'})
+    
+    if options.install is None:
+        return 
+    
+    # find project.godot root 
+    project_root, resource_path = godot_project_root(options.install)
+    if project_root is None:
+        message = 'installation directory \'{0}\' is not located in a godot project (could not find \'project.godot\')'.format(options.install)
+        raise FileNotFoundError(message)
+    else:
+        print('installing to \'{0}/\' in project \'{1}\''.format(resource_path, project_root))
+    
+    # look for library.json configuration files 
+    library = {}
+    for path in filter_files('json', 
+        directory   = os.path.join('.build', 'plugins', 'outputs'), 
+        root        = 'GenerateNativeScriptPlugin', 
+        basename    = 'library'):
+        with open(path, 'r') as file:
+            product = json.load(file)
+            if product['product'] not in library:
+                library[product['product']] = set()
+            
+            library[product['product']].update(product['symbols'])
+            
+    if os.path.isdir(options.install):
+        clear_files('gdns', 'gdnlib', 'so', directory = options.install)
+    
+    os.makedirs(os.path.abspath(options.install), exist_ok = True)
+    
+    # copy the shared libraries 
+    for object in filter_files('so', 'dylib', 'dll', 
+        directory = os.path.join('.build', options.configuration)):
+        shutil.copy(object, options.install)
+    
+    for product, symbols in library.items():
+        product_prefix  = os.path.join(options.install, product)
+        resource_prefix = '{0}/{1}'.format(resource_path, product)
+        
+        os.makedirs(product_prefix, exist_ok = True)
+        
+        # generate the godot resource files
+        with open(os.path.join(product_prefix, 'library.gdnlib'), 'w') as file:
+            file.write(emit_gdnlib(resource_path, product))
+        
+        for symbol in symbols:
+            with open(os.path.join(product_prefix, '{0}.gdns'.format(symbol)), 'w') as file:
+                file.write(emit_gdns(resource_prefix, symbol))
+    
+if __name__ == '__main__':
+    # set cwd
+    os.chdir(os.path.dirname(__file__))
+    main()

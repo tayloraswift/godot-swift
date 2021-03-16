@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+
+import json
+
+def main():
+    with open('utils/api.json', 'r') as f:
+        api = json.load(f)
+    
+    for type in api:
+        if type['name'] != 'MeshInstance':
+            continue 
+        for key, value in type.items():
+            print(key, ':', value)
+
+main()

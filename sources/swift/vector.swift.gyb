@@ -1,0 +1,856 @@
+import func Glibc.atan2
+
+infix operator <> :MultiplicationPrecedence // dot product
+infix operator >< :MultiplicationPrecedence // cross product
+infix operator &<> :MultiplicationPrecedence // wrapping dot product
+infix operator &>< :MultiplicationPrecedence // wrapping cross product
+
+infix operator ~~ :ComparisonPrecedence     // distance test 
+infix operator !~ :ComparisonPrecedence     // distance test 
+
+%{
+    C = 'x', 'y', 'z', 'w'
+    U = 'i', 'j', 'k', 'h'
+}%
+
+extension FixedWidthInteger 
+{
+    // rounds up to the next power of two, with 0 rounding up to 1. 
+    // numbers that are already powers of two return themselves
+    @inline(__always)
+    var nextPowerOfTwo:Self 
+    {
+        1 &<< (Self.bitWidth &- (self &- 1).leadingZeroBitCount)
+    }
+    
+    @inline(__always)
+    var isPowerOfTwo:Bool 
+    {
+        self > 0 && self & (self &- 1) == 0
+    }
+}
+extension FloatingPoint 
+{
+    mutating 
+    func clamp(to interval:ClosedRange<Self>) 
+    {
+        self = self.clamped(to: interval)
+    }
+     
+    func clamped(to interval:ClosedRange<Self>) -> Self 
+    {
+        return max(interval.lowerBound, min(self, interval.upperBound))
+    }
+    
+    static 
+    func interpolate(_ a:Self, _ b:Self, by t:Self) -> Self 
+    {
+        return a.addingProduct(a, -t).addingProduct(b, t)
+    } 
+}
+
+
+% for N in 2, 3, 4:
+struct Vector${N}<Scalar>:Hashable, Codable, CustomStringConvertible where Scalar:SIMDScalar 
+{
+    var storage:SIMD${N}<Scalar>
+    
+    % for c in C[:N]:
+    var ${c}:Scalar 
+    {
+        get 
+        {
+            self.storage.${c}
+        }
+        set(${c})
+        {
+            self.storage.${c} = ${c}
+        }
+    }
+    % end 
+    
+    var tuple:(${ ', '.join(('Scalar',) * N) }) 
+    {
+        (${ ', '.join('self.{0}'.format(c) for c in C[:N]) }) 
+    }
+    
+    var description:String
+    {
+        "\(self.tuple)"
+    }
+    
+    % if N > 2:
+    % for M in range(2, N):
+    var ${ ''.join(C[:M]) }:Vector${ M }<Scalar> 
+    {
+        .init(${ ', '.join('self.{0}'.format(c) for c in C[:M]) })
+    }
+    % end 
+    
+    static 
+    func extend(_ body:Vector${ N - 1 }<Scalar>, _ tail:Scalar) 
+        -> Vector${N}<Scalar> 
+    {
+        .init(${ ', '.join('body.{0}'.format(c) for c in C[:N - 1]) }, tail)
+    }
+    % end 
+    
+    subscript(index:Int) -> Scalar 
+    {
+        self.storage[index]
+    }
+    
+    init(repeating repeatedValue:Scalar)
+    {
+        self.init(.init(${ ', '.join(('repeatedValue',) * N) }))
+    }
+    
+    init(${ ', '.join('_ {0}:Scalar'.format(c) for c in C[:N]) })
+    {
+        self.init(.init(${ ', '.join(C[:N]) }))
+    }
+    
+    init(_ storage:SIMD${N}<Scalar>) 
+    {
+        self.storage = storage 
+    }
+    
+    func map<Result>(_ transform:(Scalar) throws -> Result) rethrows -> Vector${N}<Result>
+        where Result:SIMDScalar 
+    {
+        return .init(${ ', '.join('try transform(self.{0})'.format(c) for c in C[:N]) })
+    }
+    
+    // Codable
+    enum CodingKeys:CodingKey 
+    {
+        case ${ ', '.join(C[:N]) }
+    }
+    
+    init(from decoder:Decoder) throws 
+    {
+        let serialized:KeyedDecodingContainer<CodingKeys> = 
+            try decoder.container(keyedBy: CodingKeys.self)
+        % for c in C[:N]:
+        let ${c}:Scalar = try serialized.decode(Scalar.self, forKey: .${c})
+        % end 
+        
+        self.init(${ ', '.join(C[:N]) })
+    }
+    
+    func encode(to encoder:Encoder) throws 
+    {
+        var serialized:KeyedEncodingContainer<CodingKeys> = 
+            encoder.container(keyedBy: CodingKeys.self)
+        % for c in C[:N]:
+        try serialized.encode(self.${c}, forKey: .${c})
+        % end 
+    }
+}
+
+extension Vector${N} where Scalar:Comparable 
+{
+    static 
+    func min(_ a:Self, _ b:Self) -> Self 
+    {
+        .init(${ ', '.join('Swift.min(a.{0}, b.{0})'.format(c) for c in C[:N]) })  
+    }
+    static 
+    func max(_ a:Self, _ b:Self) -> Self 
+    {
+        .init(${ ', '.join('Swift.max(a.{0}, b.{0})'.format(c) for c in C[:N]) })  
+    }
+}
+
+extension Vector${N} where Scalar:BinaryInteger 
+{
+    static 
+    func cast<T>(_ v:Vector${N}<T>) -> Self where T:BinaryFloatingPoint 
+    {
+        return v.map(Scalar.init(_:))
+    }
+    static 
+    func cast<T>(_ v:Vector${N}<T>) -> Self where T:BinaryInteger 
+    {
+        return v.map(Scalar.init(_:))
+    }
+}
+extension Vector${N} where Scalar:FloatingPoint 
+{
+    static 
+    func cast<Source>(_ v:Vector${N}<Source>) -> Self where Source:BinaryInteger 
+    {
+        return v.map(Scalar.init(_:))
+    }
+}
+extension Vector${N} where Scalar:BinaryFloatingPoint 
+{
+    static 
+    func cast<Source>(_ v:Vector${N}<Source>) -> Self where Source:BinaryFloatingPoint 
+    {
+        return v.map(Scalar.init(_:))
+    }
+}
+
+extension Vector${N} where Scalar:FixedWidthInteger
+{
+    static 
+    var zero:Vector${N}<Scalar> 
+    {
+        return .init(.zero) 
+    }
+    
+    % for infix in '&<<', '&>>', '&+', '&-', '&*', '/', '%':
+    static 
+    func ${infix} (lhs:Vector${N}<Scalar>, rhs:Vector${N}<Scalar>) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs.storage)
+    }
+    static 
+    func ${infix} (lhs:Vector${N}<Scalar>, rhs:Scalar) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs)
+    }
+    static 
+    func ${infix} (lhs:Scalar, rhs:Vector${N}<Scalar>) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs ${infix} rhs.storage)
+    }
+    
+    static 
+    func ${infix}= (lhs:inout Vector${N}<Scalar>, rhs:Vector${N}<Scalar>)
+    {
+        lhs.storage ${infix}= rhs.storage
+    }
+    static 
+    func ${infix}= (lhs:inout Vector${N}<Scalar>, rhs:Scalar)
+    {
+        lhs.storage ${infix}= rhs
+    }
+    % end 
+    
+    func roundedUp(exponent:Int) -> Vector${N}<Scalar>
+    { 
+        let mask:Scalar                 = .max &<< exponent 
+        let truncated:SIMD${N}<Scalar>  = self.storage & mask
+        let carry:SIMD${N}<Scalar> = 
+            SIMD${N}<Scalar>.zero.replacing(with: 1 &<< exponent, where: self.storage & ~mask .!= 0)
+        return .init(truncated &+ carry)
+    } 
+    
+    var wrappingSum:Scalar 
+    {
+        return ${ ' &+ '.join('self.{0}'.format(c) for c in C[:N]) }
+    }
+    var wrappingVolume:Scalar
+    {
+        return ${ ' &* '.join('self.{0}'.format(c) for c in C[:N]) }
+    }
+    
+    static func &<> (lhs:Vector${N}<Scalar>, rhs:Vector${N}<Scalar>) -> Scalar
+    {
+        return (lhs &* rhs).wrappingSum
+    }
+}
+
+extension Vector${N} where Scalar:ExpressibleByIntegerLiteral 
+{
+    % for i, u in zip(range(N), U[:N]):
+    static 
+    var ${u}:Self 
+    {
+        .init(${ ', '.join('1' if i == j else '0' for j in range(N)) })
+    }
+    % end 
+}
+
+extension Vector${N} where Scalar:FloatingPoint 
+{
+    static 
+    var zero:Vector${N}<Scalar> 
+    {
+        return .init(.zero) 
+    }
+    
+    prefix static 
+    func - (operand:Vector${N}<Scalar>) -> Vector${N}<Scalar>
+    {
+        return .init(-operand.storage)
+    }
+    
+    % for infix in '+', '-', '*', '/':
+    static 
+    func ${infix} (lhs:Vector${N}<Scalar>, rhs:Vector${N}<Scalar>) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs.storage)
+    }
+    static 
+    func ${infix} (lhs:Vector${N}<Scalar>, rhs:Scalar) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs)
+    }
+    static 
+    func ${infix} (lhs:Scalar, rhs:Vector${N}<Scalar>) 
+        -> Vector${N}<Scalar>
+    {
+        return .init(lhs ${infix} rhs.storage)
+    }
+    
+    static 
+    func ${infix}= (lhs:inout Vector${N}<Scalar>, rhs:Vector${N}<Scalar>)
+    {
+        lhs.storage ${infix}= rhs.storage
+    }
+    static 
+    func ${infix}= (lhs:inout Vector${N}<Scalar>, rhs:Scalar)
+    {
+        lhs.storage ${infix}= rhs
+    }
+    % end 
+    
+    func addingProduct(_ lhs:Vector${N}<Scalar>, _ rhs:Vector${N}<Scalar>) -> Vector${N}<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs.storage, rhs.storage))
+    }
+    func addingProduct(_ lhs:Scalar, _ rhs:Vector${N}<Scalar>) -> Vector${N}<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs, rhs.storage))
+    }
+    func addingProduct(_ lhs:Vector${N}<Scalar>, _ rhs:Scalar) -> Vector${N}<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs.storage, rhs))
+    }
+    mutating 
+    func addProduct(_ lhs:Vector${N}<Scalar>, _ rhs:Vector${N}<Scalar>)
+    {
+        self.storage.addProduct(lhs.storage, rhs.storage)
+    }
+    mutating 
+    func addProduct(_ lhs:Scalar, _ rhs:Vector${N}<Scalar>)
+    {
+        self.storage.addProduct(lhs, rhs.storage)
+    }
+    mutating 
+    func addProduct(_ lhs:Vector${N}<Scalar>, _ rhs:Scalar)
+    {
+        self.storage.addProduct(lhs.storage, rhs)
+    }
+
+    func squareRoot() -> Vector${N}<Scalar>
+    {
+        return .init(self.storage.squareRoot())
+    }
+
+    func rounded(_ rule:FloatingPointRoundingRule) -> Vector${N}<Scalar>
+    {
+        return .init(self.storage.rounded(rule))
+    }
+    mutating 
+    func round(_ rule:FloatingPointRoundingRule)
+    {
+        self.storage.round(rule)
+    }
+    
+    static 
+    func interpolate(_ a:Vector${N}<Scalar>, _ b:Vector${N}<Scalar>, by t:Scalar) 
+        -> Vector${N}<Scalar> 
+    {
+        return a.addingProduct(a, -t).addingProduct(b, t)
+    } 
+    
+    
+    var sum:Scalar 
+    {
+        return ${ ' + '.join('self.{0}'.format(c) for c in C[:N]) }
+    }
+    var volume:Scalar
+    {
+        return ${ ' * '.join('self.{0}'.format(c) for c in C[:N]) }
+    }
+    
+    static func <> (lhs:Vector${N}<Scalar>, rhs:Vector${N}<Scalar>) -> Scalar
+    {
+        return (lhs * rhs).sum 
+    }
+    
+    var length:Scalar 
+    {
+        return (self <> self).squareRoot()
+    }
+    
+    mutating 
+    func normalize() 
+    {
+        self /= self.length
+    }
+    func normalized() -> Vector${N}<Scalar> 
+    {
+        return self / self.length
+    }
+
+    static func <  (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v <  r 
+    }
+    static func <= (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v <= r 
+    }
+    static func ~~ (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v == r 
+    }
+    static func !~ (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v != r 
+    }
+    static func >= (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v >= r 
+    }
+    static func >  (v:Vector${N}<Scalar>, r:Scalar) -> Bool
+    {
+        return v <> v >  r 
+    }
+}
+
+func wrappingAbs<Scalar>(_ v:Vector${N}<Scalar>) -> Vector${N}<Scalar> where Scalar:FixedWidthInteger
+{
+    return .init(v.storage.replacing(with: 0 &- v.storage, where: v.storage .< 0))
+}
+func         abs<Scalar>(_ v:Vector${N}<Scalar>) -> Vector${N}<Scalar> where Scalar:FloatingPoint
+{
+    return .init(v.storage.replacing(with:     -v.storage, where: v.storage .< 0))
+}
+
+% end 
+
+extension Vector2 where Scalar:FixedWidthInteger 
+{
+    static 
+    func &>< (lhs:Vector2<Scalar>, rhs:Vector2<Scalar>) -> Scalar
+    {
+        return lhs.x &* rhs.y &- rhs.x &* lhs.y
+    }
+}
+extension Vector2 where Scalar:FloatingPoint 
+{
+    static 
+    func >< (lhs:Vector2<Scalar>, rhs:Vector2<Scalar>) -> Scalar 
+    {
+        return lhs.x * rhs.y - rhs.x * lhs.y
+    }
+}
+extension Vector3 where Scalar:FixedWidthInteger 
+{
+    static 
+    func &>< (lhs:Vector3<Scalar>, rhs:Vector3<Scalar>) -> Vector3<Scalar> 
+    {
+        return  .init(lhs.y, lhs.z, lhs.x) &* .init(rhs.z, rhs.x, rhs.y) &- 
+                .init(rhs.y, rhs.z, rhs.x) &* .init(lhs.z, lhs.x, lhs.y)
+    }
+}
+extension Vector3 where Scalar:FloatingPoint 
+{
+    static 
+    func >< (lhs:Vector3<Scalar>, rhs:Vector3<Scalar>) -> Vector3<Scalar> 
+    {
+        return  .init(lhs.y, lhs.z, lhs.x) * .init(rhs.z, rhs.x, rhs.y) - 
+                .init(rhs.y, rhs.z, rhs.x) * .init(lhs.z, lhs.x, lhs.y)
+    }
+}
+
+extension Spherical2 where Scalar:ElementaryFunctions
+{
+    init(cartesian:Vector3<Scalar>)
+    {
+        let colatitude:Scalar = Scalar.acos(cartesian.z / cartesian.length)
+        let longitude:Scalar  = Scalar.argument(y: cartesian.y, x: cartesian.x)
+        self.init(colatitude, longitude)
+    }
+    
+    init(normalized cartesian:Vector3<Scalar>)
+    {
+        let colatitude:Scalar = Scalar.acos(cartesian.z)
+        let longitude:Scalar  = Scalar.argument(y: cartesian.y, x: cartesian.x)
+        self.init(colatitude, longitude)
+    }
+}
+extension Vector3 where Scalar:FloatingPoint & ElementaryFunctions 
+{
+    init(spherical:Spherical2<Scalar>)
+    {
+        let ll:Vector2<Scalar>  = .init(spherical.storage)
+        let sin:Vector2<Scalar> = .init(.sin(ll.storage)), 
+            cos:Vector2<Scalar> = .init(.cos(ll.storage))
+        self = .extend(.init(cos.y, sin.y) * sin.x, cos.x)
+    }
+}
+
+struct Spherical2<Scalar> where Scalar:SIMDScalar & FloatingPoint & ElementaryFunctions
+{
+    var storage:SIMD2<Scalar>
+    
+    var colatitude:Scalar
+    {
+        get 
+        { 
+            return self.storage.x
+        }
+        set(x)
+        {
+            self.storage.x = x
+        }
+    }
+    var longitude:Scalar 
+    {
+        get 
+        { 
+            return self.storage.y
+        }
+        set(y)
+        {
+            self.storage.y = y
+        }
+    }
+    
+    init(_ colatitude:Scalar, _ longitude:Scalar)
+    {
+        self.init(.init(colatitude, longitude))
+    }
+    
+    init(_ storage:SIMD2<Scalar>) 
+    {
+        self.storage = storage 
+    }
+    
+    func map<Result>(_ transform:(Scalar) throws -> Result) rethrows -> Spherical2<Result>
+        where Result:SIMDScalar 
+    {
+        return .init(try transform(self.colatitude), try transform(self.longitude))
+    }
+    
+    
+    static 
+    var zero:Spherical2<Scalar> 
+    {
+        return .init(.zero) 
+    }
+    
+    prefix 
+    static func - (operand:Spherical2<Scalar>) -> Spherical2<Scalar>
+    {
+        return .init(-operand.storage)
+    }
+    
+    % for infix in '+', '-', '*', '/':
+    static 
+    func ${infix} (lhs:Spherical2<Scalar>, rhs:Spherical2<Scalar>) 
+        -> Spherical2<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs.storage)
+    }
+    static 
+    func ${infix} (lhs:Spherical2<Scalar>, rhs:Scalar) 
+        -> Spherical2<Scalar>
+    {
+        return .init(lhs.storage ${infix} rhs)
+    }
+    static 
+    func ${infix} (lhs:Scalar, rhs:Spherical2<Scalar>) 
+        -> Spherical2<Scalar>
+    {
+        return .init(lhs ${infix} rhs.storage)
+    }
+    
+    static 
+    func ${infix}= (lhs:inout Spherical2<Scalar>, rhs:Spherical2<Scalar>)
+    {
+        lhs.storage ${infix}= rhs.storage
+    }
+    static 
+    func ${infix}= (lhs:inout Spherical2<Scalar>, rhs:Scalar)
+    {
+        lhs.storage ${infix}= rhs
+    }
+    % end 
+    
+    func addingProduct(_ lhs:Spherical2<Scalar>, _ rhs:Spherical2<Scalar>) -> Spherical2<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs.storage, rhs.storage))
+    }
+    func addingProduct(_ lhs:Scalar, _ rhs:Spherical2<Scalar>) -> Spherical2<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs, rhs.storage))
+    }
+    func addingProduct(_ lhs:Spherical2<Scalar>, _ rhs:Scalar) -> Spherical2<Scalar>
+    {
+        return .init(self.storage.addingProduct(lhs.storage, rhs))
+    }
+    mutating 
+    func addProduct(_ lhs:Spherical2<Scalar>, _ rhs:Spherical2<Scalar>)
+    {
+        self.storage.addProduct(lhs.storage, rhs.storage)
+    }
+    mutating 
+    func addProduct(_ lhs:Scalar, _ rhs:Spherical2<Scalar>)
+    {
+        self.storage.addProduct(lhs, rhs.storage)
+    }
+    mutating 
+    func addProduct(_ lhs:Spherical2<Scalar>, _ rhs:Scalar)
+    {
+        self.storage.addProduct(lhs.storage, rhs)
+    }
+
+    func squareRoot() -> Spherical2<Scalar>
+    {
+        return .init(self.storage.squareRoot())
+    }
+
+    func rounded(_ rule:FloatingPointRoundingRule) -> Spherical2<Scalar>
+    {
+        return .init(self.storage.rounded(rule))
+    }
+    mutating 
+    func round(_ rule:FloatingPointRoundingRule)
+    {
+        self.storage.round(rule)
+    }
+}
+
+% for N in 2, 3, 4:
+struct Matrix${N}<T>:Equatable where T:SIMDScalar 
+{
+    private 
+    var columns:(${ ', '.join(('Vector{0}<T>'.format(N),) * N) })
+    
+    var transposed:Matrix${N}<T> 
+    {
+        return .init(
+            % for i, c in enumerate(C[:N]):
+            .init(${ ', '.join('self.columns.{0}.{1}'.format(j, c) for j in range(N)) })${',' if i < N - 1 else ''}
+            % end 
+            )
+    }
+    
+    % if N > 2:
+    var matrix${ N - 1 }:Matrix${ N - 1 }<T> 
+    {
+        return .init(${ ', '.join('self.columns.{0}.{1}'.format(i, ''.join(C[:N - 1])) for i in range(N - 1)) })
+    }
+    % end 
+    
+    @inline(__always)
+    subscript(column:Int) -> Vector${N}<T> 
+    {
+        get 
+        {
+            switch column 
+            {
+            % for i in range(N):
+            case ${i}:
+                return self.columns.${i}
+            % end
+            default:
+                fatalError("Matrix column index out of range")
+            }
+        }
+        set(value) 
+        {
+            switch column 
+            {
+            % for i in range(N):
+            case ${i}:
+                self.columns.${i} = value 
+            % end
+            default:
+                fatalError("Matrix column index out of range")
+            }
+        }
+    }
+    
+    init(${ ', '.join('_ v{0}:Vector{1}<T>'.format(i, N) for i in range(N)) })
+    {
+        self.columns = (${ ', '.join('v{0}'.format(i) for i in range(N)) })
+    }
+    
+    static 
+    func == (lhs:Self, rhs:Self) -> Bool 
+    {
+        return ${ ' && '.join('lhs.columns.{0} == rhs.columns.{0}'.format(c) for c in range(N)) }
+    }
+}
+
+extension Matrix${N} where T:Numeric  
+{
+    static 
+    var identity:Matrix${N}<T> 
+    {
+        return .init(
+            % for i, c in enumerate(C[:N]):
+            .init(${ ', '.join('1' if j == i else '0' for j in range(N)) })${',' if i < N - 1 else ''}
+            % end 
+        )
+    }
+}
+extension Matrix${N} where T:FixedWidthInteger
+{
+    static 
+    func &>< (A:Matrix${N}<T>, v:Vector${N}<T>) -> Vector${N}<T>
+    {
+        return ${ ' &+ '.join('A.columns.{0} &* v.{1}'.format(i, c) for i, c in enumerate(C[:N])) }
+    }
+    
+    static 
+    func &>< (A:Matrix${N}<T>, B:Matrix${N}<T>) -> Matrix${N}<T>
+    {
+        return .init(${ ', '.join('A &>< B.columns.{0}'.format(i) for i in range(N)) })
+    }
+}
+extension Matrix${N} where T:FloatingPoint
+{
+    static 
+    func >< (A:Matrix${N}<T>, v:Vector${N}<T>) -> Vector${N}<T>
+    {
+        return ${ '.addingProduct'.join('(A.columns.{0}{1}v.{2})'.format(i, ', ' if i else ' * ', c) for i, c in enumerate(C[:N])) }
+    }
+    
+    static 
+    func >< (A:Matrix${N}<T>, B:Matrix${N}<T>) -> Matrix${N}<T>
+    {
+        return .init(${ ', '.join('A >< B.columns.{0}'.format(i) for i in range(N)) })
+    }
+}
+% end 
+
+extension Matrix2 where T:FloatingPoint 
+{
+    func inversed() -> Self 
+    {
+        let a:T = self.columns.0.x,
+            b:T = self.columns.1.x,
+            c:T = self.columns.0.y,
+            d:T = self.columns.1.y
+        
+        let determinant:T = 1 / (a * d - b * c)
+        return .init(determinant * .init(d, -c), determinant * .init(-b, a))
+    }
+}
+
+
+struct Rectangle<T>:Equatable where T:SIMDScalar
+{
+    var storage:SIMD4<T> 
+    
+    var a:Vector2<T> 
+    {
+        get 
+        {
+            return .init(self.storage.x, self.storage.y)
+        }
+        set(a)
+        {
+            self.storage.x = a.x
+            self.storage.y = a.y
+        }
+    }
+    var b:Vector2<T> 
+    {
+        get 
+        {
+            return .init(self.storage.z, self.storage.w)
+        }
+        set(b)
+        {
+            self.storage.z = b.x
+            self.storage.w = b.y
+        }
+    }
+    
+    init(_ a:Vector2<T>, _ b:Vector2<T>) 
+    {
+        self.init(.init(a.x, a.y, b.x, b.y))
+    }
+    
+    init(_ storage:SIMD4<T>) 
+    {
+        self.storage = storage 
+    }
+    
+    func map<Result>(_ transform:(T) throws -> Result) rethrows -> Rectangle<Result>
+        where Result:SIMDScalar 
+    {
+        return  .init(.init(try transform(self.storage.x), 
+                            try transform(self.storage.y), 
+                            try transform(self.storage.z), 
+                            try transform(self.storage.w)))
+    }
+}
+extension Rectangle where T:FixedWidthInteger 
+{
+    static 
+    var zero:Rectangle<T> 
+    {
+        return .init(.zero)
+    }
+    var size:Vector2<T> 
+    {
+        return self.b &- self.a
+    }
+}
+extension Rectangle where T:FloatingPoint 
+{
+    static 
+    var zero:Rectangle<T> 
+    {
+        return .init(.zero)
+    }
+    var size:Vector2<T> 
+    {
+        return self.b - self.a
+    }
+}
+extension Rectangle where T:FloatingPoint & ExpressibleByFloatLiteral 
+{
+    var midpoint:Vector2<T> 
+    {
+        return 0.5 * (self.a + self.b)
+    }
+}
+
+
+extension Rectangle where T:BinaryInteger 
+{
+    static 
+    func cast<Source>(_ v:Rectangle<Source>) -> Self where Source:BinaryFloatingPoint 
+    {
+        return v.map(T.init(_:))
+    }
+    static 
+    func cast<Source>(_ v:Rectangle<Source>) -> Self where Source:BinaryInteger 
+    {
+        return v.map(T.init(_:))
+    }
+}
+extension Rectangle where T:FloatingPoint 
+{
+    static 
+    func cast<Source>(_ v:Rectangle<Source>) -> Self where Source:BinaryInteger 
+    {
+        return v.map(T.init(_:))
+    }
+}
+extension Rectangle where T:BinaryFloatingPoint 
+{
+    static 
+    func cast<Source>(_ v:Rectangle<Source>) -> Self where Source:BinaryFloatingPoint 
+    {
+        return v.map(T.init(_:))
+    }
+}
