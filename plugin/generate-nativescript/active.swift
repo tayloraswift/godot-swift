@@ -87,6 +87,16 @@ extension Synthesizer
     static 
     func generate(staged:AbsolutePath, interface:[(typename:String, symbols:[String], signatures:[String])])
     {
+        for signature:String in interface.flatMap(\.signatures)
+        {
+            guard let type:SwiftGrammar.SwiftType = .init(parsing: signature)
+            else 
+            {
+                print("failed to parse signature '\(signature)'")
+                continue 
+            }
+            print(signature, "<->", type)
+        }
         Source.generate(file: staged) 
         {
             """

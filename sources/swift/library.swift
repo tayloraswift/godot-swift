@@ -26,7 +26,9 @@ enum E
             foo(delegate:_:) <- "select_cell"
             bar(delegate:_:) <- "expand_array"
             
-            //baz(delegate:a:b:c:) <-> "typed_func"
+            #if BUILD_STAGE_INERT
+            baz(delegate:a:b:c:) <- "typed_func"
+            #endif 
         }
         
         var y:Godot.Variant? 
