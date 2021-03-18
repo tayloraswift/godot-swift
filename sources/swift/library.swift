@@ -12,9 +12,9 @@ extension Godot
 
 typealias Q = E.Polyline 
 
+let toplevelFunction:@convention(swift) (E.TestStruct) -> (Int, Float, @escaping (Bool) throws -> ()) -> (UInt8, String) = { _ in fatalError() }
 enum E 
 {
-    
     struct TestStruct:Godot.NativeScript
     {
         @Interface
@@ -28,6 +28,7 @@ enum E
             
             #if BUILD_STAGE_INERT
             baz(delegate:a:b:c:) <- "typed_func"
+            toplevelFunction <- "attributed_func"
             #endif 
         }
         
@@ -47,7 +48,7 @@ enum E
         {
             Godot.print("hello from foo")
             print(arguments)
-            return .list(.init(capacity: 5))
+            return Godot.List.init(capacity: 5)
         }
         
         func bar(delegate:Godot.MeshInstance, _ arguments:[Godot.Variant?]) -> Godot.Variant?
@@ -57,8 +58,8 @@ enum E
             {
                 switch argument 
                 {
-                case .list(let list):
-                    list[1] = nil
+                case let list as Godot.List:
+                    list[1] = Godot.Void.init()
                 default:
                     break 
                 }
@@ -66,7 +67,7 @@ enum E
             return nil
         }
         
-        func baz(delegate:Godot.MeshInstance, a:Int, b:Bool?, c:String) -> Double? 
+        func baz(delegate:Godot.MeshInstance, a:(Int, Int, (Int, Int)), b:Bool?, c:String) -> Double? 
         {
             Godot.print("bar: \(c) \(a)")
             switch b 

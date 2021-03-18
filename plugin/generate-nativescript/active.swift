@@ -84,19 +84,140 @@ extension Inspector
 
 extension Synthesizer 
 {
+    private 
+    struct FunctionParameterization:Hashable, CustomStringConvertible
+    {
+        private 
+        enum Form:Hashable  
+        {
+            case unparameterized(String) 
+            case parameterized 
+            case compound([Self])
+            
+            init(_ type:SwiftGrammar.SwiftType) 
+            {
+                switch type 
+                {
+                case .compound(let elements):
+                    self = .compound(elements.map{ Self.init($0.type) })
+                default:
+                    self = .parameterized 
+                }
+            }
+            
+            static 
+            func form(of function:(parameters:[SwiftGrammar.SwiftType], return:SwiftGrammar.SwiftType), 
+                unparameterized:[String]) 
+                -> (Self, Self) 
+            {
+                (
+                    .compound(
+                        unparameterized.map(Self.unparameterized(_:)) 
+                        + 
+                        function.parameters.map(Self.init(_:))
+                    ), 
+                    .init(function.return)
+                )
+            }
+            
+            func render(prefix:String, traversed counter:Int = 0) -> (rendered:String, count:Int) 
+            {
+                switch self 
+                {
+                case .unparameterized(let name): 
+                    return (name, 0)
+                case .parameterized: 
+                    return ("\(prefix)\(counter)", 1)
+                case .compound(let leaves):
+                    var traversed:Int       = 0
+                    var components:[String] = []
+                    for leaf:Self in leaves 
+                    {
+                        let (component, count):(String, Int) = 
+                            leaf.render(prefix: prefix, traversed: counter + traversed)
+                        traversed += count 
+                        components.append(component)
+                    }
+                    return ("(\(components.joined(separator: ", ")))", traversed)
+                }
+            }
+        }
+        
+        private 
+        let domain:Form, 
+            range:Form 
+        private 
+        let prefix:String 
+        
+        init(function:(parameters:[SwiftGrammar.SwiftType], return:SwiftGrammar.SwiftType), 
+            unparameterized:[String], // leading type parameters to append to the parameters tuple
+            parameterPrefix:String)   // a prefix like 'T' or 'U'
+        {
+            (self.domain, self.range) = Form.form(of: function, 
+                unparameterized: unparameterized)
+            self.prefix = parameterPrefix
+        }
+        
+        var description:String 
+        {
+            let parameterization:
+            (
+                domain:(rendered:String, count:Int),
+                range: (rendered:String, count:Int)
+            ) 
+            parameterization.domain = domain.render(prefix: self.prefix)
+            parameterization.range  =  range.render(prefix: self.prefix, 
+                traversed: parameterization.domain.count)
+            return "\(parameterization.domain.rendered) -> \(parameterization.range.rendered)"
+        }
+    }
+    
     static 
     func generate(staged:AbsolutePath, interface:[(typename:String, symbols:[String], signatures:[String])])
     {
-        for signature:String in interface.flatMap(\.signatures)
+        let parameterizations:Set<FunctionParameterization> = 
+            .init(interface.flatMap(\.signatures).compactMap
         {
+            (signature:String) -> FunctionParameterization? in 
+            
             guard let type:SwiftGrammar.SwiftType = .init(parsing: signature)
             else 
             {
-                print("failed to parse signature '\(signature)'")
-                continue 
+                print("error: failed to parse signature '\(signature)'")
+                return nil 
             }
-            print(signature, "<->", type)
+            
+            guard case .function(let function) = type 
+            else 
+            {
+                print("warning: left-hand-side of operator '<-' must be a function returning a function. subsequent build stages will fail.")
+                return nil 
+            }
+            if function.throws 
+            {
+                print("warning: `throws` for method interface functions is not supported yet. subsequent build stages will fail.")
+            }
+            if function.parameters.contains(where: \.inout) 
+            {
+                print("warning: `inout` parameters for method interface functions are not supported yet. subsequent build stages will fail.")
+            }
+            
+            return .init(function: 
+                (
+                    // first parameter must always be the delegate object, so we ignore it 
+                    function.parameters.dropFirst().map(\.type),
+                    function.return
+                ), 
+                unparameterized: ["T.Delegate"], 
+                parameterPrefix: "U")
+        })
+        
+        for parameterization:FunctionParameterization in parameterizations 
+        {
+            print("generating variadic template for generic function type '(T) -> \(parameterization)'")
+            // TODO: implement me
         }
+        
         Source.generate(file: staged) 
         {
             """
@@ -235,7 +356,7 @@ extension Synthesizer
                                     fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil argument pointer")
                                 }
                                 
-                                return .pass(retained: pointer)
+                                return Godot.Variant.Unmanaged.takeUnretainedValue(from: pointer)
                             }
                         }
                         else 
@@ -243,8 +364,7 @@ extension Synthesizer
                             variants = []
                         }
                         
-                        return Godot.Variant.take(unretained: 
-                            \(typename).interface[method: index].witness(self)(.init(delegate), variants))
+                        return \(typename).interface[method: index].witness(self)(.init(delegate), variants)?.passRetainedUnsafeData() ?? .init()
                     }
                     
                     let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]
