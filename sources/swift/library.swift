@@ -12,7 +12,6 @@ extension Godot
 
 typealias Q = E.Polyline 
 
-let toplevelFunction:@convention(swift) (E.TestStruct) -> (Int, Float, @escaping (Bool) throws -> ()) -> (UInt8, String) = { _ in fatalError() }
 enum E 
 {
     struct TestStruct:Godot.NativeScript
@@ -23,18 +22,15 @@ enum E
         {
             \.y <- "y"
             
-            foo(delegate:_:) <- "select_cell"
-            bar(delegate:_:) <- "expand_array"
+            foo(delegate:arg1:) <- "select_cell"
+            bar(delegate:arg1:arg2:) <- "expand_array"
             
-            #if BUILD_STAGE_INERT
             baz(delegate:a:b:c:) <- "typed_func"
-            toplevelFunction <- "attributed_func"
-            #endif 
         }
         
-        var y:Godot.Variant? 
+        var y:Godot.Variant 
         {
-            nil
+            Godot.Void.init()
         }
         
         let x:Int
@@ -44,30 +40,21 @@ enum E
             self.x = 5
         }
         
-        func foo(delegate:Godot.MeshInstance, _ arguments:[Godot.Variant?]) -> Godot.Variant?
+        func foo(delegate:Godot.MeshInstance, arg1:String) -> Godot.List 
         {
             Godot.print("hello from foo")
-            print(arguments)
+            print(arg1)
             return Godot.List.init(capacity: 5)
         }
         
-        func bar(delegate:Godot.MeshInstance, _ arguments:[Godot.Variant?]) -> Godot.Variant?
+        func bar(delegate:Godot.MeshInstance, arg1:Godot.List, arg2:UInt32?) -> Godot.Void
         {
-            Godot.print("hello from bar")
-            for argument:Godot.Variant? in arguments 
-            {
-                switch argument 
-                {
-                case let list as Godot.List:
-                    list[1] = Godot.Void.init()
-                default:
-                    break 
-                }
-            }
-            return nil
+            Godot.print("hello from bar", arg1, arg2)
+            arg1[1] = Godot.Void.init()
+            return Godot.Void.init()
         }
         
-        func baz(delegate:Godot.MeshInstance, a:(Int, Int, (Int, Int)), b:Bool?, c:String) -> Double? 
+        func baz(delegate:Godot.MeshInstance, a:(Int, Int, (Int, Int)), b:Bool?, c:inout String) -> Double? 
         {
             Godot.print("bar: \(c) \(a)")
             switch b 
@@ -93,8 +80,8 @@ enum E
         {
             \.baz <- "baz"
             
-            foo(delegate:_:) <- "foo_entry"
-            bar(delegate:_:) <- "bar_entry"
+            foo(delegate:) <- "foo_entry"
+            bar(delegate:) <- "bar_entry"
         }
         
         init(delegate:Godot.MeshInstance)
@@ -103,21 +90,21 @@ enum E
             self.x = (15, 16, 17, 18, 19, 20)
         }
         
-        func foo(delegate:Godot.MeshInstance, _ arguments:[Godot.Variant?]) -> Godot.Variant?
+        func foo(delegate:Godot.MeshInstance) -> Godot.Void
         {
             print(self.x)
-            return nil
+            return Godot.Void.init()
         }
         
-        func bar(delegate:Godot.MeshInstance, _ arguments:[Godot.Variant?]) -> Godot.Variant?
+        func bar(delegate:Godot.MeshInstance) -> Int?
         {
             print(self.x.0)
             return nil
         }
         
-        var baz:Godot.Variant? 
+        var baz:Godot.Variant
         {
-            nil
+            Godot.Void.init()
         }
         
         deinit 

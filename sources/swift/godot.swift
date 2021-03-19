@@ -146,11 +146,11 @@ enum Godot:_GodotLibrary
         
         enum Witness 
         {
-            typealias Property  = KeyPath<T,                                      Godot.Variant?>
+            typealias Property  = KeyPath<T, Godot.Variant>
             #if BUILD_STAGE_INERT
             typealias Method    = Any.Type 
             #else 
-            typealias Method    =        (T) -> (T.Delegate, [Godot.Variant?]) -> Godot.Variant?
+            typealias Method    = (T, T.Delegate, [Godot.Variant.Unmanaged]) -> Godot.Variant.Unmanaged
             #endif 
         }
         
@@ -302,6 +302,11 @@ extension Godot
     func print(error:Swift.String, function:Swift.String = #function, file:Swift.String = #file, line:Int32 = #line) 
     {
         Self.api.functions.godot_print_error("(swift) \(error)", function, file, line)
+    }
+    static 
+    func print(error:Godot.Error, function:Swift.String = #function, file:Swift.String = #file, line:Int32 = #line) 
+    {
+        Self.print(error: error.description, function: function, file: file, line: line)
     }
 }
 extension Godot.API 
@@ -473,6 +478,16 @@ extension Godot
     typealias Variant = _GodotVariant
     typealias VariantRepresentable = _GodotVariantRepresentable
     
+    /* struct VariadicArguments<T> where T:VariantRepresentable
+    {
+        let arguments:[T]
+        
+        init(_ arguments:[T]) 
+        {
+            self.arguments = arguments
+        }
+    } */
+    
     // needed because tuples cannot conform to protocols
     struct Void 
     {
@@ -535,7 +550,7 @@ extension Godot
     }
     
     final 
-    class UnorderedMap 
+    class Map 
     {
         private 
         var core:godot_dictionary
@@ -642,7 +657,7 @@ extension Godot.List:Godot.Variant
         .pass(retained: self)
     }
 }
-extension Godot.UnorderedMap:Godot.Variant 
+extension Godot.Map:Godot.Variant 
 {
     convenience
     init?(variant:Godot.Variant.Unmanaged) 
@@ -660,38 +675,11 @@ extension Godot.UnorderedMap:Godot.Variant
     }
 }
 
-
-
-
-/* extension UInt64:Godot.VariantRepresentable 
-{
-    init?(variant:Godot.Variant.Unmanaged) 
-    {
-        if let value:Self = variant(as: UInt64.self) { self = value } else { return nil }
-    }
-    var variant:Godot.Variant.Unmanaged 
-    {
-        .init(self)
-    }
-}  */
-/* extension String:Godot.VariantRepresentable 
-{
-    init?(variant:Godot.Variant.Unmanaged) 
-    {
-        if let value:Self = variant(as: String.self) { self = value } else { return nil }
-    }
-    var variant:Godot.Variant.Unmanaged 
-    {
-        .init(self)
-    }
-}  */
-
 struct _GodotVariantUnmanaged 
 {
     private 
     var data:godot_variant 
     
-    fileprivate 
     init(data:godot_variant) 
     {
         self.data = data
@@ -726,13 +714,6 @@ extension Godot.Variant.Unmanaged
     {
         self.init(value: value, Godot.api.functions.godot_variant_new_real)
     }
-    /* init(_ value:String) 
-    {
-        self = Godot.with(string: value)
-        {
-            .init(value: $0, Godot.api.functions.godot_variant_new_string)
-        }
-    } */
     
     static 
     func pass(retained value:Godot.String) -> Self
@@ -751,7 +732,7 @@ extension Godot.Variant.Unmanaged
         }
     }
     static 
-    func pass(retained value:Godot.UnorderedMap) -> Self
+    func pass(retained value:Godot.Map) -> Self
     {
         value.withUnsafePointer 
         {
@@ -818,15 +799,15 @@ extension Godot.Variant.Unmanaged
     
     func take(unretained _:Godot.String.Type) -> Godot.String? 
     {
-        self.load(as:     godot_string.self).map(      Godot.String.init(core:))
+        self.load(as:     godot_string.self).map(Godot.String.init(core:))
     }
     func take(unretained _:Godot.List.Type) -> Godot.List? 
     {
-        self.load(as:      godot_array.self).map(        Godot.List.init(core:))
+        self.load(as:      godot_array.self).map(Godot.List.init(core:))
     }
-    func take(unretained _:Godot.UnorderedMap.Type) -> Godot.UnorderedMap? 
+    func take(unretained _:Godot.Map.Type) -> Godot.Map? 
     {
-        self.load(as: godot_dictionary.self).map(Godot.UnorderedMap.init(core:))
+        self.load(as: godot_dictionary.self).map(Godot.Map.init(core:))
     }
     
     fileprivate 
@@ -849,6 +830,11 @@ extension Godot.Variant.Unmanaged
 }
 extension Godot.Variant.Unmanaged 
 {
+    var unsafeData:godot_variant 
+    {
+        self.data 
+    }
+    
     static 
     func takeUnretainedValue(from pointer:UnsafePointer<godot_variant>) -> Godot.Variant
     {
@@ -870,7 +856,7 @@ extension Godot.Variant.Unmanaged
             return Godot.List.init(core: 
                 Godot.api.functions.godot_variant_as_array(pointer))
         case GODOT_VARIANT_TYPE_DICTIONARY:
-            return Godot.UnorderedMap.init(core: 
+            return Godot.Map.init(core: 
                 Godot.api.functions.godot_variant_as_dictionary(pointer))
         
         case let code:
@@ -962,7 +948,19 @@ extension Godot.List:RandomAccessCollection, MutableCollection
         }
     } 
 }
-extension Godot.UnorderedMap
+extension Godot.List:ExpressibleByArrayLiteral 
+{
+    convenience 
+    init(arrayLiteral elements:Godot.Variant...) 
+    {
+        self.init(capacity: elements.count)
+        for (i, element):(Int, Godot.Variant) in elements.enumerated()
+        {
+            self[i] = element 
+        }
+    }
+}
+extension Godot.Map
 {
     convenience 
     init() 
@@ -1003,7 +1001,18 @@ extension Godot.UnorderedMap
         }
     } 
 } 
-
+extension Godot.Map:ExpressibleByDictionaryLiteral 
+{
+    convenience 
+    init(dictionaryLiteral items:(Godot.Variant, Godot.Variant)...) 
+    {
+        self.init()
+        for (key, value):(Godot.Variant, Godot.Variant) in items 
+        {
+            self[key] = value 
+        }
+    }
+}
 
 
 extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantRepresentable 
@@ -1026,6 +1035,109 @@ extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantReprese
     var variant:Godot.Variant.Unmanaged 
     {
         self?.variant ?? .init()
+    }
+}
+
+extension String:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        if let value:Godot.String = .init(variant: variant) 
+        { 
+            self.init(value) 
+        } 
+        else 
+        { 
+            return nil 
+        }
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        Godot.String.init(self).passRetained()
+    }
+} 
+extension UInt64:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        if let value:Self = variant(as: UInt64.self) { self = value } else { return nil }
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(self)
+    }
+}
+extension UInt32:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:UInt64 = variant(as: UInt64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(UInt64.init(self))
+    }
+}
+extension UInt16:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:UInt64 = variant(as: UInt64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(UInt64.init(self))
+    }
+}
+extension UInt8:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:UInt64 = variant(as: UInt64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(UInt64.init(self))
+    }
+}
+
+extension Int32:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:Int64 = variant(as: Int64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(Int64.init(self))
+    }
+}
+extension Int16:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:Int64 = variant(as: Int64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(Int64.init(self))
+    }
+}
+extension Int8:Godot.VariantRepresentable 
+{
+    init?(variant:Godot.Variant.Unmanaged) 
+    {
+        guard let value:Int64 = variant(as: Int64.self) else { return nil }
+        self.init(exactly: value)
+    }
+    var variant:Godot.Variant.Unmanaged 
+    {
+        .init(Int64.init(self))
     }
 }
 
@@ -1063,6 +1175,40 @@ extension Godot
         
         init(_:UnsafeMutableRawPointer)
         {
+        }
+    }
+}
+
+extension Godot 
+{
+    enum Error:Swift.Error 
+    {
+        case invalidArgument(Godot.Variant, expected:Any.Type)
+        case invalidArgumentTuple(Int, expected:Any.Type)
+        case invalidArgumentCount(Int, expected:Int)
+    }
+}
+extension Godot.Error:CustomStringConvertible 
+{
+    var description:String 
+    {
+        switch self 
+        {
+        case .invalidArgumentCount(let count, expected: let expected):
+            if count < expected
+            {
+                let positions:String = (count ..< expected).map{ "#\($0)" }.joined(separator: ",")
+                return "missing arguments for parameter\(expected - count > 1 ? "s" : "") \(positions) in call"
+            }
+            else 
+            {
+                let positions:String = (expected ..< count).map{ "#\($0)" }.joined(separator: ",")
+                return "extra arguments at positions\(count - expected > 1 ? "s" : "") \(positions) in call"
+            }
+        case .invalidArgumentTuple(let count, expected: let expected):
+            return "cannot convert Godot.List with \(count) elements to expected argument type '\(String.init(reflecting: expected))'"
+        case .invalidArgument(let value, expected: let expected):
+            return "cannot convert value of type '\(String.init(reflecting: type(of: value)))' to expected argument type '\(String.init(reflecting: expected))'"
         }
     }
 }

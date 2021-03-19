@@ -84,94 +84,307 @@ extension Inspector
 
 extension Synthesizer 
 {
-    private 
-    struct FunctionParameterization:Hashable, CustomStringConvertible
+    enum Form:Hashable  
     {
-        private 
-        enum Form:Hashable  
+        struct Parameter:Hashable 
         {
-            case unparameterized(String) 
-            case parameterized 
-            case compound([Self])
-            
-            init(_ type:SwiftGrammar.SwiftType) 
+            let `inout`:Bool 
+            let type:Form 
+            //let variadic:Bool
+        }
+        
+        case scalar 
+        case compound([Self])
+        
+        init(_ type:SwiftGrammar.SwiftType) 
+        {
+            switch type 
             {
-                switch type 
+            case .compound(let elements):
+                self = .compound(elements.map{ Self.init($0.type) })
+            default:
+                self = .scalar 
+            }
+        }
+        
+        func tree(prefix:String = "", counter:Int, suffix:String = "") -> String 
+        {
+            var counter:Int = counter 
+            return self.tree(prefix: prefix, counter: &counter, suffix: suffix)
+        }
+        func tree(prefix:String = "", counter:inout Int, suffix:String = "") -> String 
+        {
+            switch self 
+            {
+            case .scalar: 
+                defer 
                 {
-                case .compound(let elements):
-                    self = .compound(elements.map{ Self.init($0.type) })
-                default:
-                    self = .parameterized 
+                    counter += 1
                 }
-            }
-            
-            static 
-            func form(of function:(parameters:[SwiftGrammar.SwiftType], return:SwiftGrammar.SwiftType), 
-                unparameterized:[String]) 
-                -> (Self, Self) 
-            {
-                (
-                    .compound(
-                        unparameterized.map(Self.unparameterized(_:)) 
-                        + 
-                        function.parameters.map(Self.init(_:))
-                    ), 
-                    .init(function.return)
-                )
-            }
-            
-            func render(prefix:String, traversed counter:Int = 0) -> (rendered:String, count:Int) 
-            {
-                switch self 
+                return "\(prefix)\(counter)\(suffix)"
+            case .compound(let elements):
+                var components:[String] = []
+                for element:Self in elements 
                 {
-                case .unparameterized(let name): 
-                    return (name, 0)
-                case .parameterized: 
-                    return ("\(prefix)\(counter)", 1)
-                case .compound(let leaves):
-                    var traversed:Int       = 0
-                    var components:[String] = []
-                    for leaf:Self in leaves 
+                    components.append(element.tree(
+                        prefix: prefix, counter: &counter, suffix: suffix))
+                }
+                return "(\(components.joined(separator: ", ")))"
+            }
+        }
+    }
+}
+extension Synthesizer.Form 
+{
+    func prebind(expression:String, to variable:String, counter:inout Int, depth:Int = 0)
+        -> String 
+    {
+        switch self 
+        {
+        case .scalar:
+            defer 
+            {
+                counter += 1
+            }
+            @Source.Code 
+            var code:String
+            {
+                if depth == 0 
+                {
+            """
+                    let \(variable):Godot.Variant.Unmanaged = \(expression).variant 
+            """
+                }
+                else 
+                {
+            """
+                    let \(variable):Godot.Variant = 
                     {
-                        let (component, count):(String, Int) = 
-                            leaf.render(prefix: prefix, traversed: counter + traversed)
-                        traversed += count 
-                        components.append(component)
-                    }
-                    return ("(\(components.joined(separator: ", ")))", traversed)
+                        var unmanaged:Godot.Variant.Unmanaged = \(expression).variant
+                        return unmanaged.takeRetainedValue() 
+                    }()
+            """
                 }
             }
-        }
-        
-        private 
-        let domain:Form, 
-            range:Form 
-        private 
-        let prefix:String 
-        
-        init(function:(parameters:[SwiftGrammar.SwiftType], return:SwiftGrammar.SwiftType), 
-            unparameterized:[String], // leading type parameters to append to the parameters tuple
-            parameterPrefix:String)   // a prefix like 'T' or 'U'
-        {
-            (self.domain, self.range) = Form.form(of: function, 
-                unparameterized: unparameterized)
-            self.prefix = parameterPrefix
-        }
-        
-        var description:String 
-        {
-            let parameterization:
-            (
-                domain:(rendered:String, count:Int),
-                range: (rendered:String, count:Int)
-            ) 
-            parameterization.domain = domain.render(prefix: self.prefix)
-            parameterization.range  =  range.render(prefix: self.prefix, 
-                traversed: parameterization.domain.count)
-            return "\(parameterization.domain.rendered) -> \(parameterization.range.rendered)"
+            return code 
+        case .compound(let elements):
+            @Source.Code 
+            var code:String
+            {
+                var variables:[String] = []
+                for (i, element):(Int, Self) in elements.enumerated()
+                {
+                    let variable:String = "l\(depth)m\(counter)"
+                    let _               = variables.append(variable)
+                    element.prebind(expression: "\(expression).\(i)", 
+                        to:      variable, 
+                        counter: &counter, 
+                        depth:   depth + 1)
+                }
+            """
+                    let \(depth == 0 ? "list" : variable):Godot.List = 
+                    [
+            """
+                for variable:String in variables 
+                {
+            """
+                        \(variable),
+            """
+                }
+            """
+                    ]
+            """
+                if depth == 0 
+                {
+            """
+                    let \(variable):Godot.Variant.Unmanaged = list.passRetained()
+            """
+                }
+            }
+            return code
         }
     }
     
+    func postbind(expression:(conversion:(String) -> String, variant:String), to variable:String, 
+        prefix:String, counter:inout Int, depth:Int = 0)
+        -> String 
+    {
+        let expected:String = "\(self.tree(prefix: prefix, counter: counter)).self"
+        switch self 
+        {
+        case .scalar:
+            defer 
+            {
+                counter += 1
+            }
+            @Source.Code 
+            var code:String
+            {
+            """
+                    if let value:\(prefix)\(counter) = \(expression.conversion("\(prefix)\(counter)")) 
+                    {
+                        \(variable) = value 
+                    }
+                    else 
+                    {
+                        Godot.print(error: Godot.Error.invalidArgument(\(expression.variant), expected: \(expected)), 
+                            function: symbol)
+                        return .init()
+                    }
+            """
+            }
+            return code 
+        case .compound(let elements):
+            @Source.Code 
+            var code:String
+            {
+                let list:String = "l\(depth)m\(counter)"
+            """
+                    guard let \(list):Godot.List = \(expression.conversion("Godot.List")) 
+                    else 
+                    {
+                        Godot.print(error: Godot.Error.invalidArgument(\(expression.variant), expected: \(expected)), 
+                            function: symbol)
+                        return .init()
+                    }
+                    guard \(list).count == \(elements.count) 
+                    else 
+                    {
+                        Godot.print(error: Godot.Error.invalidArgumentTuple(\(list.count), expected: \(expected)), 
+                            function: symbol)
+                        return .init()
+                    }
+            """
+                for (i, element):(Int, Self) in elements.enumerated()
+                {
+                    element.postbind(expression: 
+                        (
+                        {   "\(list)[\(i)].pass(\($0).init(variant:))" },
+                            "\(list)[\(i)]"    
+                        ), 
+                        to: "\(variable).\(i)", 
+                        prefix:  prefix, 
+                        counter: &counter, 
+                        depth:   depth + 1)
+                }
+            }
+            return code 
+        }
+    }
+} 
+extension Synthesizer 
+{
+    struct FunctionParameterization:Hashable
+    {
+        private 
+        let exclude:String
+        private 
+        let domain:[Form.Parameter], 
+            range:Form 
+        
+        init(function:SwiftGrammar.FunctionType, exclude:String)   
+        {
+            // `exclude` specifies a leading (unparameterized) type to append to 
+            //  the parameters tuple
+            self.exclude    = exclude 
+            self.domain     = function.parameters.dropFirst().map 
+            {
+                .init(`inout`: $0.inout, type: .init($0.type))
+            }
+            self.range      = .init(function.return)
+        }
+    }
+}
+extension Synthesizer.FunctionParameterization
+{
+    func generateBindingOperatorOverload(prefix:(domain:String, range:String) = ("U", "V")) -> String
+    {
+        var counter:(domain:Int, range:Int) = (0, 0)
+        var signature:(domain:[String], range:String, function:String) 
+        signature.range     = self.range.tree(prefix: prefix.range, counter: &counter.range)
+        signature.domain    = [self.exclude]
+        
+        var types:[String]  = []
+        for parameter:Synthesizer.Form.Parameter in self.domain 
+        {
+            let type:String = parameter.type.tree(prefix: prefix.domain, counter: &counter.domain)
+            types.append(type)
+            signature.domain.append("\(parameter.inout ? "inout " : "")\(type)")
+        }
+        signature.function = "(T) -> (\(signature.domain.joined(separator: ", "))) -> \(signature.range)"
+        
+        print("generating variadic template for generic function type '\(signature.function)'")
+        
+        @Source.Code 
+        var code:String 
+        {
+            let generics:[(parameter:String, constraint:String)] = 
+                [("T", ":Godot.NativeScript")] 
+                +
+                (0 ..< counter.domain).map{ ("\(prefix.domain)\($0)", ":Godot.VariantRepresentable") }
+                +
+                (0 ..< counter.range).map{  ("\(prefix.range)\($0)",  ":Godot.VariantRepresentable") }
+        """
+        func <- <\(generics.map(\.parameter).joined(separator: ", "))>
+            (method:@escaping \(signature.function), symbol:String) 
+            -> Godot.NativeScriptInterface<T>.Member
+            where \(generics.map 
+                {
+                    "\($0.parameter)\($0.constraint)"
+                }.joined(separator: ",\n        "))
+        {
+            .method(witness: 
+            {
+                (self:T, delegate:\(self.exclude), arguments:[Godot.Variant.Unmanaged]) -> Godot.Variant.Unmanaged in
+                
+                guard arguments.count == \(self.domain.count) 
+                else 
+                {
+                    Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
+                        function: symbol)
+                    return .init()
+                }
+        """
+            var inputs:[String] = ["delegate"]
+            if !self.domain.isEmpty 
+            {
+        """
+                var inputs:(\((types + ["Void"]).joined(separator: ", ")))
+        """
+                // trailing `Void` ensures tuple always has at least 2 elements
+                
+                var counter:(domain:Int, range:Int) = (0, 0)
+                for (position, parameter):(Int, Synthesizer.Form.Parameter) in self.domain.enumerated() 
+                {
+                    let expression:(conversion:(String) -> String, variant:String) = 
+                    (
+                    {   "\($0).init(variant: arguments[\(position)])" }, 
+                                            "arguments[\(position)].takeUnretainedValue()"
+                    )
+                    
+                    let _ = inputs.append("\(parameter.inout ? "&" : "")inputs.\(position)")
+        """
+        \(parameter.type.postbind(expression: expression, to: "inputs.\(position)", 
+                    prefix:     prefix.domain, 
+                    counter:    &counter.domain))
+        """
+                }
+            }
+        """
+                let output:\(signature.range) = method(self)(\(inputs.joined(separator: ", ")))
+        \(self.range.prebind(expression: "output", to: "result", 
+                    counter: &counter.range))
+                return result 
+            }, symbol: symbol)
+        }
+        """
+        }
+        return code
+    }
+}
+
+extension Synthesizer 
+{
     static 
     func generate(staged:AbsolutePath, interface:[(typename:String, symbols:[String], signatures:[String])])
     {
@@ -202,21 +415,8 @@ extension Synthesizer
                 print("warning: `inout` parameters for method interface functions are not supported yet. subsequent build stages will fail.")
             }
             
-            return .init(function: 
-                (
-                    // first parameter must always be the delegate object, so we ignore it 
-                    function.parameters.dropFirst().map(\.type),
-                    function.return
-                ), 
-                unparameterized: ["T.Delegate"], 
-                parameterPrefix: "U")
+            return .init(function: function, exclude: "T.Delegate")
         })
-        
-        for parameterization:FunctionParameterization in parameterizations 
-        {
-            print("generating variadic template for generic function type '(T) -> \(parameterization)'")
-            // TODO: implement me
-        }
         
         Source.generate(file: staged) 
         {
@@ -231,14 +431,13 @@ extension Synthesizer
             {
                 .property(witness: property, symbol: symbol)
             }
-            func <- <T>(method:@escaping Godot.NativeScriptInterface<T>.Witness.Method, symbol:String) 
-                -> Godot.NativeScriptInterface<T>.Member
-                where T:Godot.NativeScript
-            {
-                .method(witness: method, symbol: symbol)
-            }
             
             """
+
+            for parameterization:FunctionParameterization in parameterizations 
+            {
+                parameterization.generateBindingOperatorOverload()
+            }
             for (typename, symbols, _):(String, [String], [String]) in interface 
             {
                 let _ = print("generating 'Godot.NativeScript' conformance for type '\(typename)'")
@@ -345,7 +544,7 @@ extension Synthesizer
                             fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil delegate pointer")
                         }
                         
-                        let variants:[Godot.Variant?]
+                        let variants:[Godot.Variant.Unmanaged]
                         if let arguments:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?> = arguments 
                         {
                             variants = (0 ..< .init(count)).map 
@@ -356,7 +555,7 @@ extension Synthesizer
                                     fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil argument pointer")
                                 }
                                 
-                                return Godot.Variant.Unmanaged.takeUnretainedValue(from: pointer)
+                                return .init(data: pointer.pointee)
                             }
                         }
                         else 
@@ -364,7 +563,7 @@ extension Synthesizer
                             variants = []
                         }
                         
-                        return \(typename).interface[method: index].witness(self)(.init(delegate), variants)?.passRetainedUnsafeData() ?? .init()
+                        return \(typename).interface[method: index].witness(self, .init(delegate), variants).unsafeData
                     }
                     
                     let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]

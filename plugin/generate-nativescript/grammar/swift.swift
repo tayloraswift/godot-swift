@@ -521,7 +521,7 @@ extension SwiftGrammar
     // LabeledType         ::= ( <Identifier> <Whitespace> ? ':' <Whitespace> ? ) ? <Type> 
     // FunctionType        ::= ( <Attribute> <Whitespace> ) * <FunctionParameters> <Whitespace> ? ( 'throws' <Whitespace> ? ) ? '->' <Whitespace> ? <Type>
     // FunctionParameters  ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
-    // FunctionParameter   ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
+    // FunctionParameter   ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type> ( <Whitespace> ? '...' ) ?
     // Attribute           ::= '@' <Identifier>
     // CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']' 
     
@@ -768,23 +768,26 @@ extension SwiftGrammar
         }
         
         let attributes:[Attribute]
-        let `inout`:Bool
+        let `inout`:Bool, 
+            variadic:Bool 
         let type:SwiftType
         
         init(parsing string:String, from position:inout String.Index) throws
         {
-            let attributes:[List<Attribute, Whitespace>] = 
-                                                          .init(parsing: string, from: &position), 
-                `inout`:List<Inout, Whitespace>?    =     .init(parsing: string, from: &position), 
-                type:SwiftType                      = try .init(parsing: string, from: &position)
+            let attributes:[List<Attribute, Whitespace>]    = 
+                                                                  .init(parsing: string, from: &position), 
+                `inout`:List<Inout, Whitespace>?            =     .init(parsing: string, from: &position), 
+                type:SwiftType                              = try .init(parsing: string, from: &position),
+                variadic:List<Whitespace?, Token.Ellipsis>? =     .init(parsing: string, from: &position) 
             self.attributes = attributes.map(\.head) 
-            self.inout      = `inout` != nil 
+            self.inout      = `inout`  != nil 
+            self.variadic   = variadic != nil 
             self.type       = type
         }
         
         var description:String 
         {
-            "\(self.attributes.map{ "\($0) " }.joined())\(self.inout ? "inout " : "")\(self.type)"
+            "\(self.attributes.map{ "\($0) " }.joined())\(self.inout ? "inout " : "")\(self.type)\(self.variadic ? "..." : "")"
         }
     }
     struct Attribute:Grammar.Parseable, CustomStringConvertible
