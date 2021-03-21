@@ -93,185 +93,43 @@ extension Synthesizer
             //let variadic:Bool
         }
         
-        case scalar 
-        case compound([Self])
+        // store the type names. they can be computed on the fly, but this 
+        // makes the implementation much simpler
+        case void
+        case tuple([Self])
+        case scalar(type:String) 
         
-        init(_ type:SwiftGrammar.SwiftType) 
+        init(_ type:SwiftGrammar.SwiftType, prefix:String, start:Int = 0) 
+        {
+            var counter:Int = start 
+            self.init(type, prefix: prefix, counter: &counter)
+        }
+        init(_ type:SwiftGrammar.SwiftType, prefix:String, counter:inout Int) 
         {
             switch type 
             {
-            case .compound(let elements):
-                self = .compound(elements.map{ Self.init($0.type) })
+            case .compound(let types):
+                guard !types.isEmpty 
+                else 
+                {
+                    self = .void 
+                    break 
+                }
+                
+                var elements:[Self] = []
+                for type:SwiftGrammar.SwiftType in types.map(\.type)  
+                {
+                    elements.append(Self.init(type, prefix: prefix, counter: &counter))
+                }
+                self = .tuple(elements)
+            
             default:
-                self = .scalar 
-            }
-        }
-        
-        func tree(prefix:String = "", counter:Int, suffix:String = "") -> String 
-        {
-            var counter:Int = counter 
-            return self.tree(prefix: prefix, counter: &counter, suffix: suffix)
-        }
-        func tree(prefix:String = "", counter:inout Int, suffix:String = "") -> String 
-        {
-            switch self 
-            {
-            case .scalar: 
-                defer 
-                {
-                    counter += 1
-                }
-                return "\(prefix)\(counter)\(suffix)"
-            case .compound(let elements):
-                var components:[String] = []
-                for element:Self in elements 
-                {
-                    components.append(element.tree(
-                        prefix: prefix, counter: &counter, suffix: suffix))
-                }
-                return "(\(components.joined(separator: ", ")))"
+                self = .scalar(type: "\(prefix)\(counter)")
+                counter += 1 
             }
         }
     }
 }
-extension Synthesizer.Form 
-{
-    func prebind(expression:String, to variable:String, counter:inout Int, depth:Int = 0)
-        -> String 
-    {
-        switch self 
-        {
-        case .scalar:
-            defer 
-            {
-                counter += 1
-            }
-            @Source.Code 
-            var code:String
-            {
-                if depth == 0 
-                {
-            """
-                    let \(variable):Godot.Variant.Unmanaged = \(expression).variant 
-            """
-                }
-                else 
-                {
-            """
-                    let \(variable):Godot.Variant = 
-                    {
-                        var unmanaged:Godot.Variant.Unmanaged = \(expression).variant
-                        return unmanaged.takeRetainedValue() 
-                    }()
-            """
-                }
-            }
-            return code 
-        case .compound(let elements):
-            @Source.Code 
-            var code:String
-            {
-                var variables:[String] = []
-                for (i, element):(Int, Self) in elements.enumerated()
-                {
-                    let variable:String = "l\(depth)m\(counter)"
-                    let _               = variables.append(variable)
-                    element.prebind(expression: "\(expression).\(i)", 
-                        to:      variable, 
-                        counter: &counter, 
-                        depth:   depth + 1)
-                }
-            """
-                    let \(depth == 0 ? "list" : variable):Godot.List = 
-                    [
-            """
-                for variable:String in variables 
-                {
-            """
-                        \(variable),
-            """
-                }
-            """
-                    ]
-            """
-                if depth == 0 
-                {
-            """
-                    let \(variable):Godot.Variant.Unmanaged = list.passRetained()
-            """
-                }
-            }
-            return code
-        }
-    }
-    
-    func postbind(expression:(conversion:(String) -> String, variant:String), to variable:String, 
-        prefix:String, counter:inout Int, depth:Int = 0)
-        -> String 
-    {
-        let expected:String = "\(self.tree(prefix: prefix, counter: counter)).self"
-        switch self 
-        {
-        case .scalar:
-            defer 
-            {
-                counter += 1
-            }
-            @Source.Code 
-            var code:String
-            {
-            """
-                    if let value:\(prefix)\(counter) = \(expression.conversion("\(prefix)\(counter)")) 
-                    {
-                        \(variable) = value 
-                    }
-                    else 
-                    {
-                        Godot.print(error: Godot.Error.invalidArgument(\(expression.variant), expected: \(expected)), 
-                            function: symbol)
-                        return .init()
-                    }
-            """
-            }
-            return code 
-        case .compound(let elements):
-            @Source.Code 
-            var code:String
-            {
-                let list:String = "l\(depth)m\(counter)"
-            """
-                    guard let \(list):Godot.List = \(expression.conversion("Godot.List")) 
-                    else 
-                    {
-                        Godot.print(error: Godot.Error.invalidArgument(\(expression.variant), expected: \(expected)), 
-                            function: symbol)
-                        return .init()
-                    }
-                    guard \(list).count == \(elements.count) 
-                    else 
-                    {
-                        Godot.print(error: Godot.Error.invalidArgumentTuple(\(list.count), expected: \(expected)), 
-                            function: symbol)
-                        return .init()
-                    }
-            """
-                for (i, element):(Int, Self) in elements.enumerated()
-                {
-                    element.postbind(expression: 
-                        (
-                        {   "\(list)[\(i)].pass(\($0).init(variant:))" },
-                            "\(list)[\(i)]"    
-                        ), 
-                        to: "\(variable).\(i)", 
-                        prefix:  prefix, 
-                        counter: &counter, 
-                        depth:   depth + 1)
-                }
-            }
-            return code 
-        }
-    }
-} 
 extension Synthesizer 
 {
     struct FunctionParameterization:Hashable
@@ -282,104 +140,338 @@ extension Synthesizer
         let domain:[Form.Parameter], 
             range:Form 
         
-        init(function:SwiftGrammar.FunctionType, exclude:String)   
+        // `exclude` specifies a leading (unparameterized) type to append to 
+        //  the parameters tuple
+        init(function:SwiftGrammar.FunctionType, exclude:String, 
+            prefix:(domain:String, range:String))   
         {
-            // `exclude` specifies a leading (unparameterized) type to append to 
-            //  the parameters tuple
-            self.exclude    = exclude 
-            self.domain     = function.parameters.dropFirst().map 
+            var domain:[Form.Parameter] = [], 
+                counter:Int             = 0
+            for parameter:SwiftGrammar.FunctionParameter in function.parameters.dropFirst()
             {
-                .init(`inout`: $0.inout, type: .init($0.type))
+                domain.append(.init(`inout`: parameter.inout, 
+                    type: .init(parameter.type, prefix: prefix.domain, counter: &counter)))
             }
-            self.range      = .init(function.return)
+            self.exclude    = exclude 
+            self.domain     = domain
+            self.range      = .init(function.return, prefix: prefix.range)
+        }
+    }
+}
+
+
+extension Synthesizer.Form 
+{
+    var types:[String] 
+    {
+        switch self 
+        {
+        case .scalar(type: let type):
+            return [type]
+        case .void: 
+            return []
+        case .tuple(let elements):
+            return elements.flatMap(\.types)
+        }
+    }
+    
+    static 
+    func tree(_ root:Self) -> String 
+    {
+        switch root 
+        {
+        case .scalar(type: let type):    
+            return type
+        case .void: 
+            return "Void"
+        case .tuple(let elements):
+            return "(\(elements.map(Self.tree(_:)).joined(separator: ", ")))"
+        }
+    }
+    
+    func structure(nodes list:String, from variable:String) -> String 
+    {
+        switch self 
+        {
+        case .void, .scalar(type: _):
+            return Source.fragment
+            {
+                ".pass(retained: \(variable))" 
+            }
+        case .tuple(let elements):
+            return Source.fragment
+            {
+                ".pass(retained: \(list).init(consuming: "
+                Source.fragment(indent: 1) 
+                {
+                    elements.enumerated().map
+                    {
+                        "\($0.1.structure(nodes: list, from: "\(variable).\($0.0)"))),"
+                    }.joined(separator: ", \n")
+                }
+                "))"
+            }
+        }
+    }
+    
+    func update(nodes list:String, in variable:(base:String, path:String), at position:Int) -> String 
+    {
+        switch self 
+        {
+        case .void:
+            return ""
+        case .scalar(type: _):
+            return "\(variable.base).\(list)\(variable.path).\(list)[unmanaged: \(position)].assign(retained: \(variable.base)\(variable.path).\(position))"
+        case .tuple(let elements):
+            return Source.fragment 
+            {
+                for (i, element):(Int, Self) in elements.enumerated()
+                {
+                    element.update(nodes: list, in: (variable.base, "\(variable.path).\(position)"), at: i)
+                }
+            }
+        }
+    }
+    
+    func destructure(nodes list:(root:String, label:String, type:String), 
+        into variable:(base:String, path:String), at position:Int, mutable:Bool) 
+        -> String 
+    {
+        switch self 
+        {
+        case .void:
+            return Source.fragment
+            {
+                """
+                if let value:Void = \(list.root)[unmanaged: \(position)].take(unretained: Void.self)
+                {
+                    \(variable.base)\(variable.path).\(position) = value 
+                }
+                else 
+                {
+                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: Void.self), 
+                        function: symbol)
+                    return .pass(retained: ())
+                }
+                """
+            }
+        case .scalar(type: let type):
+            return Source.fragment
+            {
+                """
+                if let value:\(type) = \(list.root)[unmanaged: \(position)].take(unretained: \(type).self)
+                {
+                    \(variable.base)\(variable.path).\(position) = value 
+                }
+                else 
+                {
+                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
+                        function: symbol)
+                    return .pass(retained: ())
+                }
+                """
+            }
+        case .tuple(let elements):
+            return Source.fragment
+            {
+                """
+                if let \(list.root):\(list.type) = \(list.root)[unmanaged: \(position)].take(unretained: \(list.type).self)
+                {
+                """
+                Source.fragment(indent: 1) 
+                {
+                    if mutable 
+                    {
+                        "\(variable.base).\(list.label)\(variable.path).\(position).\(list.label) = \(list.root)"
+                    }
+                    for (i, element):(Int, Self) in elements.enumerated()
+                    {
+                        element.destructure(nodes: list, 
+                            into: (variable.base, "\(variable.path).\(position)"), 
+                            at: i, mutable: mutable)
+                    }
+                }
+                """
+                }
+                else 
+                {
+                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
+                        function: symbol)
+                    return .pass(retained: ())
+                }
+                """
+            }
+        }
+    }
+}
+extension Synthesizer.Form.Parameter 
+{
+    static 
+    func tree(_ domain:[Self], nodes list:(label:String, type:String)) -> String? 
+    {
+        func lists(root:Synthesizer.Form) -> String 
+        {
+            switch root 
+            {
+            case .void, .scalar(type: _): 
+                return "Void"
+            case .tuple(let elements):
+                return "(\(elements.map{ lists(root: $0) }.joined(separator: ", ")), \(list.label):\(list.type))"
+            }
+        }
+        
+        let body:String = domain.map{ Synthesizer.Form.tree($0.type) }.joined(separator: ", ")
+        let tail:String = domain.map{ $0.inout ? lists(root: $0.type) : "Void" }.joined(separator: ", ")
+        if domain.isEmpty 
+        {
+            return nil 
+        }
+        return Source.fragment 
+        {
+            if domain.contains(where: \.inout) 
+            {
+                """
+                (
+                    \(body), 
+                    \(list.label):
+                    (\(tail), \(list.label):Godot.VariadicArguments)
+                )
+                """
+            }
+            else 
+            {
+                """
+                (
+                    \(body), 
+                    \(list.label):Void
+                )
+                """
+            }
         }
     }
 }
 extension Synthesizer.FunctionParameterization
 {
-    func generateBindingOperatorOverload(prefix:(domain:String, range:String) = ("U", "V")) -> String
+    private 
+    var signature:String 
     {
-        var counter:(domain:Int, range:Int) = (0, 0)
-        var signature:(domain:[String], range:String, function:String) 
-        signature.range     = self.range.tree(prefix: prefix.range, counter: &counter.range)
-        signature.domain    = [self.exclude]
-        
-        var types:[String]  = []
-        for parameter:Synthesizer.Form.Parameter in self.domain 
+        let domain:[String] = [self.exclude] + self.domain.map 
         {
-            let type:String = parameter.type.tree(prefix: prefix.domain, counter: &counter.domain)
-            types.append(type)
-            signature.domain.append("\(parameter.inout ? "inout " : "")\(type)")
+            "\($0.inout ? "inout " : "")\(Synthesizer.Form.tree($0.type))"
         }
-        signature.function = "(T) -> (\(signature.domain.joined(separator: ", "))) -> \(signature.range)"
-        
-        print("generating variadic template for generic function type '\(signature.function)'")
-        
-        @Source.Code 
-        var code:String 
-        {
-            let generics:[(parameter:String, constraint:String)] = 
-                [("T", ":Godot.NativeScript")] 
-                +
-                (0 ..< counter.domain).map{ ("\(prefix.domain)\($0)", ":Godot.VariantRepresentable") }
-                +
-                (0 ..< counter.range).map{  ("\(prefix.range)\($0)",  ":Godot.VariantRepresentable") }
+        let range:String = Synthesizer.Form.tree(self.range)
+        return "(\(domain.joined(separator: ", "))) -> \(range)"
+    }
+    
+    private 
+    var generics:[String] 
+    {
+        self.domain.flatMap(\.type.types) + self.range.types
+    }
+    
+    private 
+    func call(_ name:String, with variable:(delegate:String, inputs:String)) -> String 
+    {
         """
-        func <- <\(generics.map(\.parameter).joined(separator: ", "))>
-            (method:@escaping \(signature.function), symbol:String) 
-            -> Godot.NativeScriptInterface<T>.Member
-            where \(generics.map 
-                {
-                    "\($0.parameter)\($0.constraint)"
-                }.joined(separator: ",\n        "))
+        \(name)(self)(\(
+        ([variable.delegate] + self.domain.enumerated().map 
         {
-            .method(witness: 
+            "\($0.1.inout ? "&" : "")\(variable.inputs).\($0.0)"
+        }).joined(separator: ", ")))
+        """
+    }
+    
+    func generateBindingOperatorOverload() -> String
+    {
+        let signature:String = "(T) -> \(self.signature)"
+        let generics:[(parameter:String, constraint:String)] = 
+            [("T", ":Godot.NativeScript")] 
+            +
+            self.generics.map{ ($0, ":Godot.VariantRepresentable") }
+        
+        print("generating variadic template for generic function type '\(signature)'")
+        
+        return Source.fragment
+        {
+            """
+            func <- <\(generics.map(\.parameter).joined(separator: ", "))>
+                (method:@escaping \(signature), symbol:String) 
+                -> Godot.NativeScriptInterface<T>.Member
+                where \(generics.map 
+                    {
+                        "\($0.parameter)\($0.constraint)"
+                    }.joined(separator: ",\n        "))
             {
-                (self:T, delegate:\(self.exclude), arguments:[Godot.Variant.Unmanaged]) -> Godot.Variant.Unmanaged in
+                .method(witness: 
+                {
+            """
+            Source.fragment(indent: 2) 
+            {
+                """
+                (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
+                    -> Godot.Variant.Unmanaged in
                 
                 guard arguments.count == \(self.domain.count) 
                 else 
                 {
                     Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
                         function: symbol)
-                    return .init()
+                    return .pass(retained: ())
                 }
-        """
-            var inputs:[String] = ["delegate"]
-            if !self.domain.isEmpty 
-            {
-        """
-                var inputs:(\((types + ["Void"]).joined(separator: ", ")))
-        """
-                // trailing `Void` ensures tuple always has at least 2 elements
+                """
                 
-                var counter:(domain:Int, range:Int) = (0, 0)
-                for (position, parameter):(Int, Synthesizer.Form.Parameter) in self.domain.enumerated() 
+                if let domain:String = 
+                    Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
                 {
-                    let expression:(conversion:(String) -> String, variant:String) = 
-                    (
-                    {   "\($0).init(variant: arguments[\(position)])" }, 
-                                            "arguments[\(position)].takeUnretainedValue()"
-                    )
-                    
-                    let _ = inputs.append("\(parameter.inout ? "&" : "")inputs.\(position)")
-        """
-        \(parameter.type.postbind(expression: expression, to: "inputs.\(position)", 
-                    prefix:     prefix.domain, 
-                    counter:    &counter.domain))
-        """
+                    if self.domain.contains(where: \.inout) 
+                    {
+                        """
+                        
+                        var inputs:
+                        \(domain)
+                        
+                        inputs.list.list = arguments
+                        
+                        """
+                    }
+                    else 
+                    {
+                        """
+                        
+                        let inputs:
+                        \(domain)
+                        
+                        """
+                    }
                 }
+                for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                    self.domain.enumerated() 
+                {
+                    parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
+                        into: ("inputs", ""), at: position, mutable: parameter.inout)
+                }
+                
+                """
+                
+                let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
+                
+                """
+                
+                for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                    self.domain.enumerated() 
+                    where parameter.inout 
+                {
+                    parameter.type.update(nodes: "list", in: ("inputs", ""), at: position)
+                }
+                """
+                return \(self.range.structure(nodes: "Godot.List", from: "output"))
+                """
             }
-        """
-                let output:\(signature.range) = method(self)(\(inputs.joined(separator: ", ")))
-        \(self.range.prebind(expression: "output", to: "result", 
-                    counter: &counter.range))
-                return result 
-            }, symbol: symbol)
+            """
+                }, symbol: symbol)
+            }
+            """
         }
-        """
-        }
-        return code
     }
 }
 
@@ -410,12 +502,12 @@ extension Synthesizer
             {
                 print("warning: `throws` for method interface functions is not supported yet. subsequent build stages will fail.")
             }
-            if function.parameters.contains(where: \.inout) 
+            if function.parameters.contains(where: \.variadic) 
             {
-                print("warning: `inout` parameters for method interface functions are not supported yet. subsequent build stages will fail.")
+                print("warning: swift cannot recieve variadic arguments dynamically. subsequent build stages will fail.")
             }
             
-            return .init(function: function, exclude: "T.Delegate")
+            return .init(function: function, exclude: "T.Delegate", prefix: ("U", "V"))
         })
         
         Source.generate(file: staged) 
@@ -538,32 +630,16 @@ extension Synthesizer
                             fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil or invalid instance pointer")
                         }
                         
-                        guard   let delegate:UnsafeMutableRawPointer = delegate 
+                        guard   let delegate:\(typename).Delegate = delegate.map(\(typename).Delegate.init(_:)) 
                         else 
                         {
                             fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil delegate pointer")
                         }
                         
-                        let variants:[Godot.Variant.Unmanaged]
-                        if let arguments:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?> = arguments 
+                        return Godot.VariadicArguments.bind(arguments, count: .init(count))
                         {
-                            variants = (0 ..< .init(count)).map 
-                            {
-                                guard let pointer:UnsafeMutablePointer<godot_variant> = arguments[$0]
-                                else 
-                                {
-                                    fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil argument pointer")
-                                }
-                                
-                                return .init(data: pointer.pointee)
-                            }
+                            \(typename).interface[method: index].witness(self, delegate, $0).unsafeData
                         }
-                        else 
-                        {
-                            variants = []
-                        }
-                        
-                        return \(typename).interface[method: index].witness(self, .init(delegate), variants).unsafeData
                     }
                     
                     let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]

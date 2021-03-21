@@ -7,10 +7,57 @@ extension Godot
         E.Polyline.self <- "Polyline"
         E.Polyline.self <- "Polyline2"
         E.TestStruct.self <- "MapEditorInterface"
+        
+        TestSemantics.self <- "TestSemantics"
     }
 } 
 
-typealias Q = E.Polyline 
+struct TestSemantics:Godot.NativeScript 
+{
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        method(delegate:) <- "pass_zero_arguments"
+        method(delegate:a:) <- "pass_one_argument"
+        method(delegate:nil:) <- "pass_null_argument"
+        method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
+        /* method(delegate:a:b:) <- "pass_two_arguments"
+        methodTuple(delegate:tuple:) <- "pass_tuple_argument"
+        methodTupleReturn(delegate:) <- "return_tuple_argument"
+        
+        clearTupleElement(delegate:tuple:) <- "clear_list_element"
+        clearListElement(delegate:list:at:) <- "clear_list_element"
+        
+        methodReference(delegate:mutating:) <- "pass_reference"
+        methodReferenceReturn(delegate:mutating:) <- "return_reference"
+        
+        methodInoutValue(delegate:mutating:) <- "pass_inout_value"
+        methodInoutReference(delegate:mutating:) <- "pass_inout_reference" */
+    }
+    
+    init(delegate:Godot.MeshInstance)
+    {
+        Godot.print("init test-semantics")
+    }
+    
+    func method(delegate:Godot.MeshInstance) 
+    {
+        Godot.print("hello from 0-argument method")
+    }
+    func method(delegate:Godot.MeshInstance, nil:Void) 
+    {
+        Godot.print("hello from nil-argument method")
+    }
+    func method(delegate:Godot.MeshInstance, a:Int8) 
+    {
+        Godot.print("hello from 1-argument method, recieved: \(a)")
+    }
+    func method(delegate:Godot.MeshInstance, mutatingTuple:inout (String, String)) 
+    {
+        Godot.print("hello from 1-argument inout method, recieved: \(mutatingTuple)")
+    }
+}
 
 enum E 
 {

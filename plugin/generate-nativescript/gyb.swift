@@ -11,6 +11,15 @@ struct Source
     let code:String 
     
     static 
+    func fragment(indent tabs:Int = 0, @Code generator:() -> String) -> String 
+    {
+        generator().split(separator: "\n", omittingEmptySubsequences: false).map 
+        {
+            "\(String.init(repeating: " ", count: 4 * tabs))\($0)"
+        }.joined(separator: "\n")
+    }
+    
+    static 
     func code(file:AbsolutePath, @Code generator:() -> String) -> Self 
     {
         .init(file: file, code: generator())
@@ -37,27 +46,37 @@ struct Source
 extension Source.Code 
 {
     static 
-    func buildBlock(_ blocks:String...) -> String
+    func buildExpression(_ block:String) -> [String]
     {
-        blocks.joined(separator: "\n")
+        [block]
     }
     static 
-    func buildOptional(_ block:String?) -> String
+    func buildBlock(_ blocks:[String]...) -> [String]
     {
-        block ?? ""
+        .init(blocks.joined())
     }
     static 
-    func buildEither(first block:String) -> String
+    func buildOptional(_ block:[String]?) -> [String]
+    {
+        block ?? []
+    }
+    static 
+    func buildEither(first block:[String]) -> [String]
     {
         block 
     }
     static 
-    func buildEither(second block:String) -> String
+    func buildEither(second block:[String]) -> [String]
     {
         block 
     }
     static 
-    func buildArray(_ blocks:[String]) -> String
+    func buildArray(_ blocks:[[String]]) -> [String]
+    {
+        .init(blocks.joined() )
+    }
+    static 
+    func buildFinalResult(_ blocks:[String]) -> String
     {
         blocks.joined(separator: "\n") 
     }
