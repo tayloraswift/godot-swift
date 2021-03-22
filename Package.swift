@@ -6,7 +6,7 @@ let package = Package(
     name: "godot-example-package",
     products: 
     [
-        .library(name: "wanderess", type: .dynamic, targets: ["GodotExample"]),
+        .library(name: "swift-library", type: .dynamic, targets: ["GodotExample"]),
     ],
     dependencies: 
     [

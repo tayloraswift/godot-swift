@@ -4,16 +4,26 @@ extension Godot
     public static 
     var interface:Interface 
     {
-        E.Polyline.self <- "Polyline"
-        E.Polyline.self <- "Polyline2"
-        E.TestStruct.self <- "MapEditorInterface"
-        
-        TestSemantics.self <- "TestSemantics"
+        TestSemantics.self              <- "TestSemantics"
+        TestSemantics.ARCManaged.self   <- "ARCManaged"
     }
 } 
 
 struct TestSemantics:Godot.NativeScript 
 {
+    final 
+    class ARCManaged:Godot.NativeScript 
+    {
+        init(delegate _:Godot.AnyObject)
+        {
+            Godot.print("initialized instance of '\(Self.self)'")
+        }
+        deinit 
+        {
+            Godot.print("deinitialized instance of '\(Self.self)'")
+        }
+    }
+    
     @Interface 
     static 
     var interface:Interface 
@@ -21,6 +31,7 @@ struct TestSemantics:Godot.NativeScript
         method(delegate:) <- "pass_zero_arguments"
         method(delegate:a:) <- "pass_one_argument"
         method(delegate:nil:) <- "pass_null_argument"
+        method(delegate:tuple:) <- "pass_tuple_argument"
         method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
@@ -36,127 +47,32 @@ struct TestSemantics:Godot.NativeScript
         methodInoutReference(delegate:mutating:) <- "pass_inout_reference" */
     }
     
-    init(delegate:Godot.MeshInstance)
+    init(delegate:Godot.Unmanaged.MeshInstance)
     {
-        Godot.print("init test-semantics")
+        Godot.print("initialized instance of '\(Self.self)'")
     }
     
-    func method(delegate:Godot.MeshInstance) 
+    func method(delegate:Godot.Unmanaged.MeshInstance) 
     {
         Godot.print("hello from 0-argument method")
     }
-    func method(delegate:Godot.MeshInstance, nil:Void) 
+    func method(delegate:Godot.Unmanaged.MeshInstance, nil:Void) 
     {
         Godot.print("hello from nil-argument method")
     }
-    func method(delegate:Godot.MeshInstance, a:Int8) 
+    func method(delegate:Godot.Unmanaged.MeshInstance, a:Int8) 
     {
         Godot.print("hello from 1-argument method, recieved: \(a)")
     }
-    func method(delegate:Godot.MeshInstance, mutatingTuple:inout (String, String)) 
+    func method(delegate:Godot.Unmanaged.MeshInstance, tuple:(String, String)) 
     {
-        Godot.print("hello from 1-argument inout method, recieved: \(mutatingTuple)")
+        print("hello from tuple-argument method, recieved: \(tuple)")
     }
-}
-
-enum E 
-{
-    struct TestStruct:Godot.NativeScript
+    func method(delegate:Godot.Unmanaged.MeshInstance, mutatingTuple tuple:inout (String, String)) 
     {
-        @Interface
-        static 
-        var interface:Interface
-        {
-            \.y <- "y"
-            
-            foo(delegate:arg1:) <- "select_cell"
-            bar(delegate:arg1:arg2:) <- "expand_array"
-            
-            baz(delegate:a:b:c:) <- "typed_func"
-        }
+        print("hello from 1-argument inout method, recieved: \(tuple)")
         
-        var y:Godot.Variant 
-        {
-            Godot.Void.init()
-        }
-        
-        let x:Int
-        init(delegate:Godot.MeshInstance)
-        {
-            Godot.print("init test struct")
-            self.x = 5
-        }
-        
-        func foo(delegate:Godot.MeshInstance, arg1:String) -> Godot.List 
-        {
-            Godot.print("hello from foo")
-            print(arg1)
-            return Godot.List.init(capacity: 5)
-        }
-        
-        func bar(delegate:Godot.MeshInstance, arg1:Godot.List, arg2:UInt32?) -> Godot.Void
-        {
-            Godot.print("hello from bar", arg1, arg2)
-            arg1[1] = Godot.Void.init()
-            return Godot.Void.init()
-        }
-        
-        func baz(delegate:Godot.MeshInstance, a:(Int, Int, (Int, Int)), b:Bool?, c:inout String) -> Double? 
-        {
-            Godot.print("bar: \(c) \(a)")
-            switch b 
-            {
-            case nil:
-                return nil 
-            case true?:
-                return 1.1 
-            case false?:
-                return 2.2
-            }
-        }
-    }
-    
-    final 
-    class Polyline:Godot.NativeScript
-    {
-        let x:(Int, Int, Int, Int, Int, Int)
-        
-        @Interface
-        static 
-        var interface:Interface
-        {
-            \.baz <- "baz"
-            
-            foo(delegate:) <- "foo_entry"
-            bar(delegate:) <- "bar_entry"
-        }
-        
-        init(delegate:Godot.MeshInstance)
-        {
-            Godot.print("init polyline")
-            self.x = (15, 16, 17, 18, 19, 20)
-        }
-        
-        func foo(delegate:Godot.MeshInstance) -> Godot.Void
-        {
-            print(self.x)
-            return Godot.Void.init()
-        }
-        
-        func bar(delegate:Godot.MeshInstance) -> Int?
-        {
-            print(self.x.0)
-            return nil
-        }
-        
-        var baz:Godot.Variant
-        {
-            Godot.Void.init()
-        }
-        
-        deinit 
-        {
-            Godot.print("deinit polyline")
-        } 
+        tuple.0 = "eternia"
+        tuple.1 = "etheria"
     }
 }

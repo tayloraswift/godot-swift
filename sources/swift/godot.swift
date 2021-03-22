@@ -43,6 +43,11 @@ protocol _GodotNativeScript:Godot.NativeScriptCore
 extension Godot.NativeScript 
 {
     static 
+    var interface:Interface 
+    {
+        .init(properties: [], methods: [])
+    }
+    static 
     func register(with _:Godot.API.NativeScript) 
     {
     }
@@ -634,7 +639,10 @@ extension Godot.String:Godot.Variant
     }
     var retainedValue:Godot.Variant.Unmanaged 
     {
-        .pass(retained: self)
+        self.withUnsafePointer
+        {
+            return .init(value: $0, Godot.api.functions.godot_variant_new_string)
+        }
     }
 }
 extension Godot.List:Godot.Variant 
@@ -651,7 +659,10 @@ extension Godot.List:Godot.Variant
     }
     var retainedValue:Godot.Variant.Unmanaged 
     {
-        .pass(retained: self)
+        self.withUnsafePointer
+        {
+            .init(value: $0, Godot.api.functions.godot_variant_new_array)
+        }
     }
 }
 extension Godot.Map:Godot.Variant 
@@ -668,7 +679,10 @@ extension Godot.Map:Godot.Variant
     }
     var retainedValue:Godot.Variant.Unmanaged 
     {
-        .pass(retained: self)
+        self.withUnsafePointer
+        {
+            .init(value: $0, Godot.api.functions.godot_variant_new_dictionary)
+        }
     }
 }
 
@@ -677,10 +691,12 @@ struct _GodotVariantUnmanaged
     private 
     var data:godot_variant 
     
-    /* init(data:godot_variant) 
+    fileprivate 
+    init(unsafeData data:godot_variant) 
     {
         self.data = data
-    } */
+    }
+    
     fileprivate 
     init<T>(value:T, _ body:(UnsafeMutablePointer<godot_variant>, T) throws -> ()) rethrows
     {
@@ -775,19 +791,6 @@ extension Godot.Variant.Unmanaged
         guard self.type == GODOT_VARIANT_TYPE_DICTIONARY    else { return nil }
         return self.withUnsafePointer(Godot.api.functions.godot_variant_as_dictionary)
     }
-    
-    /* func take(unretained _:Godot.String.Type) -> Godot.String? 
-    {
-        self.load(as:     godot_string.self).map(Godot.String.init(core:))
-    }
-    func take(unretained _:Godot.List.Type) -> Godot.List? 
-    {
-        self.load(as:      godot_array.self).map(Godot.List.init(core:))
-    }
-    func take(unretained _:Godot.Map.Type) -> Godot.Map? 
-    {
-        self.load(as: godot_dictionary.self).map(Godot.Map.init(core:))
-    } */
     
     @available(*, unavailable, message: "unimplemented")
     mutating 
@@ -952,13 +955,13 @@ extension Godot.VariadicArguments:RandomAccessCollection, MutableCollection
     
     subscript(unmanaged index:Int) -> Godot.Variant.Unmanaged 
     {
-        _read 
+        get 
         {
-            yield self.arguments[index].pointee
+            self.arguments[index].pointee
         }
-        _modify
+        set(value)
         {
-            yield &self.arguments[index].pointee
+            self.arguments[index].pointee = value
         }
     } 
     subscript(index:Int) -> Godot.Variant 
@@ -994,37 +997,70 @@ extension Godot.List:RandomAccessCollection, MutableCollection
     }
     var endIndex:Int 
     {
-        .init(Godot.api.functions.godot_array_size(&self.core))
+        .init(self.withUnsafePointer(Godot.api.functions.godot_array_size))
     }
     
     subscript(unmanaged index:Int) -> Godot.Variant.Unmanaged 
     {
-        _read 
+        get 
         {
-            guard let pointer:UnsafePointer<godot_variant> = (self.withUnsafePointer 
+            guard let raw:UnsafeRawPointer = (self.withUnsafePointer 
             {
                 Godot.api.functions.godot_array_operator_index_const($0, .init(index))
-            })
+            }).map(UnsafeRawPointer.init(_:))
             else 
             {
-                preconditionFailure("nil pointer to list element (\(index))")
+                fatalError("nil pointer to list element (\(index))")
             }
-            yield UnsafeRawPointer.init(pointer)
-                .bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
-                .pointee
+            let pointer:UnsafePointer<Godot.Variant.Unmanaged> = 
+                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
+            defer 
+            {
+                raw.bindMemory(to:           godot_variant.self, capacity: 1)
+            }
+            return pointer.pointee 
         }
-        _modify
+        set(value)
         {
-            guard let pointer:UnsafeMutablePointer<godot_variant> = 
+            guard let raw:UnsafeMutableRawPointer = 
                 Godot.api.functions.godot_array_operator_index(&self.core, .init(index))
+                .map(UnsafeMutableRawPointer.init(_:))
             else 
             {
-                preconditionFailure("nil pointer to list element (\(index))")
+                fatalError("nil pointer to list element (\(index))")
+            } 
+            let pointer:UnsafeMutablePointer<Godot.Variant.Unmanaged> = 
+                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
+            defer 
+            {
+                raw.bindMemory(to:           godot_variant.self, capacity: 1)
             }
-            yield &UnsafeMutableRawPointer.init(pointer)
-                .bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
-                .pointee
-        }
+            pointer.pointee = value 
+        } 
+        /* _modify
+        {
+            let raw:UnsafeMutableRawPointer =
+            {
+                guard let raw:UnsafeMutableRawPointer = 
+                    Godot.api.functions.godot_array_operator_index(&self.core, .init(index))
+                    .map(UnsafeMutableRawPointer.init(_:))
+                else 
+                {
+                    fatalError("nil pointer to list element (\(index))")
+                }
+                return raw
+            }()
+            
+            let pointer:UnsafeMutablePointer<Godot.Variant.Unmanaged> = 
+                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
+            defer 
+            {
+                raw.bindMemory(to:           godot_variant.self, capacity: 1)
+            }
+            
+            yield &pointer.pointee
+        }  */
+
     } 
     subscript(index:Int) -> Godot.Variant 
     {
@@ -1072,9 +1108,9 @@ extension Godot.Map
     
     subscript(unmanaged key:Godot.Variant) -> Godot.Variant.Unmanaged 
     {
-        _read 
+        get 
         {
-            guard let pointer:UnsafePointer<godot_variant> = 
+            guard let raw:UnsafeRawPointer = 
             (Godot.Variant.Unmanaged.pass(key)
             {
                 (key:UnsafePointer<godot_variant>) in 
@@ -1082,30 +1118,38 @@ extension Godot.Map
                 {
                     Godot.api.functions.godot_dictionary_operator_index_const($0, key)
                 }
-            })
+            }).map(UnsafeRawPointer.init(_:))
             else 
             {
-                preconditionFailure("nil pointer to unordered map element (\(key))")
+                fatalError("nil pointer to unordered map element (\(key))")
             }
-            yield UnsafeRawPointer.init(pointer)
-                .bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
-                .pointee
+            let pointer:UnsafePointer<Godot.Variant.Unmanaged> = 
+                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
+            defer 
+            {
+                raw.bindMemory(to:           godot_variant.self, capacity: 1)
+            }
+            return pointer.pointee 
         }
-        _modify
+        set(value)
         {
-            guard let pointer:UnsafeMutablePointer<godot_variant> = 
+            guard let raw:UnsafeMutableRawPointer = 
             (Godot.Variant.Unmanaged.pass(key)
             {
                 (key:UnsafePointer<godot_variant>) in 
                 Godot.api.functions.godot_dictionary_operator_index(&self.core, key)
-            })
+            }).map(UnsafeMutableRawPointer.init(_:))
             else 
             {
                 preconditionFailure("nil pointer to unordered map element (\(key))")
             }
-            yield &UnsafeMutableRawPointer.init(pointer)
-                .bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
-                .pointee
+            let pointer:UnsafeMutablePointer<Godot.Variant.Unmanaged> = 
+                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
+            defer 
+            {
+                raw.bindMemory(to:           godot_variant.self, capacity: 1)
+            }
+            pointer.pointee = value 
         }
     } 
     subscript(key:Godot.Variant) -> Godot.Variant 
@@ -1128,11 +1172,10 @@ extension Godot.Map:ExpressibleByDictionaryLiteral
         self.init()
         for (key, value):(Godot.Variant, Godot.Variant) in items 
         {
-            self[key] = value 
+            self[unmanaged: key] = .pass(retained: value)
         }
     }
 }
-
 
 extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantRepresentable 
 {
@@ -1286,8 +1329,31 @@ extension UInt:Godot.VariantRepresentable
 } 
 
 extension Godot 
-{    
-    struct MeshInstance:NativeScriptDelegate 
+{
+    struct Unmanaged:NativeScriptDelegate 
+    {
+        static 
+        let name:Swift.String = "Object"
+        
+        init(_:UnsafeMutableRawPointer)
+        {
+        }
+    }
+    
+    class AnyObject:NativeScriptDelegate 
+    {
+        static 
+        let name:Swift.String = "Reference"
+        
+        required 
+        init(_:UnsafeMutableRawPointer)
+        {
+        }
+    }
+}
+extension Godot.Unmanaged 
+{
+    struct MeshInstance:Godot.NativeScriptDelegate 
     {
         static 
         let name:Swift.String = "MeshInstance"
