@@ -33,6 +33,17 @@ struct TestSemantics:Godot.NativeScript
         method(delegate:nil:) <- "pass_null_argument"
         method(delegate:tuple:) <- "pass_tuple_argument"
         method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
+        
+        method(delegate:mutating:) <- "pass_inout_argument"
+        method(delegate:mutating:mutating:) <- "pass_two_inout_arguments"
+        
+        clear(delegate:list:) <- "clear_list_elements"
+        
+        concatenate(delegate:s1:s2:) <- "concatenate_strings"
+        returnString(delegate:) <- "return_string"
+        returnInoutString(delegate:s:) <- "return_inout_string"
+        returnInoutList(delegate:list:) <- "return_inout_list"
+        returnTuple(delegate:) <- "return_tuple"
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
         methodTupleReturn(delegate:) <- "return_tuple_argument"
@@ -70,9 +81,65 @@ struct TestSemantics:Godot.NativeScript
     }
     func method(delegate:Godot.Unmanaged.MeshInstance, mutatingTuple tuple:inout (String, String)) 
     {
-        print("hello from 1-argument inout method, recieved: \(tuple)")
+        print("hello from tuple-argument inout method, recieved: \(tuple)")
         
         tuple.0 = "eternia"
         tuple.1 = "etheria"
+    }
+    
+    func method(delegate:Godot.Unmanaged.MeshInstance, mutating a:inout String) 
+    {
+        print("hello from 1-argument inout method, recieved: \(a)")
+        
+        a = "mutated"
+    }
+    func method(delegate:Godot.Unmanaged.MeshInstance, mutating a:inout String, mutating b:inout String) 
+    {
+        print("hello from 2-argument inout method, recieved: \(a)")
+        
+        a = "mutated again"
+        b = "mutated a third time"
+    }
+    func clear(delegate:Godot.Unmanaged.MeshInstance, list:Godot.List) 
+    {
+        print("hello from clear(delegate:list:), recieved: \(list)")
+        
+        for i:Int in list.indices 
+        {
+            print("removing element at index \(i)")
+            list[i] = Godot.Void.init()
+        }
+    }
+    func concatenate(delegate:Godot.Unmanaged.MeshInstance, s1:String, s2:String) -> String 
+    {
+        print("hello from concatenate(delegate:s1:s2:), recieved: \(s1), \(s2)")
+        return "\(s1)\(s2)"
+    }
+    func returnString(delegate:Godot.Unmanaged.MeshInstance) -> String 
+    {
+        print("hello from returnString(delegate:)")
+        return "string created by returnString(delegate:)"
+    }
+    func returnInoutString(delegate:Godot.Unmanaged.MeshInstance, s:inout String) -> String 
+    {
+        print("hello from returnInoutString(delegate:s:), recieved: \(s)")
+        s = "mutated by returnInoutString"
+        return s
+    }
+    func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) -> Godot.List 
+    {
+        print("hello from returnInoutList(delegate:list:), recieved: \(list)")
+        let a:Godot.Variant = list[0]
+        list[0] = list[1]
+        list[1] = a
+        
+        let original:Godot.List = list 
+        list = [original[2], original[3]]
+        return original  
+    }
+    func returnTuple(delegate:Godot.Unmanaged.MeshInstance) -> (String, String) 
+    {
+        print("hello from returnTuple(delegate:)")
+        return ("first", "second")
     }
 }

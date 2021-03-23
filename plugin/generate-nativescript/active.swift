@@ -206,7 +206,7 @@ extension Synthesizer.Form
                 {
                     elements.enumerated().map
                     {
-                        "\($0.1.structure(nodes: list, from: "\(variable).\($0.0)"))),"
+                        $0.1.structure(nodes: list, from: "\(variable).\($0.0)")
                     }.joined(separator: ", \n")
                 }
                 "))"
@@ -352,7 +352,6 @@ extension Synthesizer.Form.Parameter
 }
 extension Synthesizer.FunctionParameterization
 {
-    private 
     var signature:String 
     {
         let domain:[String] = [self.exclude] + self.domain.map 
@@ -525,8 +524,14 @@ extension Synthesizer
             }
             
             """
-
-            for parameterization:FunctionParameterization in parameterizations 
+            
+            // sort by function signatures, to provide some stability in the 
+            // generated code. precompute the signatures to prevent O(n log n) 
+            // signature computations
+            for parameterization:FunctionParameterization in (parameterizations
+                .map{ (function: $0, signature: $0.signature) }
+                .sorted{ $0.signature < $1.signature }
+                .map(\.function))
             {
                 parameterization.generateBindingOperatorOverload()
             }
@@ -620,26 +625,8 @@ extension Synthesizer
                         ) -> godot_variant in 
                         
                         let index:Int   = .init(bitPattern: metadata)
-                        let name:String = \(typename).interface[method: index].symbol
-                        // unretained because godot retained `self` in the initializer call
-                        guard   let instance:UnsafeMutableRawPointer = instance, 
-                                let self:\(typename) = 
-                                Unmanaged<AnyObject>.fromOpaque(instance).takeUnretainedValue() as? \(typename) 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil or invalid instance pointer")
-                        }
-                        
-                        guard   let delegate:\(typename).Delegate = delegate.map(\(typename).Delegate.init(_:)) 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).\\(name)(delegate:arguments:) received nil delegate pointer")
-                        }
-                        
-                        return Godot.VariadicArguments.bind(arguments, count: .init(count))
-                        {
-                            \(typename).interface[method: index].witness(self, delegate, $0).unsafeData
-                        }
+                        return Godot.VariadicArguments.call(\(typename).interface[method: index], 
+                            instance: instance, delegate: delegate, arguments: (arguments, .init(count)))
                     }
                     
                     let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]
