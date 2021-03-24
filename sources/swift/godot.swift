@@ -323,6 +323,105 @@ extension Godot
     {
         Self.print(error: error.description, function: function, file: file, line: line)
     }
+    
+    // debug utilities 
+    static 
+    func dump(_ string:godot_string) 
+    {
+        withUnsafeBytes(of: string) 
+        {
+            let storage:UnsafePointer<Int32>    = $0.load(as: UnsafePointer<Int32>.self)
+            let count:Int                       = .init(storage[-1])
+            let retains:Int32                   =       storage[-2]
+            let scalars:[Unicode.Scalar]        = (0 ..< count).map 
+            {
+                Unicode.Scalar.init(Int.init(storage[$0])) ?? "\u{0}" 
+            }
+            Swift.print(
+                """
+                Godot::String (\($0.count) bytes)
+                {
+                    copy-on-write data (buffer at \(storage)) 
+                    {
+                        count           : \(count)
+                        scalars         : \(scalars) 
+                        reference count : \(retains)
+                    }
+                }
+                """
+            )
+        }
+    }
+    static 
+    func dump(_ array:godot_array) 
+    {
+        withUnsafeBytes(of: array) 
+        {
+            let storage:UnsafeRawPointer        = $0.load(as: UnsafeRawPointer.self)
+            let retains:UInt32                  = storage.load(as: UInt32.self)
+            
+            if let cowdata:UnsafePointer<Int32> = storage.load(
+                fromByteOffset: 2 * MemoryLayout<UnsafePointer<Int32>?>.stride, 
+                as:                              UnsafePointer<Int32>?.self)
+            {
+                Swift.print(
+                    """
+                    Godot::Array (\($0.count) bytes)
+                    {
+                        Godot::Array::ArrayPrivate (buffer at \(storage)) 
+                        {
+                            reference count : \(retains)
+                            
+                            copy-on-write data (buffer at \(cowdata)) 
+                            {
+                                count           : \(cowdata[-1])
+                                reference count : \(cowdata[-2])
+                            }
+                        }
+                    }
+                    """
+                )
+            }
+            else 
+            {
+                Swift.print(
+                    """
+                    Godot::Array (\($0.count) bytes)
+                    {
+                        Godot::Array::ArrayPrivate (buffer at \(storage)) 
+                        {
+                            reference count : \(retains)
+                            
+                            copy-on-write data (nil)
+                        }
+                    }
+                    """
+                )
+            }
+        }
+    }
+    static 
+    func dump(object:UnsafeMutableRawPointer) 
+    {
+        let id:UInt64 = object.load(fromByteOffset: 8 * 9, as: UInt64.self)
+        var stringname:godot_string_name    = object.load(fromByteOffset: 8 * 30, 
+            as: godot_string_name.self)
+        let classname:Swift.String          = .init(Godot.String.init(retained: 
+            Godot.api.core.1.0.godot_string_name_get_name(&stringname)))
+        
+        let retains:UInt32                  = object.load(fromByteOffset: 8 * 31, as: UInt32.self)
+        
+        Swift.print(
+            """
+            Godot::Object (object at \(object))
+            {
+                object id       : \(id)
+                class name      : \(classname)
+                reference count : \(retains)
+            }
+            """
+        )
+    }
 }
 extension Godot.API 
 {
@@ -461,6 +560,74 @@ extension Godot.API.Runtime
             self.functions.classname, delegate, nil, &core)
         return Swift.String.init(Godot.String.init(retained: core))
     }
+    
+    /* func _testsemantics() 
+    {
+        do 
+        {
+            // +1
+            var s1:godot_string = Godot.api.core.1.0.godot_string_chars_to_utf8("foofoo")
+            
+            Godot.dump(s1)
+            
+            // +2
+            var v1:godot_variant = .init() 
+            Godot.api.core.1.0.godot_variant_new_string(&v1, &s1)
+            
+            Godot.dump(s1)
+            
+            // +3
+            var s2:godot_string = Godot.api.core.1.0.godot_variant_as_string(&v1)
+            
+            Godot.dump(s1)
+            Godot.dump(s2)
+            
+            Godot.api.core.1.0.godot_variant_destroy(&v1)
+            // +2
+            
+            Godot.dump(s1)
+            
+            Godot.api.core.1.0.godot_string_destroy(&s2)
+            // +1
+            
+            Godot.dump(s1)
+        }
+        
+        do 
+        {
+            // +1 
+            var a1:godot_array = .init() 
+            Godot.api.core.1.0.godot_array_new(&a1)
+            
+            Godot.dump(a1)
+            
+            Godot.api.core.1.0.godot_array_resize(&a1, 5)
+            
+            Godot.dump(a1)
+            
+            // +2
+            var v1:godot_variant = .init() 
+            Godot.api.core.1.0.godot_variant_new_array(&v1, &a1)
+            
+            Godot.dump(a1)
+            
+            // +3
+            var a2:godot_array = Godot.api.core.1.0.godot_variant_as_array(&v1)
+            
+            Godot.dump(a1)
+            Godot.dump(a2)
+            
+            Godot.api.core.1.0.godot_variant_destroy(&v1)
+            // +2
+            
+            Godot.dump(a1)
+            
+            Godot.api.core.1.0.godot_array_destroy(&a2)
+            // +1
+            
+            Godot.dump(a1)
+        }
+    } */
 }
 
 extension Godot.API 
@@ -560,6 +727,8 @@ extension Godot
         }
         
         self.runtime.load()
+        
+        //self.runtime._testsemantics()
     }
     
     static 
@@ -709,10 +878,6 @@ extension Godot
 
 protocol _GodotAnyDelegate:Godot.VariantRepresentable 
 {
-    // non-failable init assumes instance has been type-checked!
-    init(unsafeUnretained:UnsafeMutableRawPointer) 
-    init(unsafeRetained:UnsafeMutableRawPointer) 
-    
     static 
     var metaclass:String 
     {
@@ -724,30 +889,26 @@ protocol _GodotAnyDelegate:Godot.VariantRepresentable
         get 
     }
     
+    init?(unretained:UnsafeMutableRawPointer) 
     var core:UnsafeMutableRawPointer 
     {
         get 
     }
 }
-protocol _GodotAnyObject:Godot.AnyDelegate              {}
-    protocol _GodotAnyResource:Godot.AnyObject          {}
+protocol _GodotAnyObject:Godot.AnyDelegate              
+{
+    // non-failable init assumes instance has been type-checked, and does 
+    // not perform any retains!
+    init(retained:UnsafeMutableRawPointer) 
+}
+protocol _GodotAnyResource:Godot.AnyObject          {}
 protocol _GodotAnyUnmanaged:Godot.AnyDelegate
 {
+    // non-failable init assumes instance has been type-checked, and does 
+    // not perform any retains!
     init(core:UnsafeMutableRawPointer)
 }
-    protocol _GodotAnyMeshInstance:Godot.AnyUnmanaged   {}
-
-extension Godot.AnyUnmanaged
-{
-    init(unsafeUnretained core:UnsafeMutableRawPointer) 
-    {
-        self.init(core: core)
-    }
-    init(unsafeRetained core:UnsafeMutableRawPointer) 
-    {
-        self.init(core: core)
-    }
-}
+protocol _GodotAnyMeshInstance:Godot.AnyUnmanaged   {}
 
 extension Godot 
 {
@@ -823,7 +984,7 @@ extension Godot
 }
 extension Godot.Delegate:Godot.Variant
 {
-    init(unsafeUnretained core:UnsafeMutableRawPointer) 
+    init(unretained core:UnsafeMutableRawPointer) 
     {
         if let object:Godot.Object = .init(unretained: core) 
         {
@@ -833,27 +994,6 @@ extension Godot.Delegate:Godot.Variant
         {
             self.existential = .unmanaged(core: core)
         }
-    }
-    init(unsafeRetained core:UnsafeMutableRawPointer) 
-    {
-        if let _:UnsafeMutableRawPointer = 
-            Godot.api.core.1.2.godot_object_cast_to(core, Godot.Object.metaclassID)
-        {
-            self.existential = .managed(.init(unsafeRetained: core))
-        }
-        else 
-        {
-            self.existential = .unmanaged(core: core)
-        }
-    }
-    
-    init(unretained core:UnsafeMutableRawPointer) 
-    {
-        self.init(unsafeUnretained: core)
-    }
-    init(retained core:UnsafeMutableRawPointer) 
-    {
-        self.init(unsafeRetained: core)
     }
     
     var core:UnsafeMutableRawPointer 
@@ -866,7 +1006,7 @@ extension Godot.Delegate:Godot.Variant
     }
 }
 
-extension Godot.AnyDelegate 
+extension Godot.AnyObject 
 {
     init?(unretained core:UnsafeMutableRawPointer) 
     {
@@ -878,7 +1018,20 @@ extension Godot.AnyDelegate
         {
             return nil 
         }
-        self.init(unsafeUnretained: core)
+        self.init(retained: Godot.runtime.retain(core))
+    }
+}
+extension Godot.AnyUnmanaged 
+{
+    init?(unretained core:UnsafeMutableRawPointer) 
+    {
+        guard let _:UnsafeMutableRawPointer = 
+            Godot.api.core.1.2.godot_object_cast_to(core, Self.metaclassID)
+        else 
+        {
+            return nil 
+        }
+        self.init(core: core)
     }
 }
 
@@ -896,13 +1049,9 @@ extension Godot
         
         let core:UnsafeMutableRawPointer
         
-        init(unsafeRetained core:UnsafeMutableRawPointer) 
+        init(retained core:UnsafeMutableRawPointer) 
         {
             self.core = core
-        }
-        init(unsafeUnretained core:UnsafeMutableRawPointer) 
-        {
-            self.core = Godot.runtime.retain(core)
         }
         deinit 
         {
@@ -921,13 +1070,9 @@ extension Godot
         
         let core:UnsafeMutableRawPointer
         
-        init(unsafeRetained core:UnsafeMutableRawPointer) 
+        init(retained core:UnsafeMutableRawPointer) 
         {
             self.core = core
-        }
-        init(unsafeUnretained core:UnsafeMutableRawPointer) 
-        {
-            self.core = Godot.runtime.retain(core)
         }
         deinit 
         {
@@ -1241,34 +1386,21 @@ extension Godot.AnyDelegate
 {
     init?(unretainedValue value:Godot.Variant.Unmanaged) 
     {
-        // FIXME: this is probably incorrect, given the behavior from godot_variant_as_object
         guard let core:UnsafeMutableRawPointer = value.load(where: GODOT_VARIANT_TYPE_OBJECT, 
             Godot.api.core.1.0.godot_variant_as_object) ?? nil
         else 
         {
             return nil 
         }
-        
-        guard let _:UnsafeMutableRawPointer = 
-            Godot.api.core.1.2.godot_object_cast_to(core, Self.metaclassID)
-        else 
-        {
-            // release the object if initialization failed
-            if let _:UnsafeMutableRawPointer = 
-                Godot.api.core.1.2.godot_object_cast_to(core, Godot.Object.metaclassID) 
-            {
-                Godot.runtime.release(core)
-            }
-            return nil 
-        }
-        
-        self.init(unsafeRetained: core)
+        // `godot_variant_as_object` passes object unretained
+        self.init(unretained: core)
     }
     var retainedValue:Godot.Variant.Unmanaged 
     {
-        // FIXME: this is probably incorrect, given the behavior from godot_variant_as_object
         withExtendedLifetime(self) 
         {
+            // `godot_variant_new_object` passes the object retained, unlike 
+            // `godot_variant_as_object` for some reason
             .init(value: self.core, Godot.api.core.1.0.godot_variant_new_object)
         }
     }
@@ -1501,14 +1633,7 @@ extension Godot.String
     convenience
     init(_ string:Swift.String)
     {
-        self.init
-        {
-                Godot.api.core.1.0.godot_string_new($0)
-            if  Godot.api.core.1.0.godot_string_parse_utf8($0, string)
-            {
-                Godot.print(error: "malformed utf-8 bytes in swift string")
-            }
-        }
+        self.init(retained: Godot.api.core.1.0.godot_string_chars_to_utf8(string))
     }
 }
 extension Swift.String 
