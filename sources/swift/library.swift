@@ -14,13 +14,13 @@ struct TestSemantics:Godot.NativeScript
     final 
     class ARCManaged:Godot.NativeScript 
     {
-        init(delegate _:Godot.AnyObject)
+        init(delegate _:Godot.Object)
         {
-            Godot.print("initialized instance of '\(Self.self)'")
+            print("initialized instance of '\(Self.self)'")
         }
         deinit 
         {
-            Godot.print("deinitialized instance of '\(Self.self)'")
+            print("deinitialized instance of '\(Self.self)'")
         }
     }
     
@@ -77,7 +77,7 @@ struct TestSemantics:Godot.NativeScript
     }
     func method(delegate:Godot.Unmanaged.MeshInstance, tuple:(String, String)) 
     {
-        print("hello from tuple-argument method, recieved: \(tuple)")
+        Godot.print("hello from tuple-argument method, recieved: \(tuple)")
     }
     func method(delegate:Godot.Unmanaged.MeshInstance, mutatingTuple tuple:inout (String, String)) 
     {

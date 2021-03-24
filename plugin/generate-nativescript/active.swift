@@ -560,59 +560,20 @@ extension Synthesizer
                     {
                         (
                             delegate:UnsafeMutableRawPointer?, 
-                            metadata:UnsafeMutableRawPointer?
+                            metatype:UnsafeMutableRawPointer?
                         ) -> UnsafeMutableRawPointer? in 
                         
-                        guard let delegate:UnsafeMutableRawPointer = delegate 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).init(delegate:) received nil delegate pointer")
-                        }
-                        
-                        #if ENABLE_ARC_SANITIZER
-                        guard let metadata:UnsafeMutableRawPointer = metadata 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).init(delegate:) received nil metadata pointer")
-                        }
-                        
-                        Unmanaged<\(typename).Interface.Metatype.Symbol>
-                            .fromOpaque(metadata)
-                            .takeUnretainedValue()
-                            .track()
-                        #endif
-                        
-                        return Unmanaged<AnyObject>.passRetained(
-                            \(typename).init(delegate: .init(delegate)) as AnyObject).toOpaque() 
+                        \(typename).Interface.initialize(delegate: delegate, metatype: metatype)
                     }
                     let deinitializer:Godot.API.NativeScript.Deinitializer =
                     {
                         (
                             delegate:UnsafeMutableRawPointer?, 
-                            metadata:UnsafeMutableRawPointer?, 
+                            metatype:UnsafeMutableRawPointer?, 
                             instance:UnsafeMutableRawPointer?
                         ) in
                         
-                        guard let instance:UnsafeMutableRawPointer = instance 
-                        else 
-                        {
-                            fatalError("(swift) `\(typename).deinit` received nil instance pointer")
-                        }
-                        
-                        #if ENABLE_ARC_SANITIZER
-                        guard let metadata:UnsafeMutableRawPointer = metadata 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).deinit received nil metadata pointer")
-                        }
-                        
-                        Unmanaged<\(typename).Interface.Metatype.Symbol>
-                            .fromOpaque(metadata)
-                            .takeUnretainedValue()
-                            .untrack()
-                        #endif
-                        
-                        Unmanaged<AnyObject>.fromOpaque(instance).release()
+                        \(typename).Interface.deinitialize(instance: instance, metatype: metatype)
                     }
                     let dispatch:Godot.API.NativeScript.Method = 
                     {
@@ -624,51 +585,49 @@ extension Synthesizer
                             arguments:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
                         ) -> godot_variant in 
                         
-                        let index:Int   = .init(bitPattern: metadata)
-                        return Godot.VariadicArguments.call(\(typename).interface[method: index], 
-                            instance: instance, delegate: delegate, arguments: (arguments, .init(count)))
+                        \(typename).interface.call(
+                            method:    .init(bitPattern: metadata), 
+                            instance:   instance, 
+                            delegate:   delegate, 
+                            arguments: (arguments, .init(count)))
+                    }
+                    
+                    let unregister:Godot.API.NativeScript.WitnessDeinitializer = 
+                    {
+                        (metatype:UnsafeMutableRawPointer?) in 
+                        
+                        guard let metatype:UnsafeMutableRawPointer = metatype 
+                        else 
+                        {
+                            fatalError("(swift) \(typename).sanitizer received nil metatype pointer")
+                        }
+                        
+                        Unmanaged<Godot.Metatype>.fromOpaque(metatype).release()
                     }
                     
                     let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]
-                    
                     #if ENABLE_ARC_SANITIZER
-                    let sanitizer:Godot.API.NativeScript.WitnessDeinitializer = 
-                    {
-                        (metadata:UnsafeMutableRawPointer?) in 
-                        
-                        guard let metadata:UnsafeMutableRawPointer = metadata 
-                        else 
-                        {
-                            fatalError("(swift) \(typename).sanitizer received nil metadata pointer")
-                        }
-                        
-                        Unmanaged<\(typename).Interface.Metatype.Symbol>
-                            .fromOpaque(metadata)
-                            .release()
-                    }
-                    
-                    let metatype:\(typename).Interface.Metatype = .init(symbols: symbols)
-                    
-                    #else 
-                    let sanitizer:Godot.API.NativeScript.WitnessDeinitializer? = nil
+                    let tracker:Godot.Metatype.RetainTracker = 
+                        .init(type: \(typename).self, symbols: symbols)
                     #endif
                     
                     for symbol:String in symbols
                     {
                         // register type 
                         #if ENABLE_ARC_SANITIZER
-                        let metadata:UnsafeMutableRawPointer  = 
-                            Unmanaged<\(typename).Interface.Metatype.Symbol>
-                            .passRetained(.init(symbol, metatype: metatype))
+                        let metatype:UnsafeMutableRawPointer = Unmanaged<Godot.Metatype>
+                            .passRetained(.init(symbol: symbol, tracker: tracker))
                             .toOpaque()
                         #else 
-                        let metadata:UnsafeMutableRawPointer? = nil
+                        let metatype:UnsafeMutableRawPointer = Unmanaged<Godot.Metatype>
+                            .passRetained(.init(symbol: symbol))
+                            .toOpaque()
                         #endif
                         
                         let constructor:godot_instance_create_func = .init(
-                            create_func:    initializer, method_data: metadata, free_func: sanitizer)
+                            create_func:    initializer, method_data: metatype, free_func: unregister)
                         let destructor:godot_instance_destroy_func = .init(
-                            destroy_func: deinitializer, method_data: metadata, free_func: nil)
+                            destroy_func: deinitializer, method_data: metatype, free_func: nil)
                         
                         api.register(initializer: constructor, deinitializer: destructor, 
                             for: Self.self, as: symbol)
