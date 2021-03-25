@@ -20,6 +20,26 @@ struct Source
     }
     
     static 
+    func block(extraIndendation tabs:Int = 0, delimiters:(String, String) = ("{", "}"),
+        @Code generator:() -> String) 
+        -> String 
+    {
+        Self.fragment(indent: tabs) 
+        {
+            """
+            \(delimiters.0)
+            """
+            Self.fragment(indent: 1) 
+            {
+                generator()
+            }
+            """
+            \(delimiters.1)
+            """
+        }
+    }
+    
+    static 
     func code(file:AbsolutePath, @Code generator:() -> String) -> Self 
     {
         .init(file: file, code: generator())

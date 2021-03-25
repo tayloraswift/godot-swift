@@ -285,6 +285,166 @@ extension Godot.NativeScriptInterface
             })
     }
 }
+extension Godot.NativeScriptInterface
+{
+    static 
+    func initialize(delegate:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
+        -> UnsafeMutableRawPointer? 
+    {
+        var description:String 
+        {
+            "initializer (from interface of \(String.init(reflecting: T.self)))"
+        }
+        
+        guard let core:UnsafeMutableRawPointer = delegate 
+        else 
+        {
+            fatalError("(swift) \(description) received nil delegate pointer")
+        }
+        // allow recovery on mismatched delegate type
+        guard let delegate:T.Delegate = .init(unretained: core)
+        else 
+        {
+            Godot.print(error: 
+                """
+                cannot call \(description) with delegate of class \
+                '\(Godot.runtime.classname(of: core))' \
+                (expected delegate of class '\(T.Delegate.metaclass)' or one of its subclasses)
+                """)
+            
+            return nil
+        } 
+        
+        #if ENABLE_ARC_SANITIZER
+        if let metatype:UnsafeMutableRawPointer = metatype 
+        {
+            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
+                .takeUnretainedValue()
+                .track()
+        }
+        else 
+        {
+            Godot.print(warning: "\(description) is missing expected type metadata")
+        }
+        #endif
+        
+        return Unmanaged<AnyObject>
+            .passRetained(T.init(delegate: delegate) as AnyObject).toOpaque() 
+    }
+    
+    static 
+    func deinitialize(instance:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
+    {
+        var description:String 
+        {
+            "deinitializer (from interface of \(String.init(reflecting: T.self)))"
+        }
+        
+        guard let instance:UnsafeMutableRawPointer = instance 
+        else 
+        {
+            fatalError("(swift) \(description) received nil instance pointer")
+        }
+        
+        #if ENABLE_ARC_SANITIZER
+        if let metatype:UnsafeMutableRawPointer = metatype 
+        {
+            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
+                .takeUnretainedValue()
+                .untrack()
+        }
+        else 
+        {
+            Godot.print(warning: "\(description) is missing expected type metadata")
+        }
+        #endif
+        
+        Unmanaged<AnyObject>.fromOpaque(instance).release()
+    }
+    
+    #if !BUILD_STAGE_INERT
+    func call(method index:Int,
+        instance:UnsafeMutableRawPointer?, 
+        delegate:UnsafeMutableRawPointer?, 
+        arguments:
+        (
+            start:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?,
+            count:Int
+        ))
+        -> godot_variant 
+    {
+        var description:String 
+        {
+            "method '\(self[method: index].symbol)' (from interface of \(String.init(reflecting: T.self)))"
+        }
+        // everything here is unretained because godot retained `self` and 
+        // `delegate` in the initializer call
+        
+        // load `self`
+        guard   let opaque:UnsafeMutableRawPointer  = instance, 
+                let instance:T                      = Unmanaged<AnyObject>
+                    .fromOpaque(opaque)
+                    .takeUnretainedValue() as? T
+        else 
+        {
+            fatalError("(swift) \(description) received nil or invalid instance pointer")
+        }
+        // load `delegate`
+        guard   let unretained:UnsafeMutableRawPointer  = delegate, 
+                let delegate:T.Delegate                 = .init(unretained: unretained)
+        else 
+        {
+            fatalError("(swift) \(description) received nil or invalid delegate pointer")
+        }
+        
+        return Godot.VariadicArguments.bind(arguments.start, count: arguments.count)
+        {
+            self[method: index].witness(instance, delegate, $0).unsafeData
+        }
+    }
+    #endif
+}
+extension Godot 
+{
+    struct VariadicArguments
+    {
+        private 
+        let arguments:UnsafeMutableBufferPointer<UnsafeMutablePointer<Variant.Unmanaged>>
+        
+        typealias RawArgument       = UnsafeMutablePointer<godot_variant>
+        typealias RawArgumentVector = UnsafeMutablePointer<RawArgument?>
+        
+        static 
+        func bind<R>(_ start:RawArgumentVector?, count:Int, 
+            body:(Self) throws -> R) 
+            rethrows -> R
+        {
+            if count > 0 
+            {
+                // assert arguments pointers are non-nil 
+                guard let base:RawArgumentVector = start
+                else 
+                {
+                    fatalError("(swift) received nil argument-vector pointer from gdscript method call")
+                }
+                for i:Int in 0 ..< count where base[i] == nil 
+                {
+                    fatalError("(swift) recieved nil argument pointer from gdscript method call at position \(i)")
+                }
+            }
+            
+            let buffer:UnsafeMutableBufferPointer<RawArgument?> = 
+                .init(start: start, count: count)
+            
+            return try buffer.withMemoryRebound(
+                to: UnsafeMutablePointer<Variant.Unmanaged>.self) 
+            {
+                try body(.init(arguments: $0))
+            }
+        }
+    }
+}
+
 
 // api interface
 extension Godot 
@@ -1109,170 +1269,6 @@ extension Godot.Unmanaged
 }
 protocol _GodotAncestorUnmanagedMeshInstance {}
 
-
-
-extension Godot 
-{
-    struct VariadicArguments
-    {
-        private 
-        let arguments:[UnsafeMutablePointer<Variant.Unmanaged>]
-        
-        static 
-        func bind<R>(_ start:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?, count:Int, 
-            _ body:(Self) throws -> R) 
-            rethrows -> R
-        {
-            guard count > 0, 
-                let base:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?> = start 
-            else 
-            {
-                return try body(.init(arguments: []))
-            }
-            
-            // assert arguments pointers are non-nil 
-            guard ((0 ..< count).allSatisfy{ base[$0] != nil }) 
-            else 
-            {
-                fatalError("(swift) received nil argument pointer from gdscript method call")
-            }
-            
-            // can use `!` because we already checked for non-nil pointers
-            defer 
-            {
-                for i:Int in 0 ..< count 
-                {
-                    UnsafeMutableRawPointer.init(base[i]!).bindMemory(
-                        to: godot_variant.self, capacity: 1)
-                }
-            }
-            return try body(.init(arguments: (0 ..< count).map 
-                {
-                    UnsafeMutableRawPointer.init(base[$0]!).bindMemory(
-                        to: Variant.Unmanaged.self, capacity: 1)
-                }))
-        }
-    }
-}
-extension Godot.NativeScriptInterface
-{
-    static 
-    func initialize(delegate:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
-        -> UnsafeMutableRawPointer? 
-    {
-        var description:String 
-        {
-            "initializer (from interface of \(String.init(reflecting: T.self)))"
-        }
-        
-        guard let core:UnsafeMutableRawPointer = delegate 
-        else 
-        {
-            fatalError("(swift) \(description) received nil delegate pointer")
-        }
-        // allow recovery on mismatched delegate type
-        guard let delegate:T.Delegate = .init(unretained: core)
-        else 
-        {
-            Godot.print(error: 
-                """
-                cannot call \(description) with delegate of class \
-                '\(Godot.runtime.classname(of: core))' \
-                (expected delegate of class '\(T.Delegate.metaclass)' or one of its subclasses)
-                """)
-            
-            return nil
-        } 
-        
-        #if ENABLE_ARC_SANITIZER
-        if let metatype:UnsafeMutableRawPointer = metatype 
-        {
-            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
-                .takeUnretainedValue()
-                .track()
-        }
-        else 
-        {
-            Godot.print(warning: "\(description) is missing expected type metadata")
-        }
-        #endif
-        
-        return Unmanaged<AnyObject>
-            .passRetained(T.init(delegate: delegate) as AnyObject).toOpaque() 
-    }
-    
-    static 
-    func deinitialize(instance:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
-    {
-        var description:String 
-        {
-            "deinitializer (from interface of \(String.init(reflecting: T.self)))"
-        }
-        
-        guard let instance:UnsafeMutableRawPointer = instance 
-        else 
-        {
-            fatalError("(swift) \(description) received nil instance pointer")
-        }
-        
-        #if ENABLE_ARC_SANITIZER
-        if let metatype:UnsafeMutableRawPointer = metatype 
-        {
-            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
-                .takeUnretainedValue()
-                .untrack()
-        }
-        else 
-        {
-            Godot.print(warning: "\(description) is missing expected type metadata")
-        }
-        #endif
-        
-        Unmanaged<AnyObject>.fromOpaque(instance).release()
-    }
-    
-    #if !BUILD_STAGE_INERT
-    func call(method index:Int,
-        instance:UnsafeMutableRawPointer?, 
-        delegate:UnsafeMutableRawPointer?, 
-        arguments:
-        (
-            start:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?,
-            count:Int
-        ))
-        -> godot_variant 
-    {
-        var description:String 
-        {
-            "method '\(self[method: index].symbol)' (from interface of \(String.init(reflecting: T.self)))"
-        }
-        // everything here is unretained because godot retained `self` and 
-        // `delegate` in the initializer call
-        
-        // load `self`
-        guard   let opaque:UnsafeMutableRawPointer  = instance, 
-                let instance:T                      = Unmanaged<AnyObject>
-                    .fromOpaque(opaque)
-                    .takeUnretainedValue() as? T
-        else 
-        {
-            fatalError("(swift) \(description) received nil or invalid instance pointer")
-        }
-        // load `delegate`
-        guard   let unretained:UnsafeMutableRawPointer  = delegate, 
-                let delegate:T.Delegate                 = .init(unretained: unretained)
-        else 
-        {
-            fatalError("(swift) \(description) received nil or invalid delegate pointer")
-        }
-        
-        return Godot.VariadicArguments.bind(arguments.start, count: arguments.count)
-        {
-            self[method: index].witness(instance, delegate, $0).unsafeData
-        }
-    }
-    #endif
-}
 
 extension Godot.Void:Godot.Variant 
 {
