@@ -599,7 +599,7 @@ enum Vector
                 }
             }
             """
-            extension Vector\(n) where T:SignedInteger & FixedWidthInteger & Comparable
+            extension Vector\(n) where T:SignedInteger & FixedWidthInteger 
             {
                 // note: T.min maps to T.max 
                 static 
@@ -612,16 +612,20 @@ enum Vector
                 static 
                 func abs(wrapping self:Self) -> Self 
                 {
-                    // saturating twos complement negation
                     .max(self, 0 - self)
                 }
             }
-            extension Vector\(n) where T:BinaryFloatingPoint & Comparable
+            extension Vector\(n) where T:BinaryFloatingPoint 
             {
                 static 
                 func abs(_ self:Self) -> Self 
                 {
                     .max(self, -self)
+                }
+                static 
+                func sqrt(_ self:Self) -> Self 
+                {
+                    .init(storage: self.storage.squareRoot())
                 }
             }
             
@@ -672,7 +676,7 @@ enum Vector
                         """
                         var norm:T 
                         {
-                            self <> self 
+                            (self <> self).squareRoot() 
                         }
                         func normalized() -> Self
                         {
