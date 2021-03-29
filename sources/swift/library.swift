@@ -61,6 +61,12 @@ struct TestSemantics:Godot.NativeScript
     init(delegate:Godot.Unmanaged.MeshInstance)
     {
         Godot.print("initialized instance of '\(Self.self)'")
+        
+        // math tests 
+        let M:Vector3<Double>.Matrix    = ((1, 2, 3)*, (2, 3, 4)*, (3, 4, 5)*)
+        let M_1:Vector3<Double>.Matrix  = Vector3.inverse(M)
+        print(M >< M_1)
+        print(M_1 >< M)
     }
     
     func method(delegate:Godot.Unmanaged.MeshInstance) 

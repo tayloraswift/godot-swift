@@ -10,6 +10,7 @@ let package = Package(
     ],
     dependencies: 
     [
+        .package(url: "https://github.com/apple/swift-numerics",        .upToNextMinor(from: "0.1.0")),
         .package(url: "https://github.com/apple/swift-atomics.git",     .upToNextMinor(from: "0.0.1")),
         .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "0.3.1")),
         .package(url: "https://github.com/apple/swift-package-manager", .branch("main")),
@@ -37,6 +38,7 @@ let package = Package(
             [
                 .target(name: "GDNativeHeaders"),
                 .product(name: "Atomics", package: "swift-atomics"),
+                .product(name: "Numerics", package: "swift-numerics"),
             ],
             path: "sources/godot-native/swift"), 
         

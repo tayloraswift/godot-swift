@@ -114,7 +114,11 @@ enum Vector
             ()
         )
         
+        let numeric:[String] = ["FixedWidthInteger", "BinaryFloatingPoint"]
+        
         """
+        import protocol Numerics.Real
+        
         infix   operator <>  : MultiplicationPrecedence // dot/inner product
         infix   operator >|< : MultiplicationPrecedence // cross product
         infix   operator ><  : MultiplicationPrecedence // matrix product
@@ -181,13 +185,16 @@ enum Vector
         }
         
         // `Comparable`-related functionality
-        protocol _VectorRangeExpression
+        protocol VectorRangeExpression
         {
-            associatedtype Bound 
+            associatedtype Storage  where Storage:SIMD 
+            associatedtype T        where T:SIMDScalar, T == Storage.Scalar 
+            
+            typealias Bound = Vector<Storage, T>
             
             func contains(_ element:Bound) -> Bool 
         }
-        extension Vector.RangeExpression 
+        extension VectorRangeExpression 
         {
             static 
             func ~= (pattern:Self, element:Bound) -> Bool 
@@ -196,14 +203,25 @@ enum Vector
             }
         }
         
+        protocol VectorFiniteRangeExpression:VectorRangeExpression 
+        {
+            init(lowerBound:Bound, upperBound:Bound)
+            var lowerBound:Bound 
+            {
+                get 
+            }
+            var upperBound:Bound 
+            {
+                get 
+            }
+        }
+        
         extension Vector where T:Comparable
         """
         Source.block 
         {
             """
-            typealias RangeExpression = _VectorRangeExpression
-            
-            struct Rectangle:Vector.RangeExpression
+            struct Rectangle:VectorFiniteRangeExpression
             {
                 var lowerBound:Vector<Storage, T>
                 var upperBound:Vector<Storage, T>
@@ -215,7 +233,7 @@ enum Vector
                 }
             }
             
-            struct ClosedRectangle:Vector.RangeExpression
+            struct ClosedRectangle:VectorFiniteRangeExpression
             {
                 var lowerBound:Vector<Storage, T>
                 var upperBound:Vector<Storage, T>
@@ -389,20 +407,27 @@ enum Vector
         """
         
         // constants 
-        extension Vector where T:FixedWidthInteger
+        """
+        for domain:String in numeric
         {
-            static 
-            var zero:Self   { .init(storage: .zero) }
-            static 
-            var one:Self    { .init(storage:  .one) }
+            """
+            extension Vector where T:\(domain)
+            {
+                static 
+                var zero:Self   { .init(storage: .zero) }
+                static 
+                var one:Self    { .init(storage:  .one) }
+            }
+            extension Vector.Diagonal where T:\(domain)
+            {
+                static 
+                var zero:Self       { Vector<Storage, T>.diagonal(.zero) }
+                static 
+                var identity:Self   { Vector<Storage, T>.diagonal(.one)  }
+            }
+            """
         }
-        extension Vector where T:BinaryFloatingPoint
-        {
-            static 
-            var zero:Self   { .init(storage: .zero) }
-            static 
-            var one:Self    { .init(storage:  .one) }
-        }
+        """
         
         // horizontal operations 
         extension Vector where T:FixedWidthInteger
@@ -552,30 +577,30 @@ enum Vector
             {
                 .init(storage: -self.storage)
             }
-            func addingProduct(_ a:Self, b:Self) -> Self 
+            func addingProduct(_ a:Self, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b.storage))
             }
-            func addingProduct(_ a:Self, b:T) -> Self 
+            func addingProduct(_ a:Self, _ b:T) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b))
             }
-            func addingProduct(_ a:T, b:Self) -> Self 
+            func addingProduct(_ a:T, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a, b.storage))
             }
             mutating 
-            func addProduct(_ a:Self, b:Self) 
+            func addProduct(_ a:Self, _ b:Self) 
             {
                 self.storage.addProduct(a.storage, b.storage)
             }
             mutating 
-            func addProduct(_ a:Self, b:T) 
+            func addProduct(_ a:Self, _ b:T) 
             {
                 self.storage.addProduct(a.storage, b)
             }
             mutating 
-            func addProduct(_ a:T, b:Self) 
+            func addProduct(_ a:T, _ b:Self) 
             {
                 self.storage.addProduct(a, b.storage)
             }
@@ -594,13 +619,36 @@ enum Vector
             {
                 .init(storage: self.storage.squareRoot())
             }
+            
+            static 
+            func interpolate(_ a:Self, _ b:Self, by t:T) 
+                -> Self
+            {
+                (a * (1 - t)).addingProduct(b, t)
+            } 
             """
+        }
+        """
+        extension Vector where Storage:SIMD.Transposable, T:Numerics.Real 
+        """
+        Source.block 
+        {
+            for function:String in ["sin", "cos", "tan", "asin", "acos", "atan", "exp", "log"] 
+            {
+                """
+                static 
+                func \(function)(_ self:Self) -> Self 
+                {
+                    self.map(T.\(function)(_:))
+                }
+                """
+            }
         }
         """
         
         // geometric operations
         """
-        for domain:String in ["FixedWidthInteger", "BinaryFloatingPoint"] 
+        for domain:String in numeric 
         {
             """
             extension Vector where T:\(domain)
@@ -679,16 +727,30 @@ enum Vector
         }
         
         // linear aggregates
-        protocol _SIMDTransposable 
-        """
-        Source.block 
+        protocol _SIMDTransposable:SIMD 
         {
-            "associatedtype Transpose"
+            associatedtype Transpose
+            associatedtype Square 
+            
+            func map(_ transform:(Scalar) -> Scalar) -> Self 
+            
+            static 
+            func diagonal(trimming matrix:Square) -> Self 
+            static 
+            func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
         }
-        """
+        protocol _SIMDMatrixAlgebra:SIMD.Transposable 
+        {
+            static 
+            func determinant(_ matrix:Square) -> Scalar 
+            static 
+            func inverse(_ matrix:Square) -> Square 
+        }
+        
         extension SIMD 
         {
-            typealias Transposable = _SIMDTransposable 
+            typealias Transposable  = _SIMDTransposable 
+            typealias MatrixAlgebra = _SIMDMatrixAlgebra 
         }
         """
         for n:Int in 2 ... 4 
@@ -700,13 +762,130 @@ enum Vector
             {
                 """
                 typealias Transpose = (\(repeatElement("Scalar", count: n).joined(separator: ", ")))
+                typealias Square    = 
                 """
+                Source.block(delimiters: ("(", ")"))
+                {
+                    repeatElement("Vector<Self, Scalar>", count: n).joined(separator: ",\n")
+                }
+                """
+                
+                func map(_ transform:(Scalar) -> Scalar) -> Self 
+                {
+                    .init(\(components.cartesian.prefix(n)
+                        .map{ "transform(self.\($0))" }
+                        .joined(separator: ", ")))
+                }
+                
+                static 
+                func diagonal(trimming matrix:Square) -> Self 
+                {
+                    .init(\(components.cartesian.prefix(n).enumerated()
+                        .map{ "matrix.\($0.0).\($0.1)" }
+                        .joined(separator: ", ")))
+                }
+                static 
+                func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
+                """
+                Source.block 
+                {
+                    Source.block(delimiters: ("(", ")"))
+                    {
+                        (0 ..< n).map
+                        {
+                            (j:Int) in 
+                            """
+                            .init(\(components.cartesian.prefix(n).enumerated()
+                                .map{ $0.0 == j ? "diagonal.\($0.1)" : "fill" } 
+                                .joined(separator: ", ")))
+                            """
+                        }.joined(separator: ",\n")
+                    }
+                }
             }
         }
         """
+        extension SIMD2:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
+        {
+            static 
+            func determinant(_ A:Square) -> Scalar 
+            {
+                A.0 >|< A.1
+            }
+            static 
+            func inverse(_ A:Square) -> Square 
+            {
+                let column:(Vector<Self, Scalar>, Vector<Self, Scalar>)
+                let determinant:Scalar = A.0 >|< A.1
+                
+                column.0 = .init( A.1.y, -A.0.y)
+                column.1 = .init(-A.1.x,  A.0.x)
+                
+                return (column.0 / determinant, column.1 / determinant)
+            }
+        }
+        extension SIMD3:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
+        {
+            static 
+            func determinant(_ A:Square) -> Scalar 
+            {
+                A.0 >|< A.1 <> A.2
+            }
+            static 
+            func inverse(_ A:Square) -> Square
+            {
+                let row:(Vector<Self, Scalar>, Vector<Self, Scalar>, Vector<Self, Scalar>)
+                let determinant:Scalar 
+                // can re-use this cross product computation 
+                row.0       = A.1 >|< A.2
+                row.1       = A.2 >|< A.0
+                row.2       = A.0 >|< A.1 
+                
+                determinant = row.2 <> A.2
+                
+                return (row.0 / determinant, row.1 / determinant, row.2 / determinant)*
+                
+                /*
+                let a:Vector<Self, Scalar> = .init(
+                    A.1.y * A.2.z - A.2.y * A.1.z,
+                    A.2.y * A.0.z - A.0.y * A.2.z,
+                    A.0.y * A.1.z - A.1.y * A.0.z)
+                let b:Vector<Self, Scalar> = .init(
+                    A.1.z * A.2.x - A.2.z * A.1.x,
+                    A.2.z * A.0.x - A.0.z * A.2.x,
+                    A.0.z * A.1.x - A.1.z * A.0.x)
+                let c:Vector<Self, Scalar> = .init(
+                    A.1.x * A.2.y - A.2.x * A.1.y,
+                    A.2.x * A.0.y - A.0.x * A.2.y,
+                    A.0.x * A.1.y - A.1.x * A.0.y)
+                
+                let a:Vector<Self, Scalar> = .init(
+                    A.1.y * A.2.z - A.2.y * A.1.z,
+                    A.2.y * A.0.z - A.0.y * A.2.z,
+                    A.0.y * A.1.z - A.1.y * A.0.z)
+                let b:Vector<Self, Scalar> = .init(
+                    A.2.x * A.1.z - A.1.x * A.2.z,
+                    A.0.x * A.2.z - A.2.x * A.0.z,
+                    A.1.x * A.0.z - A.0.x * A.1.z)
+                let c:Vector<Self, Scalar> = .init(
+                    A.1.x * A.2.y - A.2.x * A.1.y,
+                    A.2.x * A.0.y - A.0.x * A.2.y,
+                    A.0.x * A.1.y - A.1.x * A.0.y)
+                */
+            }
+        }
+        """
+        
+        """
         extension Vector where Storage:SIMD.Transposable
         {
-            typealias Row     =  Storage.Transpose 
+            typealias Row       = Storage.Transpose 
+            typealias Matrix    = Storage.Square
+            
+            func map(_ transform:(T) -> T) -> Self 
+            {
+                .init(storage: self.storage.map(transform))
+            }
         }
         extension Vector 
         """
@@ -796,7 +975,7 @@ enum Vector
         
         // linear operations 
         """
-        for domain:String in ["FixedWidthInteger", "BinaryFloatingPoint"] 
+        for domain:String in numeric 
         {
             """
             
@@ -943,25 +1122,73 @@ enum Vector
                     }
                 }
             }
-            for n:Int in 2 ... 4 
+        }
+        """
+        
+        // matrix operations
+        extension Vector where Storage:SIMD.Transposable
+        {
+            static 
+            func diagonal(trimming matrix:Matrix) -> Self 
             {
-                """
-                extension Vector where T:\(domain), Storage == SIMD\(n)<T> 
-                """
-                Source.block 
+                .init(storage: Storage.diagonal(trimming: matrix))
+            } 
+            static 
+            func diagonal(padding diagonal:Self, with fill:T) -> Matrix 
+            {
+                Storage.diagonal(padding: diagonal.storage, with: fill)
+            } 
+        }
+        extension Vector where Storage:SIMD.Transposable, T:Numeric 
+        {
+            static 
+            func diagonal(padding diagonal:Self) -> Matrix 
+            {
+                Self.diagonal(padding: diagonal, with: .zero)
+            } 
+        }
+        """
+        for domain:String in numeric 
+        {
+            """
+            extension Vector where Storage:SIMD.Transposable, T:\(domain) 
+            {
+                static 
+                func trace(_ matrix:Matrix) -> T 
                 {
-                    """
-                    static 
-                    func trace(_ matrix:Matrix\(n)) -> T 
-                    {
-                        \(components.cartesian.prefix(n).enumerated()
-                            .map{ "matrix.\($0.0).\($0.1)" }
-                            .joined(separator: " + "))
-                    }
-                    """
+                    Self.diagonal(trimming: matrix).sum
                 }
             }
+            """
         }
+        for domain:String in numeric 
+        {
+            """
+            extension Vector where T:\(domain) 
+            {
+                static 
+                func trace(_ diagonal:Diagonal) -> T 
+                {
+                    Self.diagonal(diagonal).sum
+                }
+            }
+            """
+        }
+        """
+        extension Vector where Storage:SIMD.MatrixAlgebra 
+        {
+            static 
+            func determinant(_ matrix:Matrix) -> T 
+            {
+                Storage.determinant(matrix)
+            }
+            static 
+            func inverse(_ matrix:Matrix) -> Matrix 
+            {
+                Storage.inverse(matrix)
+            }
+        }
+        """
         """
         
         // length-dependent + cross-type functionality
@@ -988,22 +1215,22 @@ enum Vector
                 """
                 init<U>(clamping other:Vector\(n)<U>) where U:FixedWidthInteger 
                 {
-                    self.storage = .init(clamping: other.storage)
+                    self.init(storage: .init(clamping: other.storage))
                 }
                 init<U>(truncatingIfNeeded other:Vector\(n)<U>) where U:FixedWidthInteger 
                 {
-                    self.storage = .init(truncatingIfNeeded: other.storage)
+                    self.init(storage: .init(truncatingIfNeeded: other.storage))
                 }
                 
                 init<U>(_ other:Vector\(n)<U>) 
                     where U:BinaryFloatingPoint
                 {
-                    self.storage = .init(other.storage)
+                    self.init(storage: .init(other.storage))
                 }
                 init<U>(_ other:Vector\(n)<U>, rounding rule:FloatingPointRoundingRule) 
                     where U:BinaryFloatingPoint
                 {
-                    self.storage = .init(other.storage, rounding: rule)
+                    self.init(storage: .init(other.storage, rounding: rule))
                 }
                 """
             }
@@ -1015,11 +1242,11 @@ enum Vector
                 """
                 init<U>(_ other:Vector\(n)<U>) where U:FixedWidthInteger
                 {
-                    self.storage = .init(other.storage)
+                    self.init(storage: .init(other.storage))
                 }
                 init<U>(_ other:Vector\(n)<U>) where U:BinaryFloatingPoint
                 {
-                    self.storage = .init(other.storage)
+                    self.init(storage: .init(other.storage))
                 }
                 """
             }
@@ -1076,6 +1303,106 @@ enum Vector
                     let indices:String  = permutation.map(String.init(_:)).joined(separator: ", ")
                     "static let \(name):Self = .init(selector: .init(\(indices)))"
                 }
+            }
+        }
+        
+        """
+        
+        // extra `Rectangle` functionality 
+        """
+        for domain:String in numeric 
+        {
+            """
+            extension VectorFiniteRangeExpression where T:\(domain) 
+            """
+            Source.block 
+            {
+                """
+                var zero:Self 
+                {
+                    .init(lowerBound: .zero, upperBound: .zero)
+                }
+                var size:Vector<Storage, T> 
+                {
+                    self.upperBound - self.lowerBound
+                }
+                """
+                if domain == "BinaryFloatingPoint"
+                {
+                    """
+                    var midpoint:Vector<Storage, T> 
+                    {
+                        0.5 * (self.lowerBound + self.upperBound)
+                    }
+                    """
+                }
+            }
+        }
+        """
+        
+        // type conversions 
+        """
+        for n:Int in 2 ... 4 
+        {
+            """
+            extension VectorFiniteRangeExpression where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+            """
+            Source.block
+            {
+                """
+                init<Other:VectorFiniteRangeExpression, U>(clamping other:Other) 
+                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                {
+                    self.init(
+                        lowerBound: .init(clamping: other.lowerBound),
+                        upperBound: .init(clamping: other.upperBound))
+                }
+                init<Other:VectorFiniteRangeExpression, U>(truncatingIfNeeded other:Other)
+                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                {
+                    self.init(
+                        lowerBound: .init(truncatingIfNeeded: other.lowerBound),
+                        upperBound: .init(truncatingIfNeeded: other.upperBound))
+                }
+                
+                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
+                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                {
+                    self.init(
+                        lowerBound: .init(other.lowerBound),
+                        upperBound: .init(other.upperBound))
+                }
+                init<Other:VectorFiniteRangeExpression, U>(_ other:Other, 
+                    rounding rule:FloatingPointRoundingRule) 
+                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                {
+                    self.init(
+                        lowerBound: .init(other.lowerBound, rounding: rule),
+                        upperBound: .init(other.upperBound, rounding: rule))
+                } 
+                """
+            }
+            """
+            extension VectorFiniteRangeExpression where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+            """
+            Source.block
+            {
+                """
+                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
+                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                {
+                    self.init(
+                        lowerBound: .init(other.lowerBound),
+                        upperBound: .init(other.upperBound))
+                }
+                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
+                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                {
+                    self.init(
+                        lowerBound: .init(other.lowerBound),
+                        upperBound: .init(other.upperBound))
+                }
+                """
             }
         }
     }
