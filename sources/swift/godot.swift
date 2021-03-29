@@ -888,7 +888,17 @@ extension Godot
         
         Self.runtime.load()
         
-        //self.runtime._testsemantics()
+        // assert unsafebitcast memory layouts 
+        if  MemoryLayout<godot_transform2d>.size != 
+            MemoryLayout<Godot.Transform2.RawValue>.size
+        {
+            Self.print(error: "memory layout of `godot_transform2d` has size \(MemoryLayout<godot_transform2d>.size) B (expected \(MemoryLayout<Godot.Transform2.RawValue>.size) B)")
+        }
+        if  MemoryLayout<godot_transform>.size != 
+            MemoryLayout<Godot.Transform3.RawValue>.size
+        {
+            Self.print(error: "memory layout of `godot_transform` has size \(MemoryLayout<godot_transform>.size) B (expected \(MemoryLayout<Godot.Transform3.RawValue>.size) B)")
+        }
     }
     
     static 
@@ -922,6 +932,15 @@ extension Godot
     struct Void 
     {
     } 
+    
+    struct Transform2 
+    {
+        let matrix:Vector2<Float>.Matrix3
+    }
+    struct Transform3 
+    {
+        let matrix:Vector3<Float>.Matrix4
+    }
     
     final 
     class String 
@@ -1613,6 +1632,85 @@ extension Vector.ClosedRectangle:Godot.VariantRepresentable
 {
 } 
 
+extension Godot.Transform2:Godot.Variant 
+{
+    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    {
+        guard let data:godot_transform2d = value.load(where: GODOT_VARIANT_TYPE_TRANSFORM2D, 
+            Godot.api.core.1.0.godot_variant_as_transform2d)
+        else 
+        {
+            return nil 
+        }
+        self.init(data: data)
+    }
+    
+    // godot does not provide an interface for accessing the basis vectors, 
+    // so we have to (unsafely) extract them from raw memory 
+    fileprivate 
+    typealias RawValue = ((Float, Float), (Float, Float), (Float, Float))
+    
+    fileprivate 
+    init(data:godot_transform2d) 
+    {
+        let columns:RawValue = unsafeBitCast(data, to: RawValue.self)
+        self.matrix = (columns.0*, columns.1*, columns.2*)
+    }
+    
+    var retainedValue:Godot.Variant.Unmanaged 
+    {
+        let columns:RawValue        = (self.matrix.0*, self.matrix.1*, self.matrix.2*)
+        let data:godot_transform2d  = unsafeBitCast(columns, to: godot_transform2d.self)
+        return Swift.withUnsafePointer(to: data)
+        {
+            .init(value: $0, Godot.api.core.1.0.godot_variant_new_transform2d)
+        }
+    }
+}
+extension Godot.Transform3:Godot.Variant 
+{
+    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    {
+        guard let data:godot_transform = value.load(where: GODOT_VARIANT_TYPE_TRANSFORM, 
+            Godot.api.core.1.0.godot_variant_as_transform)
+        else 
+        {
+            return nil 
+        }
+        self.init(data: data)
+    }
+    
+    // godot does not provide an interface for accessing the basis vectors, 
+    // so we have to (unsafely) extract them from raw memory. we cannot cast 
+    // directly to Vector3.Matrix, because Vector3 is padded to the size of a 
+    // Vector4 instance.
+    fileprivate 
+    typealias RawValue = 
+    (
+        (Float, Float, Float), 
+        (Float, Float, Float), 
+        (Float, Float, Float), 
+        (Float, Float, Float)
+    )
+    
+    fileprivate 
+    init(data:godot_transform) 
+    {
+        let columns:RawValue = unsafeBitCast(data, to: RawValue.self)
+        self.matrix = (columns.0*, columns.1*, columns.2*, columns.3*)
+    }
+    
+    var retainedValue:Godot.Variant.Unmanaged 
+    {
+        let columns:RawValue        = (self.matrix.0*, self.matrix.1*, self.matrix.2*, self.matrix.3*)
+        let data:godot_transform    = unsafeBitCast(columns, to: godot_transform.self)
+        return Swift.withUnsafePointer(to: data)
+        {
+            .init(value: $0, Godot.api.core.1.0.godot_variant_new_transform)
+        }
+    }
+}
+
 extension Godot.String:Godot.Variant 
 {
     convenience
@@ -1924,6 +2022,13 @@ extension Godot.Variant.Unmanaged
                 return Vector3<Float>.Rectangle.init(
                     lowerBound: .init(storage: start), 
                     upperBound: .init(storage: start + size))
+            
+            case GODOT_VARIANT_TYPE_TRANSFORM2D:
+                return Godot.Transform2.init(data: 
+                    Godot.api.core.1.0.godot_variant_as_transform2d($0))
+            case GODOT_VARIANT_TYPE_TRANSFORM:
+                return Godot.Transform3.init(data: 
+                    Godot.api.core.1.0.godot_variant_as_transform($0))
             
             case GODOT_VARIANT_TYPE_STRING:
                 return Godot.String.init(retained: 
