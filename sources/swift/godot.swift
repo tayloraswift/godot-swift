@@ -886,7 +886,7 @@ extension Godot
             }
         }
         
-        self.runtime.load()
+        Self.runtime.load()
         
         //self.runtime._testsemantics()
     }
@@ -1315,6 +1315,136 @@ extension Float64:Godot.Variant
     }
 }
 
+protocol _GodotVariantRepresentableVectorElement
+{
+    static 
+    func load(value:Godot.Variant.Unmanaged) -> (Self, Self)?
+    static 
+    func load(value:Godot.Variant.Unmanaged) -> (Self, Self, Self)?
+    static 
+    func store(value:(Self, Self)) -> Godot.Variant.Unmanaged
+    static 
+    func store(value:(Self, Self, Self)) -> Godot.Variant.Unmanaged
+}
+extension Godot.VariantRepresentable 
+{
+    typealias VectorElement = _GodotVariantRepresentableVectorElement
+}
+// cannot simply parameterize over `BinaryFloatingPoint` because we want to 
+// support integer vectors later as well 
+extension Float16:Godot.VariantRepresentable.VectorElement {}
+extension Float32:Godot.VariantRepresentable.VectorElement {}
+extension Float64:Godot.VariantRepresentable.VectorElement {}
+extension BinaryFloatingPoint
+{
+    static 
+    func load(value:Godot.Variant.Unmanaged) -> (Self, Self)?
+    {
+        guard let data:godot_vector2 = value.load(where: GODOT_VARIANT_TYPE_VECTOR2, 
+            Godot.api.core.1.0.godot_variant_as_vector2)
+        else 
+        {
+            return nil 
+        }
+        return withUnsafePointer(to: data) 
+        {
+            (
+                .init(Godot.api.core.1.0.godot_vector2_get_x($0)), 
+                .init(Godot.api.core.1.0.godot_vector2_get_y($0))
+            )
+        }
+    }
+    static 
+    func load(value:Godot.Variant.Unmanaged) -> (Self, Self, Self)?
+    {
+        guard let data:godot_vector3 = value.load(where: GODOT_VARIANT_TYPE_VECTOR3, 
+            Godot.api.core.1.0.godot_variant_as_vector3)
+        else 
+        {
+            return nil 
+        }
+        return withUnsafePointer(to: data) 
+        {
+            (
+                .init(Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_X)), 
+                .init(Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_Y)),
+                .init(Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_Z))
+            )
+        }
+    }
+    static 
+    func store(value:(Self, Self)) -> Godot.Variant.Unmanaged
+    {
+        var data:godot_vector2 = .init() 
+        Godot.api.core.1.0.godot_vector2_new(&data, .init(value.0), .init(value.1))
+        return withUnsafePointer(to: data) 
+        {
+            .init(value: $0, Godot.api.core.1.0.godot_variant_new_vector2)
+        }
+    }
+    static 
+    func store(value:(Self, Self, Self)) -> Godot.Variant.Unmanaged
+    {
+        var data:godot_vector3 = .init() 
+        Godot.api.core.1.0.godot_vector3_new(&data, .init(value.0), .init(value.1), .init(value.2))
+        return withUnsafePointer(to: data) 
+        {
+            .init(value: $0, Godot.api.core.1.0.godot_variant_new_vector3)
+        }
+    }
+}
+extension SIMD2:Godot.VariantRepresentable where Scalar:Godot.VariantRepresentable.VectorElement
+{
+    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    {
+        guard let (x, y):(Scalar, Scalar) = Scalar.load(value: value) 
+        else 
+        {
+            return nil 
+        }
+        self.init(x, y)
+    }
+    var retainedValue:Godot.Variant.Unmanaged 
+    {
+        Scalar.store(value: (self.x, self.y))
+    }
+}
+extension SIMD3:Godot.VariantRepresentable where Scalar:Godot.VariantRepresentable.VectorElement
+{
+    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    {
+        guard let (x, y, z):(Scalar, Scalar, Scalar) = Scalar.load(value: value) 
+        else 
+        {
+            return nil 
+        }
+        self.init(x, y, z)
+    }
+    var retainedValue:Godot.Variant.Unmanaged 
+    {
+        Scalar.store(value: (self.x, self.y, self.z))
+    }
+}
+extension Vector:Godot.VariantRepresentable where Storage:Godot.VariantRepresentable
+{
+    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    {
+        guard let storage:Storage = .init(unretainedValue: value) 
+        else 
+        {
+            return nil 
+        }
+        self.storage = storage 
+    }
+    var retainedValue:Godot.Variant.Unmanaged 
+    {
+        self.storage.retainedValue
+    }
+}
+extension Vector:Godot.Variant where Storage:Godot.VariantRepresentable, T == Float32 
+{
+}
+
 extension Godot.String:Godot.Variant 
 {
     convenience
@@ -1593,6 +1723,26 @@ extension Godot.Variant.Unmanaged
                 return Godot.api.core.1.0.godot_variant_as_int($0)
             case GODOT_VARIANT_TYPE_REAL:
                 return Godot.api.core.1.0.godot_variant_as_real($0)
+            
+            case GODOT_VARIANT_TYPE_VECTOR2:
+                let data:godot_vector2 = Godot.api.core.1.0.godot_variant_as_vector2($0)
+                return Swift.withUnsafePointer(to: data) 
+                {
+                    (
+                        Godot.api.core.1.0.godot_vector2_get_x($0), 
+                        Godot.api.core.1.0.godot_vector2_get_y($0)
+                    )*
+                } 
+            case GODOT_VARIANT_TYPE_VECTOR3:
+                let data:godot_vector3 = Godot.api.core.1.0.godot_variant_as_vector3($0)
+                return Swift.withUnsafePointer(to: data) 
+                {
+                    (
+                        Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_X), 
+                        Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_Y),
+                        Godot.api.core.1.0.godot_vector3_get_axis($0, GODOT_VECTOR3_AXIS_Z)
+                    )*
+                } 
             
             case GODOT_VARIANT_TYPE_STRING:
                 return Godot.String.init(retained: 
