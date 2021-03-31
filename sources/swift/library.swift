@@ -44,6 +44,8 @@ struct TestSemantics:Godot.NativeScript
         returnInoutString(delegate:s:) <- "return_inout_string"
         returnInoutList(delegate:list:) <- "return_inout_list"
         returnTuple(delegate:) <- "return_tuple"
+        
+        returnVectors(delegate:) <- "return_vectors"
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
         methodTupleReturn(delegate:) <- "return_tuple_argument"
@@ -132,7 +134,7 @@ struct TestSemantics:Godot.NativeScript
         s = "mutated by returnInoutString"
         return s
     }
-    func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) -> Godot.List 
+    func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) throws -> Godot.List 
     {
         print("hello from returnInoutList(delegate:list:), recieved: \(list)")
         let a:Godot.Variant = list[0]
@@ -147,5 +149,10 @@ struct TestSemantics:Godot.NativeScript
     {
         print("hello from returnTuple(delegate:)")
         return ("first", "second")
+    }
+    
+    func returnVectors(delegate:Godot.Unmanaged.MeshInstance) -> (Vector3<Float>, Vector3<Float>, Vector3<Float>)
+    {
+        fatalError()
     }
 }

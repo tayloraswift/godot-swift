@@ -82,6 +82,136 @@ extension Inspector
     }
 }
 
+final 
+class Diagnostics 
+{
+    final 
+    class Delegate<Context> 
+    {
+        let diagnostics:Diagnostics 
+        let context:Context 
+        
+        init(_ diagnostics:Diagnostics, context:Context)
+        {
+            self.diagnostics    = diagnostics 
+            self.context        = context
+        }
+    }
+    
+    enum Diagnostic 
+    {
+        case error(String)
+        case warning(String)
+        case note(String)
+        
+        func plant() -> String 
+        {
+            switch self 
+            {
+            case .error     (let message): return 
+                """
+                #error(
+                "\(message)"
+                )
+                """
+            case .warning   (let message): return 
+                """
+                #warning(
+                "\(message)"
+                )
+                """
+            // no swift support for #message yet, unfortunately
+            case .note      (let message): return 
+                """
+                #warning(
+                "note: \(message)"
+                )
+                """
+            }
+        }
+    }
+    
+    private
+    var diagnostics:[Diagnostic] 
+    
+    init()
+    {
+        self.diagnostics = []
+    }
+    
+    func with<R, Context>(context:Context, _ body:(Delegate<Context>) throws -> R) 
+        rethrows -> R 
+    {
+        try body(.init(self, context: context))
+    }
+    
+    func emit(_ diagnostic:Diagnostic) 
+    {
+        self.diagnostics.append(diagnostic)
+    }
+    
+    func plant() -> String 
+    {
+        Source.fragment 
+        {
+            for diagnostic:Diagnostic in self.diagnostics 
+            {
+                diagnostic.plant()
+            }
+        }
+    }
+}
+extension Diagnostics.Delegate 
+{
+    func with<R, Next>(context:Next, _ body:(Diagnostics.Delegate<Next>) throws -> R) 
+        rethrows -> R 
+    {
+        try body(.init(self.diagnostics, context: context))
+    }
+    
+    func error(_ message:(Context) -> String)
+    {
+        self.diagnostics.emit(.error(message(self.context)))
+    }
+    func warning(_ message:(Context) -> String)
+    {
+        self.diagnostics.emit(.warning(message(self.context)))
+    }
+    func note(_ message:(Context) -> String)
+    {
+        self.diagnostics.emit(.note(message(self.context)))
+    }
+}
+
+// diagnostic helpers 
+extension SwiftGrammar.SwiftType 
+{
+    func match(vector arity:Int) -> String? 
+    {
+        if  case .named(let identifiers)                = self,
+            let head:SwiftGrammar.TypeIdentifier        = identifiers.first, 
+            identifiers.dropFirst().isEmpty, 
+            head.identifier == "Vector", 
+            let storage:SwiftGrammar.SwiftType          = head.generics.first, 
+            let _:SwiftGrammar.SwiftType                = head.generics.dropFirst().first, 
+            head.generics.dropFirst(2).isEmpty, 
+            
+            case .named(let storageIdentifiers)         = storage, 
+            let storageHead:SwiftGrammar.TypeIdentifier = storageIdentifiers.first, 
+            storageIdentifiers.dropFirst().isEmpty, 
+            storageHead.identifier == "SIMD\(arity)", 
+            let scalar:SwiftGrammar.SwiftType           = storageHead.generics.first, 
+            storageHead.generics.dropFirst().isEmpty 
+        {
+            return "\(scalar)" 
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+}
+
 extension Synthesizer 
 {
     enum Form:Hashable  
@@ -99,12 +229,14 @@ extension Synthesizer
         case tuple([Self])
         case scalar(type:String) 
         
-        init(_ type:SwiftGrammar.SwiftType, prefix:String, start:Int = 0) 
+        init(_ type:SwiftGrammar.SwiftType, prefix:String, start:Int = 0, 
+            diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType, component:String)>) 
         {
             var counter:Int = start 
-            self.init(type, prefix: prefix, counter: &counter)
+            self.init(type, prefix: prefix, counter: &counter, diagnostics: diagnostics)
         }
-        init(_ type:SwiftGrammar.SwiftType, prefix:String, counter:inout Int) 
+        init(_ type:SwiftGrammar.SwiftType, prefix:String, counter:inout Int, 
+                diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType, component:String)>) 
         {
             switch type 
             {
@@ -119,8 +251,106 @@ extension Synthesizer
                 var elements:[Self] = []
                 for type:SwiftGrammar.SwiftType in types.map(\.type)  
                 {
-                    elements.append(Self.init(type, prefix: prefix, counter: &counter))
+                    elements.append(Self.init(type, prefix: prefix, counter: &counter, 
+                        diagnostics: diagnostics))
                 }
+                
+                // diagnose possible problems with “naked” matrices 
+                diagnostics:
+                if types.compactMap(\.label).isEmpty
+                {
+                    let scalars:(vector2:[String], vector3:[String]) = 
+                    (
+                        types.compactMap{ $0.type.match(vector: 2) },
+                        types.compactMap{ $0.type.match(vector: 3) }
+                    )
+                    if  let scalar:String = scalars.vector2.first, 
+                            Set<String>.init(scalars.vector2).count == 1,
+                            scalars.vector2.count == 3, 
+                            types.count == 3 
+                    {
+                        diagnostics.warning
+                        {
+                            _ in 
+                            """
+                            inferred gdscript for type \
+                            'Vector2<\(scalar)>.Matrix3' will be a 'Godot::Array' \
+                            of \(types.count) 'Vector2<\(scalar)>'s
+                            """
+                        }
+                        diagnostics.note
+                        {
+                            _ in 
+                            """
+                            explicitly wrap the 'Vector2<\(scalar)>.Matrix3' in a \ 
+                            'Godot.Transform2.Affine' container to specify a type \
+                            of 'Godot::Transform2D'
+                            """
+                        }
+                    }
+                    else if let scalar:String = scalars.vector3.first, 
+                            Set<String>.init(scalars.vector3).count == 1,
+                            scalars.vector3.count == 3, 
+                            types.count == 3 
+                    {
+                        diagnostics.warning
+                        {
+                            _ in 
+                            """
+                            inferred gdscript type for type \
+                            'Vector3<\(scalar)>.Matrix' will be a 'Godot::Array' \
+                            of \(types.count) 'Vector3<\(scalar)>'s
+                            """
+                        }
+                        diagnostics.note
+                        {
+                            _ in
+                            """
+                            explicitly wrap the 'Vector3<\(scalar)>.Matrix' in a \ 
+                            'Godot.Transform3.Linear' container to specify a type \
+                            of 'Godot::Basis'
+                            """
+                        }
+                    }
+                    else if let scalar:String = scalars.vector3.first, 
+                            Set<String>.init(scalars.vector3).count == 1,
+                            scalars.vector3.count == 4, 
+                            types.count == 4 
+                    {
+                        diagnostics.warning
+                        {
+                            _ in 
+                            """
+                            inferred gdscript type for type \
+                            'Vector3<\(scalar)>.Matrix4' will be a 'Godot::Array' \
+                            of \(types.count) 'Vector3<\(scalar)>'s
+                            """
+                        }
+                        diagnostics.note
+                        {
+                            _ in 
+                            """
+                            explicitly wrap the 'Vector3<\(scalar)>.Matrix4' in a \ 
+                            'Godot.Transform3.Affine' container to specify a type \
+                            of 'Godot::Transform'
+                            """
+                        }
+                    }
+                    else 
+                    {
+                        break diagnostics
+                    }
+                    
+                    diagnostics.note
+                    { 
+                        "in \($0.component) of function(s) with type '\($0.signature)'"
+                    }
+                    diagnostics.note 
+                    {
+                        "in interface definition for type '\($0.typename)'"
+                    }
+                } 
+                
                 self = .tuple(elements)
             
             default:
@@ -143,18 +373,36 @@ extension Synthesizer
         // `exclude` specifies a leading (unparameterized) type to append to 
         //  the parameters tuple
         init(function:SwiftGrammar.FunctionType, exclude:String, 
-            prefix:(domain:String, range:String))   
+            prefix:(domain:String, range:String), 
+            diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType)>)   
         {
             var domain:[Form.Parameter] = [], 
                 counter:Int             = 0
-            for parameter:SwiftGrammar.FunctionParameter in function.parameters.dropFirst()
+            for (i, parameter):(Int, SwiftGrammar.FunctionParameter) in 
+                function.parameters.enumerated().dropFirst()
             {
-                domain.append(.init(`inout`: parameter.inout, 
-                    type: .init(parameter.type, prefix: prefix.domain, counter: &counter)))
+                diagnostics.with(context: 
+                    (
+                        typename:   diagnostics.context.typename, 
+                        signature:  diagnostics.context.signature, 
+                        component: "parameter #\(i)"
+                    )) 
+                {
+                    domain.append(.init(`inout`: parameter.inout, type: 
+                        .init(parameter.type, prefix: prefix.domain, counter: &counter, diagnostics: $0)))
+                }
             }
             self.exclude    = exclude 
             self.domain     = domain
-            self.range      = .init(function.return, prefix: prefix.range)
+            self.range      = diagnostics.with(context: 
+                (
+                    typename:   diagnostics.context.typename, 
+                    signature:  diagnostics.context.signature, 
+                    component: "return value"
+                )) 
+            {
+                .init(function.return, prefix: prefix.range, diagnostics: $0)
+            }
         }
     }
 }
@@ -479,40 +727,85 @@ extension Synthesizer
     static 
     func generate(staged:AbsolutePath, interface:[(typename:String, symbols:[String], signatures:[String])])
     {
+        let diagnostics:Diagnostics = .init()
         let parameterizations:Set<FunctionParameterization> = 
-            .init(interface.flatMap(\.signatures).compactMap
+            .init(interface.flatMap
         {
-            (signature:String) -> FunctionParameterization? in 
+            (interface:(typename:String, symbols:[String], signatures:[String])) -> [FunctionParameterization] in 
             
-            guard let type:SwiftGrammar.SwiftType = .init(parsing: signature)
-            else 
+            interface.signatures.compactMap  
             {
-                print("error: failed to parse signature '\(signature)'")
-                return nil 
+                (signature:String) in 
+                
+                guard let type:SwiftGrammar.SwiftType = .init(parsing: signature)
+                else 
+                {
+                    print("error: failed to parse signature '\(signature)'")
+                    return nil 
+                }
+                
+                return diagnostics.with(context: (typename: interface.typename, signature: type))
+                {
+                    (diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType)>) 
+                        -> FunctionParameterization? in 
+                    
+                    guard case .function(let function) = type 
+                    else 
+                    {
+                        diagnostics.error 
+                        {
+                            """
+                            function bound by operator '<-' must return a function type (return type is '\($0.signature)').
+                            """
+                        }
+                        diagnostics.note 
+                        {
+                            "in interface definition for type '\($0.typename)'"
+                        }
+                        return nil 
+                    }
+                    if function.throws 
+                    {
+                        diagnostics.error 
+                        {
+                            """
+                            operator '<-' cannot bind function of type '\($0.signature)' \
+                            (`throws` for method interface functions is not supported yet)
+                            """
+                        }
+                        diagnostics.note 
+                        {
+                            "in interface definition for type '\($0.typename)'"
+                        }
+                    }
+                    if function.parameters.contains(where: \.variadic) 
+                    {
+                        diagnostics.error 
+                        {
+                            """
+                            operator '<-' cannot bind function of type '\($0.signature)' \
+                            (swift cannot recieve variadic arguments dynamically)
+                            """
+                        }
+                        diagnostics.note 
+                        {
+                            "in interface definition for type '\($0.typename)'"
+                        }
+                    }
+                    
+                    return .init(function: function, exclude: "T.Delegate", prefix: ("U", "V"), 
+                        diagnostics: diagnostics)
+                }
             }
-            
-            guard case .function(let function) = type 
-            else 
-            {
-                print("warning: left-hand-side of operator '<-' must be a function returning a function. subsequent build stages will fail.")
-                return nil 
-            }
-            if function.throws 
-            {
-                print("warning: `throws` for method interface functions is not supported yet. subsequent build stages will fail.")
-            }
-            if function.parameters.contains(where: \.variadic) 
-            {
-                print("warning: swift cannot recieve variadic arguments dynamically. subsequent build stages will fail.")
-            }
-            
-            return .init(function: function, exclude: "T.Delegate", prefix: ("U", "V"))
         })
         
         Source.generate(file: staged) 
         {
             """
             // generated by '\(#file)'
+            """
+            diagnostics.plant()
+            """
             
             import GDNative
             
