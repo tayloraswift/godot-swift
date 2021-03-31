@@ -2612,55 +2612,8 @@ extension String:Godot.VariantRepresentable
         .pass(retained: Godot.String.init(self))
     }
 } 
-extension UInt64:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        if let value:Self = value(as: UInt64.self) { self = value } else { return nil }
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(self)
-    }
-}
-extension UInt32:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:UInt64 = value(as: UInt64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(UInt64.init(self))
-    }
-}
-extension UInt16:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:UInt64 = value(as: UInt64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(UInt64.init(self))
-    }
-}
-extension UInt8:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:UInt64 = value(as: UInt64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(UInt64.init(self))
-    }
-}
 
-extension Int32:Godot.VariantRepresentable 
+extension FixedWidthInteger where Self:SignedInteger 
 {
     init?(unretainedValue value:Godot.Variant.Unmanaged) 
     {
@@ -2672,44 +2625,12 @@ extension Int32:Godot.VariantRepresentable
         .init(Int64.init(self))
     }
 }
-extension Int16:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:Int64 = value(as: Int64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(Int64.init(self))
-    }
-}
-extension Int8:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:Int64 = value(as: Int64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(Int64.init(self))
-    }
-}
+extension Int32:Godot.VariantRepresentable  {}
+extension Int16:Godot.VariantRepresentable  {}
+extension Int8:Godot.VariantRepresentable   {}
+extension Int:Godot.VariantRepresentable    {}
 
-extension Int:Godot.VariantRepresentable 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:Int64 = value(as: Int64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(Int64.init(self))
-    }
-} 
-extension UInt:Godot.VariantRepresentable 
+extension FixedWidthInteger where Self:UnsignedInteger 
 {
     init?(unretainedValue value:Godot.Variant.Unmanaged) 
     {
@@ -2720,7 +2641,13 @@ extension UInt:Godot.VariantRepresentable
     {
         .init(UInt64.init(self))
     }
-} 
+}
+extension UInt64:Godot.VariantRepresentable {}
+extension UInt32:Godot.VariantRepresentable {}
+extension UInt16:Godot.VariantRepresentable {}
+extension UInt8:Godot.VariantRepresentable  {}
+extension UInt:Godot.VariantRepresentable   {}
+
 
 extension Godot 
 {
