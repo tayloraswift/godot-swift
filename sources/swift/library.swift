@@ -29,7 +29,7 @@ struct TestSemantics:Godot.NativeScript
     var interface:Interface 
     {
         method(delegate:) <- "pass_zero_arguments"
-        method(delegate:a:) <- "pass_one_argument"
+        /* method(delegate:a:) <- "pass_one_argument"
         method(delegate:nil:) <- "pass_null_argument"
         method(delegate:tuple:) <- "pass_tuple_argument"
         method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
@@ -45,7 +45,8 @@ struct TestSemantics:Godot.NativeScript
         returnInoutList(delegate:list:) <- "return_inout_list"
         returnTuple(delegate:) <- "return_tuple"
         
-        returnVectors(delegate:) <- "return_vectors"
+        returnVectors(delegate:) <- "return_vectors" */
+        
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
         methodTupleReturn(delegate:) <- "return_tuple_argument"
@@ -134,7 +135,7 @@ struct TestSemantics:Godot.NativeScript
         s = "mutated by returnInoutString"
         return s
     }
-    func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) throws -> Godot.List 
+    func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) -> Godot.List 
     {
         print("hello from returnInoutList(delegate:list:), recieved: \(list)")
         let a:Godot.Variant = list[0]
@@ -151,7 +152,7 @@ struct TestSemantics:Godot.NativeScript
         return ("first", "second")
     }
     
-    func returnVectors(delegate:Godot.Unmanaged.MeshInstance) -> (Vector3<Float>, Vector3<Float>, Vector3<Float>)
+    func returnVectors(delegate:Godot.Unmanaged.MeshInstance) -> (a:Vector3<Float>, b:Vector3<Float>, c:Vector3<Float>)
     {
         fatalError()
     }

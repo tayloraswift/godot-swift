@@ -1139,19 +1139,6 @@ extension Godot
         }
     }
     
-    enum Ancestor 
-    {
-        typealias Delegate          = Object & Unmanaged.MeshInstance
-        typealias Object            = Resource 
-        
-        typealias Resource          = _GodotAncestorResource
-        
-        enum Unmanaged 
-        {
-            typealias MeshInstance  = _GodotAncestorUnmanagedMeshInstance
-        }
-    }
-    
     struct Delegate:AnyDelegate, Ancestor.Delegate
     {
         private 
@@ -1269,7 +1256,6 @@ extension Godot
         }
     }
 }
-protocol _GodotAncestorResource {}
 
 // trivial-value types
 extension Godot 
@@ -1280,7 +1266,7 @@ extension Godot
 }
 extension Godot.Unmanaged 
 {
-    struct MeshInstance:Godot.AnyMeshInstance, Godot.Ancestor.Unmanaged.MeshInstance
+    struct MeshInstance:Godot.AnyMeshInstance, Godot.Ancestor.MeshInstance
     {
         @Godot.Metaclass 
         static 
@@ -1296,8 +1282,6 @@ extension Godot.Unmanaged
         }
     }
 }
-protocol _GodotAncestorUnmanagedMeshInstance {}
-
 
 extension Godot.Void:Godot.Variant 
 {
