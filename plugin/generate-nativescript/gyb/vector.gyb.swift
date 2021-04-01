@@ -1301,7 +1301,7 @@ enum Vector
                 {
                     let name:String     = permutation.map{ components[$0] }.joined()
                     let indices:String  = permutation.map(String.init(_:)).joined(separator: ", ")
-                    "static let \(name):Self = .init(selector: .init(\(indices)))"
+                    "static let \(name):Self = .init(selector: (\(indices))*)"
                 }
             }
         }
