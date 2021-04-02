@@ -1065,7 +1065,7 @@ extension Godot
     }
 }
 
-protocol _GodotAnyDelegate:Godot.VariantRepresentable 
+/* protocol _GodotAnyDelegate:Godot.VariantRepresentable 
 {
     static 
     var metaclass:String 
@@ -1089,25 +1089,25 @@ protocol _GodotAnyObject:Godot.AnyDelegate
     // non-failable init assumes instance has been type-checked, and does 
     // not perform any retains!
     init(retained:UnsafeMutableRawPointer) 
-}
-protocol _GodotAnyResource:Godot.AnyObject          {}
-protocol _GodotAnyUnmanaged:Godot.AnyDelegate
+} */
+//protocol _GodotAnyResource:Godot.AnyObject          {}
+/* protocol _GodotAnyUnmanaged:Godot.AnyDelegate
 {
     // non-failable init assumes instance has been type-checked, and does 
     // not perform any retains!
     init(core:UnsafeMutableRawPointer)
-}
-protocol _GodotAnyMeshInstance:Godot.AnyUnmanaged   {}
+} */
+//protocol _GodotAnyMeshInstance:Godot.AnyUnmanaged   {}
 
 extension Godot 
 {
-    typealias AnyDelegate       = _GodotAnyDelegate 
+    /* typealias AnyDelegate       = _GodotAnyDelegate 
     
     typealias AnyObject         = _GodotAnyObject
     typealias AnyUnmanaged      = _GodotAnyUnmanaged
     
     typealias AnyResource       = _GodotAnyResource
-    typealias AnyMeshInstance   = _GodotAnyMeshInstance
+    typealias AnyMeshInstance   = _GodotAnyMeshInstance */
     
     @propertyWrapper 
     struct Metaclass 

@@ -128,7 +128,8 @@ extension GodotAPI.Class
     class Node 
     {
         let name:String
-        let parent:String?
+        private(set)
+        var parent:String?
         
         private(set)
         var children:[Node]
@@ -149,6 +150,12 @@ extension GodotAPI.Class
         
         func append(child:Node) 
         {
+            self.children.append(child)
+        }
+        // reparents the node
+        func move(child:Node) 
+        {
+            child.parent = self.name
             self.children.append(child)
         }
         
@@ -255,7 +262,7 @@ extension GodotAPI
         let unmanaged:Class.Node        = .init(name: "Unmanaged")
         for node:Class.Node in delegate.children where node !== object
         {
-            unmanaged.append(child: node)
+            unmanaged.move(child: node)
         }
         return (unmanaged: unmanaged, object: object)
     }()
@@ -264,6 +271,7 @@ extension GodotAPI
     static 
     var swift:String 
     {
+        // generate class ancestor hierarchy
         """
         extension Godot 
         {
@@ -301,18 +309,18 @@ extension GodotAPI
                 }
             }
         }
-        for name:String in 
-            Self.root.object.leaves.map(\.name) 
-            +
-            Self.root.unmanaged.leaves.map(\.name) 
+        for node:Class.Node in Self.root.object.leaves + Self.root.unmanaged.leaves
         {
             """
-            protocol _GodotAncestor\(name) {}
+            protocol _GodotAncestor\(node.name) {}
             """
         }
+        // generate class inheritance hierarchy. 
+        // `Godot.AnyDelegate`, `Godot.AnyUnmanaged` and `Godot.AnyObject`
+        // have special behavior, so we define them manually
+        """
         
-        
-        /* protocol _GodotAnyDelegate:Godot.VariantRepresentable 
+        protocol _GodotAnyDelegate:Godot.VariantRepresentable 
         {
             static 
             var metaclass:String 
@@ -342,6 +350,41 @@ extension GodotAPI
             // non-failable init assumes instance has been type-checked, and does 
             // not perform any retains!
             init(core:UnsafeMutableRawPointer)
-        } */
+        }
+        """
+        for root:Class.Node in Self.root.object.children + Self.root.unmanaged.children 
+        {
+            // skip leaf nodes (final classes) 
+            for node:Class.Node in root.preorder where !node.children.isEmpty
+            {
+                // cannot use `guard` in result builder
+                if let parent:String = node.parent 
+                {
+                    // TODO: will need to place virtual method declarations here
+                    """
+                    protocol _GodotAny\(node.name):Godot.Any\(parent) {}
+                    """
+                }
+                else 
+                {
+                    let _ = fatalError("unreachable")
+                }
+            }
+        }
+        """
+        extension Godot
+        """
+        Source.block 
+        {
+            """
+            typealias AnyDelegate = _GodotAnyDelegate
+            
+            """
+            for node:Class.Node in Self.root.object.preorder + Self.root.unmanaged.preorder 
+                where !node.children.isEmpty
+            {
+                "typealias Any\(node.name) = _GodotAny\(node.name)"
+            }
+        }
     }
 }
