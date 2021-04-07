@@ -5,8 +5,240 @@ import var TSCBasic.localFileSystem
 //import struct Foundation.Data 
 import class Foundation.JSONDecoder
 
+struct Words:Equatable, CustomStringConvertible
+{
+    private 
+    var components:[String]
+    
+    static 
+    func split(pascal:String) -> Self 
+    {
+        var words:[String]  = []
+        var word:String     = ""
+        for character:Character in pascal 
+        {
+            if  character.isUppercase, 
+                let last:Character = word.last, last.isLowercase 
+            {
+                words.append(word)
+                word = ""
+            }
+            // remove internal underscores (keep leading underscores)
+            if character == "_", !word.isEmpty
+            {
+                words.append(word)
+                word = ""
+            }
+            else 
+            {
+                // if starting a new word, make sure it starts with an 
+                // uppercase letter (needed for `Tracking_status`)
+                if word.isEmpty, character.isLowercase 
+                {
+                    word.append(character.uppercased())
+                }
+                else 
+                {
+                    word.append(character)
+                }
+            }
+        }
+        
+        if !word.isEmpty 
+        {
+            words.append(word)
+        }
+        return .init(components: words)
+    }
+    
+    static 
+    func split(snake:String, lowercasing:Bool = true) -> Self
+    {
+        .init(components: snake.split(separator: "_").map
+        { 
+            if let head:Character = $0.first 
+            {
+                return "\(head)\($0.dropFirst().lowercased())"
+            }
+            else 
+            {
+                // should never have empty subsequences 
+                return .init($0)
+            }
+        })
+    }
+    
+    // expands unswifty abbreviations, and fix some strange spellings 
+    mutating 
+    func normalize() 
+    {
+        for i:Int in self.components.indices.dropLast() 
+        {
+            if self.components[i ..< i + 2] == ["Counter", "Clockwise"] 
+            {
+                self.components[i    ] = "Counterclockwise"
+                self.components[i + 1] = ""
+            }
+        }
+        self.components = self.components.compactMap 
+        {
+            switch $0 
+            {
+            case "":        return  nil
+            case "Func":    return "Function"
+            case "Op":      return "Operator"
+            case "Len":     return "Length"
+            case "Interp":  return "Interpolation"
+            case "Mult":    return "Multiplication"
+            case "Param":   return "Parameter"
+            case "Poly":    return "Polygon"
+            case "Assign":  return "Assignment"
+            case "Ref":     return "Reference"
+            case "Lib":     return "Library"
+            case "Mem":     return "Memory"
+            case "Tex":     return "Texture"
+            case "Subdiv":  return "Subdivision"
+            case "Accel":   return "Acceleration"
+            case "Anim":    return "Animation"
+            case "Expo":    return "Exponential"
+            case let word:  return word
+            }
+        }
+    }
+    // strips meaningless prefixes
+    mutating 
+    func factor(out other:Self) 
+    {
+        // most nested types have the form 
+        // scope:   'Foo' 'Bar' 'Baz' 
+        // nested:        'Bar' 'Baz' 'Qux'
+        // 
+        // we want to reduce it to just 'Qux'
+        for i:Int in (0 ... min(self.components.count - 1, other.components.count)).reversed()
+        {
+            // do not factor if it would result in the identifier 'Type', or 
+            // an identifier that would begin with a numeral 
+            if  self.components.prefix(i)    == other.components.suffix(i), 
+                self.components.dropFirst(i) != ["Type"]
+            {
+                if self.components.dropFirst(i).first?.first?.isNumber ?? true
+                {
+                    continue 
+                }
+                
+                self.components.removeFirst(i)
+                return 
+            }
+        }
+    }
+    
+    static 
+    func greatestCommonPrefix(among group:[Self]) -> Self 
+    {
+        var prefix:[String] = []
+        for i:Int in 0 ..< (group.map(\.components.count).min() ?? 0)
+        {
+            let unique:Set<String> = .init(group.map(\.components[i]))
+            if let first:String = unique.first, unique.count == 1 
+            {
+                prefix.append(first)
+            }
+            else 
+            {
+                break 
+            }
+        }
+        return .init(components: prefix)
+    }
+    
+    var description:String 
+    {
+        self.components.joined()
+    }
+    var camelcased:String 
+    {
+        if let head:String = self.components.first?.lowercased() 
+        {
+            let escaped:String 
+            if self.components.dropFirst().isEmpty
+            {
+                // escape keywords 
+                switch head 
+                {
+                case "in", "self", "continue", "default", "static":  
+                    escaped = "`\(head)`"
+                case let head: 
+                    escaped = head 
+                }
+            }
+            else 
+            {
+                escaped = head 
+            }
+            return "\(escaped)\(self.components.dropFirst().joined())"
+        }
+        else 
+        {
+            return self.description
+        }
+    }
+}
+
 enum GodotAPI 
 {
+    // symbol name mappings 
+    private static 
+    func name(class original:String) -> Words
+    {
+        let reconciled:String 
+        switch original
+        {
+        case "Object":          reconciled = "AnyDelegate"
+        case "Reference":       reconciled = "AnyObject"
+        // fix problematic names 
+        case "NativeScript":    reconciled = "NativeScriptDelegate"
+        case let original:      reconciled = original 
+        }
+        
+        var words:Words = .split(pascal: reconciled)
+        words.normalize()
+        
+        if "\(words)" != original 
+        {
+            print("'\(original)' -> '\(words)'")
+        }
+        
+        return words 
+    }
+    private static 
+    func name(enumeration original:String, scope:Words) -> Words
+    {
+        let reconciled:String
+        switch ("\(scope)", original)
+        {
+        // fix problematic names 
+        case ("VisualShader", "Type"):  reconciled = "Shader"
+        case ("IP", "Type"):            reconciled = "Version"
+        case let (_, original):         reconciled = original
+        }
+        
+        var words:Words = .split(pascal: reconciled)
+        words.normalize()
+        words.factor(out: scope)
+        
+        if "\(words)" != original 
+        {
+            print("'\(scope).\(original)' -> '\(scope).\(words)'")
+        }
+        
+        return words
+    }
+    private static 
+    func name(cases original:[(name:Words, rawValue:Int)]) -> [(name:Words, rawValue:Int)]
+    {
+        return original
+    }
+    
     struct Class:Codable 
     {
         enum API:String, Codable 
@@ -136,7 +368,7 @@ extension GodotAPI.Class
         typealias Identifier = 
         (
             namespace:Namespace,
-            name:String
+            name:Words
         )
         enum Namespace:String, CustomStringConvertible
         {
@@ -159,6 +391,9 @@ extension GodotAPI.Class
         var children:[Node],
             parent:Identifier?
         
+        // members 
+        let enumerations:[(name:Words, cases:[(name:Words, rawValue:Int)])]
+        
         init(class:GodotAPI.Class) 
         {
             self.children   = []
@@ -180,7 +415,7 @@ extension GodotAPI.Class
                 self.identifier = 
                 (
                     namespace:  self.info.is.managed || `class`.name == "Object" ? .root : .unmanaged,
-                    name:       Self.name(`class`.name)
+                    name:       GodotAPI.name(class: `class`.name)
                 )
             }
             else 
@@ -202,7 +437,28 @@ extension GodotAPI.Class
                         managed:        false
                     )
                 ) 
-                self.identifier = (namespace: .singleton, name: `class`.singleton)
+                self.identifier = (namespace: .singleton, name: GodotAPI.name(class: `class`.singleton))
+            }
+            
+            let scope:Words = self.identifier.name
+            self.enumerations = `class`.enumerations.map 
+            {
+                (enumeration:GodotAPI.Class.Enumeration) in 
+                
+                var cases:[(name:Words, rawValue:Int)] = 
+                    enumeration.cases.sorted(by: {$0.value < $1.value}).map 
+                {
+                    var name:Words = .split(snake: $0.key)
+                    name.normalize()
+                    return (name, $0.value)
+                }
+                let scope:Words     = GodotAPI.name(enumeration: enumeration.name, scope: scope)
+                let prefix:Words    = .greatestCommonPrefix(among: cases.map(\.name))
+                for i:Int in cases.indices 
+                {
+                    cases[i].name.factor(out: prefix)
+                }
+                return (scope, cases)
             }
         }
         
@@ -219,25 +475,6 @@ extension GodotAPI.Class
         var leaves:[Node] 
         {
             self.children.isEmpty ? [self] : self.children.flatMap(\.leaves)
-        }
-        
-        private static 
-        func name(_ original:String) -> String
-        {
-            let name:String 
-            switch original
-            {
-            case "Object":
-                name = "AnyDelegate"
-            case "Reference":
-                name = "AnyObject"
-            // fix problematic names 
-            case "NativeScript":
-                name = "NativeScriptDelegate"
-            case let original:
-                name = original
-            }
-            return name
         }
         
         @Source.Code
@@ -286,6 +523,23 @@ extension GodotAPI
             fatalError("could not parse 'godot-api.json' file (\(error))")
         }
         
+        // collect icall argument/return-value types 
+        /* for `class` in classes 
+        {
+            for enumeration in `class`.enumerations
+            {
+                print(enumeration.name, enumeration.cases)
+            }
+        } */
+        //let _types:Set<String> = .init(classes.flatMap 
+        //{
+        //    $0.methods.flatMap 
+        //    {
+        //        $0.arguments.map(\.type) + [$0.return]
+        //    }
+        //})
+        //print(_types.sorted())
+        
         // construct tree. include original parent keys in the dictionary 
         let nodes:[String: (parent:String?, node:Class.Node)] = 
             .init(uniqueKeysWithValues: classes.map 
@@ -294,7 +548,7 @@ extension GodotAPI
         })
         // sort to provide some stability in generated code
         for (parent, node):(String?, Class.Node) in 
-            nodes.values.sorted(by: { $0.node.identifier.name < $1.node.identifier.name }) 
+            nodes.values.sorted(by: { "\($0.node.identifier.name)" < "\($1.node.identifier.name)" }) 
         {
             if  let key:String          = parent, 
                 let parent:Class.Node   = nodes[key]?.node
@@ -320,8 +574,8 @@ extension GodotAPI
         )
         for node:Class.Node in root.preorder 
             // skip `AnyDelegate` and `AnyObject`, which have special behavior
-            where   node.identifier != (.unmanaged, "AnyDelegate") &&
-                    node.identifier != (.root,      "AnyObject"  )
+            where   node.identifier != (.unmanaged, .split(pascal: "AnyDelegate")) &&
+                    node.identifier != (.root,      .split(pascal: "AnyObject"  ))
         {
             guard let parent:Class.Node.Identifier = node.parent 
             else 
@@ -340,6 +594,34 @@ extension GodotAPI
                     """
                     override class var symbol:Swift.String { "\(node.info.symbol)" }
                     """
+                    for (name, cases):(Words, [(name:Words, rawValue:Int)]) in 
+                        node.enumerations 
+                    {
+                        """
+                        
+                        enum \(name):Int 
+                        """
+                        Source.block 
+                        {
+                            var seen:[Int: Words] = [:]
+                            for (name, code):(Words, Int) in cases 
+                            {
+                                // handle colliding enum rawvalues 
+                                if let canonical:Words = seen[code]
+                                {
+                                    """
+                                    static 
+                                    var  \(name.camelcased):Self { .\(canonical.camelcased) }
+                                    """
+                                }
+                                else 
+                                {
+                                    "case \(name.camelcased) = \(code)"
+                                    let _ = seen[code] = name
+                                }
+                            }
+                        }
+                    }
                 }
             }
             switch node.identifier.namespace 
