@@ -20,7 +20,7 @@ extension Synthesizer
                 }
             }
             
-            extension Godot.NativeScriptCore 
+            extension Godot.AnyNativeScript 
             {
                 static 
                 var __signatures__:[String] 
@@ -55,7 +55,7 @@ extension Synthesizer
                 static 
                 func inspect() -> [(typename:String, symbols:[String], signatures:[String])]
                 {
-                    Godot.interface.types.map 
+                    Godot.Library.interface.types.map 
                     {
                         (.init(reflecting: $0.type), $0.symbols, $0.type.__signatures__)
                     }

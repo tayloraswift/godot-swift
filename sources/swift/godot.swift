@@ -1,482 +1,233 @@
 import GDNative
 
+@_cdecl("godot_gdnative_init")
 public 
-protocol _GodotLibrary 
+func godot_gdnative_init(options:UnsafePointer<godot_gdnative_init_options>)
 {
-    static 
-    var interface:Godot.Interface 
-    {
-        get
-    }
+    Godot.initialize(api: options.pointee.api_struct.pointee)
 }
 
+@_cdecl("godot_nativescript_init")
 public 
-protocol _GodotNativeScriptCore 
+func godot_nativescript_init(handle:UnsafeMutableRawPointer) 
 {
-    static 
-    func register(with api:Godot.API.NativeScript)
-    
-    #if BUILD_STAGE_INERT
-    static 
-    var __signatures__:[String]
-    {
-        get 
-    }
-    #endif 
+    Godot.Library.wrap(handle: handle).initialize()
+}
+@_cdecl("godot_nativescript_terminate")
+public 
+func godot_nativescript_terminate(handle:UnsafeMutableRawPointer) 
+{
+    Godot.Library.wrap(handle: handle).deinitialize()
 }
 
-
-protocol _GodotNativeScript:Godot.NativeScriptCore
+@_cdecl("godot_gdnative_terminate")
+public 
+func godot_gdnative_terminate(options _:UnsafePointer<godot_gdnative_terminate_options>)
 {
-    typealias Interface = Godot.NativeScriptInterface<Self>
-    
-    associatedtype Delegate:Godot.AnyDelegate
-    
-    init(delegate:Delegate)
-    
-    static 
-    var interface:Interface
-    {
-        get
-    }
-}
-extension Godot.NativeScript 
-{
-    static 
-    var interface:Interface 
-    {
-        .init(properties: [], methods: [])
-    }
-    static 
-    func register(with _:Godot.API.NativeScript) 
-    {
-    }
+    Godot.deinitialize()
 }
 
 public 
-enum Godot:_GodotLibrary
+enum Godot
 {
-    public 
-    typealias Library               = _GodotLibrary
-    public 
-    typealias NativeScriptCore      = _GodotNativeScriptCore
-    typealias NativeScript          = _GodotNativeScript
-    
-    @resultBuilder 
-    public struct Interface 
-    {
-        typealias Binding = (type:NativeScriptCore.Type, symbol:Swift.String)
-        
-        public 
-        let types:[(type:NativeScriptCore.Type, symbols:[Swift.String])]
-    }
-    
-    @resultBuilder
-    struct NativeScriptInterface<T> where T:Godot.NativeScript
-    {
-        enum Witness 
-        {
-            typealias Property  = KeyPath<T, Godot.Variant>
-            #if BUILD_STAGE_INERT
-            typealias Method    = Any.Type 
-            #else 
-            typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.Variant.Unmanaged
-            #endif 
-        }
-        
-        typealias Property  = (witness:Witness.Property, symbol:Swift.String)
-        typealias Method    = (witness:Witness.Method,   symbol:Swift.String)
-        
-        private(set)
-        var properties:[Property]
-        private(set)
-        var methods:[Method]
-        
-        init(properties:[Property], methods:[Method])
-        {
-            self.properties = properties 
-            self.methods    = methods
-        }
-        
-        subscript(property index:Int) -> Property 
-        {
-            _read 
-            {
-                yield self.properties[index]
-            }
-            _modify
-            {
-                yield &self.properties[index]
-            }
-        }
-        subscript(method index:Int) -> Method 
-        {
-            _read 
-            {
-                yield self.methods[index]
-            }
-            _modify
-            {
-                yield &self.methods[index]
-            }
-        }
-    }
-}
-
-extension Godot 
-{
-    final 
-    class Metatype
-    {
-    #if ENABLE_ARC_SANITIZER
-        
-        private 
-        let tracker:RetainTracker 
-        let symbol:Swift.String
-        
-        init(symbol:Swift.String, tracker:RetainTracker)
-        {
-            self.symbol     = symbol
-            self.tracker    = tracker
-        }
-        
-        func track() 
-        {
-            self.tracker.table[self.symbol]?.wrappingIncrement(ordering: .relaxed)
-        }
-        func untrack() 
-        {
-            self.tracker.table[self.symbol]?.wrappingDecrement(ordering: .relaxed)
-        }
-        
-    #else 
-        
-        let symbol:Swift.String
-        
-        init(symbol:Swift.String)
-        {
-            self.symbol = symbol
-        }
-    
-    #endif 
-    }
-}
-extension Godot.Metatype 
-{
-    final 
-    class RetainTracker 
-    {
-        private 
-        let type:Godot.NativeScriptCore.Type
-        var table:[Swift.String: ManagedAtomic<Int>] 
-        
-        init(type:Godot.NativeScriptCore.Type, symbols:[Swift.String]) 
-        {
-            self.type   = type 
-            self.table  = .init(uniqueKeysWithValues: symbols.map{ ($0, .init(0)) })
-        }
-        
-        deinit 
-        {
-            func plural(_ count:Int) -> Swift.String 
-            {
-                count == 1 ? "\(count) leaked instance" : "\(count) leaked instances"
-            }
-            
-            let leaked:[Swift.String: Int] = self.table.compactMapValues 
-            {
-                let count:Int = $0.load(ordering: .relaxed)
-                return count != 0 ? count : nil
-            }
-            if !leaked.isEmpty 
-            {
-                Godot.print(warning: 
-                    """
-                    detected \(plural(leaked.values.reduce(0, +))) of \(Swift.String.init(reflecting: self.type)):
-                    \(leaked.sorted{ $0.key < $1.key }.map
-                    { 
-                        "    \(plural($0.value)) of '\($0.key)'" 
-                    }.joined(separator: "\n"))
-                    """)
-            }
-        }
-    }
-}
-
-infix operator <- : AssignmentPrecedence
-
-func <- <T>(type:T.Type, symbol:String) -> Godot.Interface.Binding
-    where T:Godot.NativeScriptCore
-{
-    (T.self, symbol)
-}
-
-extension Godot.Interface 
-{
-    static 
-    func buildExpression(_ binding:Binding) -> [Binding]
-    {
-        [binding]
-    }
-    static 
-    func buildBlock(_ bindings:[Binding]...) -> [Binding]
-    {
-        .init(bindings.joined())
-    }
-    
-    static 
-    func buildFinalResult(_ bindings:[Binding]) -> Self 
-    {
-        let dictionary:[ObjectIdentifier: [Binding]] = 
-            .init(grouping: bindings) 
-            {
-                ObjectIdentifier.init($0.type)
-            }
-        return .init(types: dictionary.sorted
-        {
-            $0.key < $1.key
-        }.map 
-        {
-            ($0.value[0].type, $0.value.map(\.symbol))
-        })
-    }
-}
-
-extension Godot.NativeScriptInterface 
-{
-    enum Member 
-    {
-        case property(witness:Witness.Property, symbol:String)
-        case method(  witness:Witness.Method,   symbol:String)
-    }
-    
-    static 
-    func buildExpression(_ member:Member) -> [Member]
-    {
-        [member]
-    }
-    static 
-    func buildBlock(_ members:[Member]...) -> [Member]
-    {
-        .init(members.joined())
-    }
-    
-    static 
-    func buildFinalResult(_ members:[Member]) -> Self 
-    {
-        return .init(
-            properties: members.compactMap 
-            {
-                guard case .property(witness: let witness, symbol: let symbol) = $0 
-                else 
-                {
-                    return nil 
-                }
-                return (witness, symbol)
-            }, 
-            methods: members.compactMap 
-            {
-                guard case .method(witness: let witness, symbol: let symbol) = $0 
-                else 
-                {
-                    return nil 
-                }
-                return (witness, symbol)
-            })
-    }
-}
-extension Godot.NativeScriptInterface
-{
-    static 
-    func initialize(delegate:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
-        -> UnsafeMutableRawPointer? 
-    {
-        var description:String 
-        {
-            "initializer (from interface of \(String.init(reflecting: T.self)))"
-        }
-        
-        guard let core:UnsafeMutableRawPointer = delegate 
-        else 
-        {
-            fatalError("(swift) \(description) received nil delegate pointer")
-        }
-        // allow recovery on mismatched delegate type
-        guard let delegate:T.Delegate = .init(unretained: core)
-        else 
-        {
-            Godot.print(error: 
-                """
-                cannot call \(description) with delegate of class \
-                '\(Godot.runtime.classname(of: core))' \
-                (expected delegate of class '\(T.Delegate.metaclass)' or one of its subclasses)
-                """)
-            
-            return nil
-        } 
-        
-        #if ENABLE_ARC_SANITIZER
-        if let metatype:UnsafeMutableRawPointer = metatype 
-        {
-            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
-                .takeUnretainedValue()
-                .track()
-        }
-        else 
-        {
-            Godot.print(warning: "\(description) is missing expected type metadata")
-        }
-        #endif
-        
-        return Unmanaged<AnyObject>
-            .passRetained(T.init(delegate: delegate) as AnyObject).toOpaque() 
-    }
-    
-    static 
-    func deinitialize(instance:UnsafeMutableRawPointer?, metatype:UnsafeMutableRawPointer?) 
-    {
-        var description:String 
-        {
-            "deinitializer (from interface of \(String.init(reflecting: T.self)))"
-        }
-        
-        guard let instance:UnsafeMutableRawPointer = instance 
-        else 
-        {
-            fatalError("(swift) \(description) received nil instance pointer")
-        }
-        
-        #if ENABLE_ARC_SANITIZER
-        if let metatype:UnsafeMutableRawPointer = metatype 
-        {
-            Unmanaged<Godot.Metatype>.fromOpaque(metatype)
-                .takeUnretainedValue()
-                .untrack()
-        }
-        else 
-        {
-            Godot.print(warning: "\(description) is missing expected type metadata")
-        }
-        #endif
-        
-        Unmanaged<AnyObject>.fromOpaque(instance).release()
-    }
-    
-    #if !BUILD_STAGE_INERT
-    func call(method index:Int,
-        instance:UnsafeMutableRawPointer?, 
-        delegate:UnsafeMutableRawPointer?, 
-        arguments:
+    fileprivate private(set) static 
+    var api:
+    (
+        Swift.Void,
         (
-            start:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?,
-            count:Int
-        ))
-        -> godot_variant 
+            godot_gdnative_core_api_struct, 
+            godot_gdnative_core_1_1_api_struct, 
+            godot_gdnative_core_1_2_api_struct
+        ),
+        nativescript:
+        (
+            swift:Int32, // language index
+            (
+                godot_gdnative_ext_nativescript_api_struct, 
+                godot_gdnative_ext_nativescript_1_1_api_struct
+            )
+        )
+    )
+    = 
+    (
+        (), (.init(), .init(), .init()), (-1, (.init(), .init()))
+    )
+    
+    private static 
+    func version(from head:godot_gdnative_api_struct) -> (major:Int, minor:Int)
     {
-        var description:String 
+        // find the highest api version available 
+        var version:godot_gdnative_api_version = head.version
+        var next:UnsafePointer<godot_gdnative_api_struct>? = head.next 
+        while let current:UnsafePointer<godot_gdnative_api_struct> = next 
         {
-            "method '\(self[method: index].symbol)' (from interface of \(String.init(reflecting: T.self)))"
+            version = current.pointee.version
+            next    = current.pointee.next
         }
-        // everything here is unretained because godot retained `self` and 
-        // `delegate` in the initializer call
-        
-        // load `self`
-        guard   let opaque:UnsafeMutableRawPointer  = instance, 
-                let instance:T                      = Unmanaged<AnyObject>
-                    .fromOpaque(opaque)
-                    .takeUnretainedValue() as? T
+        return (.init(version.major), .init(version.minor))
+    }
+    
+    private static 
+    func loadCoreAPI(head:godot_gdnative_core_api_struct) 
+        -> 
+        (
+            godot_gdnative_core_api_struct, 
+            godot_gdnative_core_1_1_api_struct, 
+            godot_gdnative_core_1_2_api_struct
+        )
+    {
+        guard   let v1_1:UnsafePointer<godot_gdnative_api_struct> = head.next, 
+                let v1_2:UnsafePointer<godot_gdnative_api_struct> = v1_1.pointee.next 
         else 
         {
-            fatalError("(swift) \(description) received nil or invalid instance pointer")
+            let (major, minor):(Int, Int) = withUnsafeBytes(of: head)
+            {
+                Self.version(from: $0.load(as: godot_gdnative_api_struct.self))
+            }
+            fatalError("godot-swift requires gdnative version 1.2 or higher (have version \(major).\(minor))")
         }
-        // load `delegate`
-        guard   let unretained:UnsafeMutableRawPointer  = delegate, 
-                let delegate:T.Delegate                 = .init(unretained: unretained)
+        
+        return 
+            (
+            head,
+            UnsafeRawPointer.init(v1_1).load(as: godot_gdnative_core_1_1_api_struct.self),
+            UnsafeRawPointer.init(v1_2).load(as: godot_gdnative_core_1_2_api_struct.self)
+            )
+    }
+    
+    private static 
+    func loadNativeScriptAPI(head:UnsafePointer<godot_gdnative_api_struct>) 
+        -> 
+        (
+            godot_gdnative_ext_nativescript_api_struct, 
+            godot_gdnative_ext_nativescript_1_1_api_struct 
+        )
+    {
+        guard   let v1_1:UnsafePointer<godot_gdnative_api_struct> = head.pointee.next 
         else 
         {
-            fatalError("(swift) \(description) received nil or invalid delegate pointer")
+            let (major, minor):(Int, Int) = Self.version(from: head.pointee)
+            fatalError("godot-swift requires gdnative nativescript version 1.1 or higher (have version \(major).\(minor))")
         }
         
-        return Godot.VariadicArguments.bind(arguments.start, count: arguments.count)
-        {
-            self[method: index].witness(instance, delegate, $0).unsafeData
-        }
+        return 
+            (
+            UnsafeRawPointer.init(head).load(as: godot_gdnative_ext_nativescript_api_struct.self),
+            UnsafeRawPointer.init(v1_1).load(as: godot_gdnative_ext_nativescript_1_1_api_struct.self)
+            )
     }
-    #endif
-}
-extension Godot 
-{
-    struct VariadicArguments
+    
+    fileprivate static 
+    func initialize(api head:godot_gdnative_core_api_struct) 
     {
-        private 
-        let arguments:UnsafeMutableBufferPointer<UnsafeMutablePointer<Variant.Unmanaged>>
-        
-        typealias RawArgument       = UnsafeMutablePointer<godot_variant>
-        typealias RawArgumentVector = UnsafeMutablePointer<RawArgument?>
-        
-        static 
-        func bind<R>(_ start:RawArgumentVector?, count:Int, 
-            body:(Self) throws -> R) 
-            rethrows -> R
+        // gather extensions 
+        var extensions:
+        (
+            nativescript:UnsafePointer<godot_gdnative_api_struct>?, 
+            Swift.Void
+        ) 
+        = 
+        (nil, ())
+        for i:Int in 0 ..< Int.init(head.num_extensions)
         {
-            if count > 0 
+            switch (head.extensions[i]?.pointee.type).map(GDNATIVE_API_TYPES.init(rawValue:))
             {
-                // assert arguments pointers are non-nil 
-                guard let base:RawArgumentVector = start
-                else 
-                {
-                    fatalError("(swift) received nil argument-vector pointer from gdscript method call")
-                }
-                for i:Int in 0 ..< count where base[i] == nil 
-                {
-                    fatalError("(swift) recieved nil argument pointer from gdscript method call at position \(i)")
-                }
-            }
-            
-            let buffer:UnsafeMutableBufferPointer<RawArgument?> = 
-                .init(start: start, count: count)
-            
-            return try buffer.withMemoryRebound(
-                to: UnsafeMutablePointer<Variant.Unmanaged>.self) 
-            {
-                try body(.init(arguments: $0))
+            case GDNATIVE_EXT_NATIVESCRIPT?:
+                extensions.nativescript = head.extensions[i]
+            default:
+                break
             }
         }
+        
+        guard let nativescript:UnsafePointer<godot_gdnative_api_struct> = extensions.nativescript 
+        else 
+        {
+            fatalError("could not find gdnative nativescript extension")
+        }
+        
+        Self.api.1              = Self.loadCoreAPI        (head: head)
+        Self.api.nativescript.1 = Self.loadNativeScriptAPI(head: nativescript)
+        
+        // instance binding 
+        let bridge:godot_instance_binding_functions = .init(
+            alloc_instance_binding_data: 
+            {
+                // do not allocate anything, just store the metatype pointer 
+                (
+                    _:UnsafeMutableRawPointer?, // `nil`, ... from `data`?
+                    metatype:UnsafeRawPointer?, 
+                    _:UnsafeMutableRawPointer? // object, not used here
+                ) -> UnsafeMutableRawPointer? 
+                in
+                // cast away the const, but this is okay because we are just 
+                // using the metatype pointer to encode an integer index
+                .init(mutating: metatype)
+            },
+            free_instance_binding_data: 
+            {
+                (
+                    _:UnsafeMutableRawPointer?, // `nil`, ... from `data`?
+                    _:UnsafeMutableRawPointer? // metatype
+                )
+                in
+                // do nothing 
+            }, 
+            refcount_incremented_instance_binding:  nil,
+            refcount_decremented_instance_binding:  nil,
+            data:                                   nil, 
+            free_func:                              nil) 
+        
+        Self.api.nativescript.swift = Self.api.nativescript.1.1
+            .godot_nativescript_register_instance_binding_data_functions(bridge)
+        
+        for (i, metatype):(Int, AnyDelegate.Type) in Self.DelegateTypes.enumerated()
+        {
+            Self.api.nativescript.1.1.godot_nativescript_set_global_type_tag(
+                Self.api.nativescript.swift, 
+                metatype.symbol, 
+                UnsafeRawPointer.init(bitPattern: i)) 
+        }
     }
-}
-
-
-// api interface
-extension Godot 
-{
-    fileprivate private(set) 
-    static 
-    var api:API.Core        = .init()
     
-    /*fileprivate*/ private(set) 
-    static 
-    var runtime:API.Runtime = .init()
-    
-    public 
-    enum API 
+    fileprivate static 
+    func deinitialize() 
     {
+        // must happen before clearing nativescript api, for obvious reasons
+        Self.api.nativescript.1.1
+            .godot_nativescript_unregister_instance_binding_data_functions(Self.api.nativescript.swift)
+        Self.api.nativescript.1.1   = .init()
+        Self.api.nativescript.1.0   = .init()
+        
+        Self.api.1.2                = .init()
+        Self.api.1.1                = .init()
+        Self.api.1.0                = .init()
+        Self.api.nativescript.swift = -1
+    }
+    
+    // global functions 
+    static 
+    func type(of core:UnsafeMutableRawPointer) -> Godot.AnyDelegate.Type 
+    {
+        let index:Int = .init(bitPattern: Self.api.nativescript.1.1
+            .godot_nativescript_get_instance_binding_data(Self.api.nativescript.swift, core))
+        return Self.DelegateTypes[index]
     }
     
     static 
     func print(_ items:Any..., separator:Swift.String = " ", terminator:Swift.String = "") 
     {
         Godot.String.init("(swift) \(items.map{"\($0)"}.joined(separator: separator))\(terminator)")
-            .withUnsafePointer(Self.api.core.1.0.godot_print)
+            .withUnsafePointer(Self.api.1.0.godot_print)
     }
     static 
     func print(warning:Swift.String, function:Swift.String = #function, file:Swift.String = #file, line:Int32 = #line) 
     {
-        Self.api.core.1.0.godot_print_warning("(swift) \(warning)", function, file, line)
+        Self.api.1.0.godot_print_warning("(swift) \(warning)", function, file, line)
     }
     static 
     func print(error:Swift.String, function:Swift.String = #function, file:Swift.String = #file, line:Int32 = #line) 
     {
-        Self.api.core.1.0.godot_print_error("(swift) \(error)", function, file, line)
+        Self.api.1.0.godot_print_error("(swift) \(error)", function, file, line)
     }
     static 
     func print(error:Godot.Error, function:Swift.String = #function, file:Swift.String = #file, line:Int32 = #line) 
@@ -567,7 +318,7 @@ extension Godot
         var stringname:godot_string_name    = object.load(fromByteOffset: 8 * 30, 
             as: godot_string_name.self)
         let classname:Swift.String          = .init(Godot.String.init(retained: 
-            Godot.api.core.1.0.godot_string_name_get_name(&stringname)))
+            Self.api.1.0.godot_string_name_get_name(&stringname)))
         
         let retains:UInt32                  = object.load(fromByteOffset: 8 * 31, as: UInt32.self)
         
@@ -583,68 +334,299 @@ extension Godot
         )
     }
 }
-extension Godot.API 
+
+// public because we need to inspect them externally in the inert build stage
+protocol _GodotNativeLibrary 
 {
-    //public 
-    struct Core 
+    static 
+    var interface:Godot.Library.Interface 
     {
-        fileprivate 
-        let core:
-        (
-            Void, 
-            (
-                godot_gdnative_core_api_struct, 
-                godot_gdnative_core_1_1_api_struct, 
-                godot_gdnative_core_1_2_api_struct
-            )
-        )
+        get
+    }
+}
+
+protocol _GodotAnyNativeScript
+{
+#if BUILD_STAGE_INERT
+    static 
+    var __signatures__:[String]
+    {
+        get 
+    }
+#else 
+    static 
+    func register(_ symbols:[String], with:Godot.Library)
+#endif 
+}
+
+protocol _GodotNativeScript:Godot.AnyNativeScript
+{
+    typealias Interface = Godot.NativeScriptInterface<Self>
+    
+    associatedtype Delegate:Godot.AnyDelegate
+    
+    init(delegate:Delegate)
+    
+    static 
+    var interface:Interface
+    {
+        get
+    }
+}
+extension Godot.NativeScript 
+{
+    static 
+    var interface:Interface 
+    {
+        .init(properties: [], methods: [])
+    }
+}
+extension Godot 
+{
+    typealias AnyNativeScript   = _GodotAnyNativeScript
+    typealias NativeScript      = _GodotNativeScript
+    
+    typealias NativeLibrary     = _GodotNativeLibrary 
+    
+    struct Library:NativeLibrary 
+    {
+        private 
+        let handle:UnsafeMutableRawPointer 
         
-        init() 
+        fileprivate static
+        func wrap(handle:UnsafeMutableRawPointer) -> Self
         {
-            self.core.1.0   = .init() 
-            self.core.1.1   = .init()
-            self.core.1.2   = .init()
+            .init(handle: handle)
         }
     }
 }
-extension Godot.API.Core 
-{        
-    init(head:godot_gdnative_core_api_struct) 
+extension Godot.Library 
+{
+    typealias Initializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> UnsafeMutableRawPointer?
+    typealias Deinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> ()
+    typealias WitnessDeinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?
+        ) -> ()
+    typealias Dispatcher = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            Int32, 
+            UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
+        ) -> godot_variant
+    
+    @resultBuilder 
+    struct Interface 
     {
-        // find the highest api version available 
-        var version:godot_gdnative_api_version = head.version
-        var next:UnsafePointer<godot_gdnative_api_struct>? = head.next 
-        while let current:UnsafePointer<godot_gdnative_api_struct> = next 
-        {
-            version = current.pointee.version
-            next    = current.pointee.next
-        }
+        typealias Binding = (type:Godot.AnyNativeScript.Type, symbol:Swift.String)
         
-        guard   let v1_1:UnsafePointer<godot_gdnative_api_struct> = head.next, 
-                let v1_2:UnsafePointer<godot_gdnative_api_struct> = v1_1.pointee.next 
-        else 
-        {
-            fatalError("godot-swift requires gdnative version 1.2 or higher (have version \(version.major).\(version.minor))")
-        }
-        
-        self.core.1.0   = head
-        self.core.1.1   = UnsafeRawPointer.init(v1_1)
-            .load(as: godot_gdnative_core_1_1_api_struct.self)
-        self.core.1.2   = UnsafeRawPointer.init(v1_2)
-            .load(as: godot_gdnative_core_1_2_api_struct.self)
+        let types:[(type:Godot.AnyNativeScript.Type, symbols:[Swift.String])]
     }
     
     fileprivate 
-    var extensions:[UnsafePointer<godot_gdnative_api_struct>] 
+    func initialize() 
     {
-        (0 ..< .init(self.core.1.0.num_extensions)).compactMap
+        for (type, symbols):(Godot.AnyNativeScript.Type, [Swift.String]) in Self.interface.types 
         {
-            self.core.1.0.extensions[$0]
+        #if !BUILD_STAGE_INERT
+            type.register(symbols, with: self)
+        #endif
+        }
+        
+        Godot.runtime.load()
+        
+        // assert unsafebitcast memory layouts 
+        MemoryLayout<godot_vector2>.assert()
+        MemoryLayout<godot_vector3>.assert()
+        
+        MemoryLayout<godot_rect2>.assert()
+        MemoryLayout<godot_aabb>.assert()
+        
+        MemoryLayout<godot_transform2d>.assert()
+        MemoryLayout<godot_transform>.assert()
+        MemoryLayout<godot_basis>.assert() 
+    }
+    fileprivate 
+    func deinitialize() 
+    {
+    }
+    
+    func register<T>(
+        initializer:godot_instance_create_func, 
+        deinitializer:godot_instance_destroy_func, 
+        for _:T.Type, as symbol:String) 
+        where T:Godot.NativeScript
+    {
+        Godot.print("registering \(T.self) as '\(symbol)'")
+        
+        Godot.api.nativescript.1.0.godot_nativescript_register_class(self.handle, 
+            symbol, T.Delegate.symbol, initializer, deinitializer)
+    }
+    
+    func register(method:godot_instance_method, as symbol:(type:String, method:String)) 
+    {
+        Godot.print("registering (function) as '\(symbol.type).\(symbol.method)'")
+        
+        let mode:godot_method_attributes = 
+            .init(rpc_type: GODOT_METHOD_RPC_MODE_DISABLED)
+        Godot.api.nativescript.1.0.godot_nativescript_register_method(self.handle, 
+            symbol.type, symbol.method, mode, method)
+    }
+}
+extension Godot 
+{
+    @resultBuilder
+    struct NativeScriptInterface<T> where T:Godot.NativeScript
+    {
+        enum Witness 
+        {
+            typealias Property  = KeyPath<T, Godot.Variant>
+            
+        #if BUILD_STAGE_INERT
+            typealias Method    = Any.Type 
+        #else 
+            typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.Variant.Unmanaged
+        #endif 
+        }
+        
+        typealias Property  = (witness:Witness.Property, symbol:Swift.String)
+        typealias Method    = (witness:Witness.Method,   symbol:Swift.String)
+        
+        private(set)
+        var properties:[Property]
+        private(set)
+        var methods:[Method]
+        
+        init(properties:[Property], methods:[Method])
+        {
+            self.properties = properties 
+            self.methods    = methods
+        }
+        
+        subscript(property index:Int) -> Property 
+        {
+            _read 
+            {
+                yield self.properties[index]
+            }
+            _modify
+            {
+                yield &self.properties[index]
+            }
+        }
+        subscript(method index:Int) -> Method 
+        {
+            _read 
+            {
+                yield self.methods[index]
+            }
+            _modify
+            {
+                yield &self.methods[index]
+            }
         }
     }
 }
-extension Godot.API 
+
+// arc sanitizer 
+extension Godot 
 {
+    final 
+    class NativeScriptMetadata
+    {
+    #if ENABLE_ARC_SANITIZER
+        
+        private 
+        let tracker:RetainTracker 
+        let symbol:Swift.String
+        
+        init(symbol:Swift.String, tracker:RetainTracker)
+        {
+            self.symbol     = symbol
+            self.tracker    = tracker
+        }
+        
+        func track() 
+        {
+            self.tracker.table[self.symbol]?.wrappingIncrement(ordering: .relaxed)
+        }
+        func untrack() 
+        {
+            self.tracker.table[self.symbol]?.wrappingDecrement(ordering: .relaxed)
+        }
+        
+    #else 
+        
+        let symbol:Swift.String
+        
+        init(symbol:Swift.String)
+        {
+            self.symbol = symbol
+        }
+    
+    #endif 
+    }
+}
+#if ENABLE_ARC_SANITIZER
+extension Godot 
+{
+    final 
+    class RetainTracker 
+    {
+        private 
+        let type:Godot.AnyNativeScript.Type
+        var table:[Swift.String: ManagedAtomic<Int>] 
+        
+        init(type:Godot.AnyNativeScript.Type, symbols:[Swift.String]) 
+        {
+            self.type   = type 
+            self.table  = .init(uniqueKeysWithValues: symbols.map{ ($0, .init(0)) })
+        }
+        deinit 
+        {
+            func plural(_ count:Int) -> Swift.String 
+            {
+                count == 1 ? "\(count) leaked instance" : "\(count) leaked instances"
+            }
+            
+            let leaked:[Swift.String: Int] = self.table.compactMapValues 
+            {
+                let count:Int = $0.load(ordering: .relaxed)
+                return count != 0 ? count : nil
+            }
+            if !leaked.isEmpty 
+            {
+                Godot.print(warning: 
+                    """
+                    detected \(plural(leaked.values.reduce(0, +))) of \(Swift.String.init(reflecting: self.type)):
+                    \(leaked.sorted{ $0.key < $1.key }.map
+                    { 
+                        "    \(plural($0.value)) of '\($0.key)'" 
+                    }.joined(separator: "\n"))
+                    """)
+            }
+        }
+    }
+}
+#endif 
+
+// runtime bootstrap 
+extension Godot 
+{
+    static 
+    var runtime:Runtime = .init()
+    
     struct Runtime 
     {
         private 
@@ -667,7 +649,7 @@ extension Godot.API
         }
     }
 }
-extension Godot.API.Runtime 
+extension Godot.Runtime 
 {
     mutating 
     func load() 
@@ -681,7 +663,7 @@ extension Godot.API.Runtime
     func load(_ symbol:(class:String, method:String), as path:WritableKeyPath<Functions, Function?>) 
     {
         if let function:Function = 
-            Godot.api.core.1.0.godot_method_bind_get_method(symbol.class, symbol.method)
+            Godot.api.1.0.godot_method_bind_get_method(symbol.class, symbol.method)
         {
             self.functions[keyPath: path] = function 
         }
@@ -695,7 +677,7 @@ extension Godot.API.Runtime
     func retain(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer
     {
         var status:Bool = false 
-        Godot.api.core.1.0.godot_method_bind_ptrcall(
+        Godot.api.1.0.godot_method_bind_ptrcall(
             self.functions.retain, object, nil, &status)
         guard status 
         else 
@@ -708,7 +690,7 @@ extension Godot.API.Runtime
     func release(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? 
     {
         var status:Bool = false 
-        Godot.api.core.1.0.godot_method_bind_ptrcall(
+        Godot.api.1.0.godot_method_bind_ptrcall(
             self.functions.release, object, nil, &status)
         return status ? nil : object // nil if we released the last reference
     }
@@ -716,7 +698,7 @@ extension Godot.API.Runtime
     func classname(of delegate:UnsafeMutableRawPointer) -> Swift.String 
     {
         var core:godot_string = .init()
-        Godot.api.core.1.0.godot_method_bind_ptrcall(
+        Godot.api.1.0.godot_method_bind_ptrcall(
             self.functions.classname, delegate, nil, &core)
         return Swift.String.init(Godot.String.init(retained: core))
     }
@@ -726,28 +708,28 @@ extension Godot.API.Runtime
         do 
         {
             // +1
-            var s1:godot_string = Godot.api.core.1.0.godot_string_chars_to_utf8("foofoo")
+            var s1:godot_string = Godot.api.1.0.godot_string_chars_to_utf8("foofoo")
             
             Godot.dump(s1)
             
             // +2
             var v1:godot_variant = .init() 
-            Godot.api.core.1.0.godot_variant_new_string(&v1, &s1)
+            Godot.api.1.0.godot_variant_new_string(&v1, &s1)
             
             Godot.dump(s1)
             
             // +3
-            var s2:godot_string = Godot.api.core.1.0.godot_variant_as_string(&v1)
+            var s2:godot_string = Godot.api.1.0.godot_variant_as_string(&v1)
             
             Godot.dump(s1)
             Godot.dump(s2)
             
-            Godot.api.core.1.0.godot_variant_destroy(&v1)
+            Godot.api.1.0.godot_variant_destroy(&v1)
             // +2
             
             Godot.dump(s1)
             
-            Godot.api.core.1.0.godot_string_destroy(&s2)
+            Godot.api.1.0.godot_string_destroy(&s2)
             // +1
             
             Godot.dump(s1)
@@ -757,32 +739,32 @@ extension Godot.API.Runtime
         {
             // +1 
             var a1:godot_array = .init() 
-            Godot.api.core.1.0.godot_array_new(&a1)
+            Godot.api.1.0.godot_array_new(&a1)
             
             Godot.dump(a1)
             
-            Godot.api.core.1.0.godot_array_resize(&a1, 5)
+            Godot.api.1.0.godot_array_resize(&a1, 5)
             
             Godot.dump(a1)
             
             // +2
             var v1:godot_variant = .init() 
-            Godot.api.core.1.0.godot_variant_new_array(&v1, &a1)
+            Godot.api.1.0.godot_variant_new_array(&v1, &a1)
             
             Godot.dump(a1)
             
             // +3
-            var a2:godot_array = Godot.api.core.1.0.godot_variant_as_array(&v1)
+            var a2:godot_array = Godot.api.1.0.godot_variant_as_array(&v1)
             
             Godot.dump(a1)
             Godot.dump(a2)
             
-            Godot.api.core.1.0.godot_variant_destroy(&v1)
+            Godot.api.1.0.godot_variant_destroy(&v1)
             // +2
             
             Godot.dump(a1)
             
-            Godot.api.core.1.0.godot_array_destroy(&a2)
+            Godot.api.1.0.godot_array_destroy(&a2)
             // +1
             
             Godot.dump(a1)
@@ -790,131 +772,265 @@ extension Godot.API.Runtime
     } */
 }
 
-extension Godot.API 
+// user-facing DSL
+infix operator <- : AssignmentPrecedence
+
+func <- <T>(type:T.Type, symbol:String) -> Godot.Library.Interface.Binding
+    where T:Godot.AnyNativeScript
 {
-    public 
-    struct NativeScript 
-    {
-        typealias Initializer = @convention(c)
-            (
-                UnsafeMutableRawPointer?, 
-                UnsafeMutableRawPointer?
-            ) -> UnsafeMutableRawPointer?
-        typealias Deinitializer = @convention(c)
-            (
-                UnsafeMutableRawPointer?, 
-                UnsafeMutableRawPointer?, 
-                UnsafeMutableRawPointer?
-            ) -> ()
-        typealias WitnessDeinitializer = @convention(c)
-            (
-                UnsafeMutableRawPointer?
-            ) -> ()
-        typealias Method = @convention(c) 
-            (
-                UnsafeMutableRawPointer?, 
-                UnsafeMutableRawPointer?, 
-                UnsafeMutableRawPointer?, 
-                Int32, 
-                UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
-            ) -> godot_variant
-        
-        private 
-        let builtin:godot_gdnative_ext_nativescript_api_struct,
-            handle:UnsafeMutableRawPointer
-        
-        init(builtin:godot_gdnative_ext_nativescript_api_struct, handle:UnsafeMutableRawPointer) 
-        {
-            self.builtin    = builtin 
-            self.handle     = handle 
-        }
-    }
+    (T.self, symbol)
 }
-extension Godot.API.NativeScript 
-{        
-    func register<T>(
-        initializer:godot_instance_create_func, 
-        deinitializer:godot_instance_destroy_func, 
-        for _:T.Type, as symbol:String) 
-        where T:Godot.NativeScript
+
+extension Godot.Library.Interface 
+{
+    static 
+    func buildExpression(_ binding:Binding) -> [Binding]
     {
-        Godot.print("registering \(T.self) as '\(symbol)'")
-        
-        self.builtin.godot_nativescript_register_class(self.handle, 
-            symbol, T.Delegate.metaclass.symbol, initializer, deinitializer)
+        [binding]
+    }
+    static 
+    func buildBlock(_ bindings:[Binding]...) -> [Binding]
+    {
+        .init(bindings.joined())
     }
     
-    func register(method:godot_instance_method, as symbol:(type:String, method:String)) 
+    static 
+    func buildFinalResult(_ bindings:[Binding]) -> Self 
     {
-        Godot.print("registering (function) as '\(symbol.type).\(symbol.method)'")
-        
-        let mode:godot_method_attributes = 
-            .init(rpc_type: GODOT_METHOD_RPC_MODE_DISABLED)
-        self.builtin.godot_nativescript_register_method(self.handle, 
-            symbol.type, symbol.method, mode, method)
+        let dictionary:[ObjectIdentifier: [Binding]] = 
+            .init(grouping: bindings) 
+            {
+                ObjectIdentifier.init($0.type)
+            }
+        return .init(types: dictionary.sorted
+        {
+            $0.key < $1.key
+        }.map 
+        {
+            ($0.value[0].type, $0.value.map(\.symbol))
+        })
+    }
+}
+extension Godot.NativeScriptInterface 
+{
+    enum Member 
+    {
+        case property(witness:Witness.Property, symbol:String)
+        case method(  witness:Witness.Method,   symbol:String)
+    }
+    
+    static 
+    func buildExpression(_ member:Member) -> [Member]
+    {
+        [member]
+    }
+    static 
+    func buildBlock(_ members:[Member]...) -> [Member]
+    {
+        .init(members.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ members:[Member]) -> Self 
+    {
+        return .init(
+            properties: members.compactMap 
+            {
+                guard case .property(witness: let witness, symbol: let symbol) = $0 
+                else 
+                {
+                    return nil 
+                }
+                return (witness, symbol)
+            }, 
+            methods: members.compactMap 
+            {
+                guard case .method(witness: let witness, symbol: let symbol) = $0 
+                else 
+                {
+                    return nil 
+                }
+                return (witness, symbol)
+            })
     }
 }
 
-
+// functionality factored from generated bindings
+extension Godot.NativeScriptInterface
+{
+    static 
+    func initialize(delegate:UnsafeMutableRawPointer?, metadata:UnsafeMutableRawPointer?) 
+        -> UnsafeMutableRawPointer? 
+    {
+        var description:String 
+        {
+            "initializer from interface of type '\(String.init(reflecting: T.self))'"
+        }
+        
+        guard let core:UnsafeMutableRawPointer = delegate 
+        else 
+        {
+            fatalError("(swift) \(description) received nil delegate pointer")
+        }
+        // allow recovery on mismatched delegate type
+        let metatype:Godot.AnyDelegate.Type = Godot.type(of: core)
+        guard let delegate:T.Delegate = metatype.init(unretained: core) as? T.Delegate
+        else 
+        {
+            Godot.print(error: 
+                """
+                cannot call \(description) with delegate of type '\(String.init(reflecting: metatype))' \ 
+                (aka 'Godot::\(metatype.symbol)'), expected delegate of type \
+                '\(String.init(reflecting: T.Delegate.self))' (aka 'Godot::\(T.Delegate.symbol)') \ 
+                or one of its subclasses
+                """)
+            
+            return nil
+        } 
+        
+        #if ENABLE_ARC_SANITIZER
+        if let metadata:UnsafeMutableRawPointer = metadata 
+        {
+            Unmanaged<Godot.NativeScriptMetadata>.fromOpaque(metadata)
+                .takeUnretainedValue()
+                .track()
+        }
+        else 
+        {
+            Godot.print(warning: "\(description) is missing expected type metadata")
+        }
+        #endif
+        
+        return Unmanaged<AnyObject>
+            .passRetained(T.init(delegate: delegate) as AnyObject).toOpaque() 
+    }
+    
+    static 
+    func deinitialize(instance:UnsafeMutableRawPointer?, metadata:UnsafeMutableRawPointer?) 
+    {
+        var description:String 
+        {
+            "deinitializer from interface of type '\(String.init(reflecting: T.self))'"
+        }
+        
+        guard let instance:UnsafeMutableRawPointer = instance 
+        else 
+        {
+            fatalError("(swift) \(description) received nil instance pointer")
+        }
+        
+        #if ENABLE_ARC_SANITIZER
+        if let metadata:UnsafeMutableRawPointer = metadata 
+        {
+            Unmanaged<Godot.NativeScriptMetadata>.fromOpaque(metadata)
+                .takeUnretainedValue()
+                .untrack()
+        }
+        else 
+        {
+            Godot.print(warning: "\(description) is missing expected type metadata")
+        }
+        #endif
+        
+        Unmanaged<AnyObject>.fromOpaque(instance).release()
+    }
+    
+#if !BUILD_STAGE_INERT
+    func call(method index:Int,
+        instance:UnsafeMutableRawPointer?, 
+        delegate:UnsafeMutableRawPointer?, 
+        arguments:
+        (
+            start:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?,
+            count:Int
+        ))
+        -> godot_variant 
+    {
+        var description:String 
+        {
+            """
+            method '\(self[method: index].symbol)' \ 
+            from interface of type '\(String.init(reflecting: T.self))'
+            """
+        }
+        // everything here is unretained because godot retained `self` and 
+        // `delegate` in the initializer call
+        
+        // load `self`
+        guard   let opaque:UnsafeMutableRawPointer  = instance, 
+                let instance:T                      = Unmanaged<AnyObject>
+                    .fromOpaque(opaque)
+                    .takeUnretainedValue() as? T
+        else 
+        {
+            fatalError("(swift) \(description) received nil or invalid instance pointer")
+        }
+        // load `delegate`
+        guard   let core:UnsafeMutableRawPointer    = delegate, 
+                let delegate:T.Delegate             = Godot.type(of: core)
+                    .init(unretained: core) as? T.Delegate
+        else 
+        {
+            fatalError("(swift) \(description) received nil or invalid delegate pointer")
+        }
+        
+        return Godot.VariadicArguments.bind(arguments.start, count: arguments.count)
+        {
+            self[method: index].witness(instance, delegate, $0).unsafeData
+        }
+    }
+#endif
+}
 extension Godot 
 {
-    static 
-    func initialize(gdnative core:API.Core)
+    struct VariadicArguments
     {
-        Self.api = core 
-    }
-    
-    static 
-    func initialize(library handle:UnsafeMutableRawPointer) 
-    {
-        for descriptor:UnsafePointer<godot_gdnative_api_struct> in self.api.extensions 
+        private 
+        let arguments:UnsafeMutableBufferPointer<UnsafeMutablePointer<Variant.Unmanaged>>
+        
+        typealias RawArgument       = UnsafeMutablePointer<godot_variant>
+        typealias RawArgumentVector = UnsafeMutablePointer<RawArgument?>
+        
+        static 
+        func bind<R>(_ start:RawArgumentVector?, count:Int, 
+            body:(Self) throws -> R) 
+            rethrows -> R
         {
-            switch GDNATIVE_API_TYPES.init(rawValue: descriptor.pointee.type)
+            if count > 0 
             {
-            case GDNATIVE_EXT_NATIVESCRIPT:
-                let api:API.NativeScript = .init(
-                    builtin: UnsafeRawPointer.init(descriptor)
-                        .load(as: godot_gdnative_ext_nativescript_api_struct.self), 
-                    handle: handle)
-                
-                for (type, _):(NativeScriptCore.Type, [Swift.String]) in self.interface.types 
+                // assert arguments pointers are non-nil 
+                guard let base:RawArgumentVector = start
+                else 
                 {
-                    type.register(with: api)
+                    fatalError("(swift) received nil argument-vector pointer from gdscript method call")
                 }
-            default:
-                break
+                for i:Int in 0 ..< count where base[i] == nil 
+                {
+                    fatalError("(swift) recieved nil argument pointer from gdscript method call at position \(i)")
+                }
+            }
+            
+            let buffer:UnsafeMutableBufferPointer<RawArgument?> = 
+                .init(start: start, count: count)
+            
+            return try buffer.withMemoryRebound(
+                to: UnsafeMutablePointer<Variant.Unmanaged>.self) 
+            {
+                try body(.init(arguments: $0))
             }
         }
-        
-        Self.runtime.load()
-        
-        // assert unsafebitcast memory layouts 
-        MemoryLayout<godot_vector2>.assert()
-        MemoryLayout<godot_vector3>.assert()
-        
-        MemoryLayout<godot_rect2>.assert()
-        MemoryLayout<godot_aabb>.assert()
-        
-        MemoryLayout<godot_transform2d>.assert()
-        MemoryLayout<godot_transform>.assert()
-        MemoryLayout<godot_basis>.assert()
-    }
-    
-    static 
-    func deinitialize() 
-    {
     }
 }
 
-
-
+// variant-related functionality
 protocol _GodotVariantRepresentable 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        get
-    }
+    // this needs to be a static function, to handle covariant `Self`. 
+    // it’s better to not call these methods directly, the preferred form is the  
+    // generic methods on `Godot.Variant.Unmanaged`.
+    static 
+    func takeUnretained(_:Godot.Variant.Unmanaged) -> Self?
+    func passRetained() -> Godot.Variant.Unmanaged 
 }
 
 protocol _GodotVariant:Godot.VariantRepresentable
@@ -986,7 +1102,7 @@ extension Godot
         
         deinit 
         {
-            Godot.api.core.1.0.godot_string_destroy(&self.core)
+            Godot.api.1.0.godot_string_destroy(&self.core)
         }
     }
     
@@ -1023,7 +1139,7 @@ extension Godot
         
         deinit 
         {
-            Godot.api.core.1.0.godot_array_destroy(&self.core)
+            Godot.api.1.0.godot_array_destroy(&self.core)
         }
     }
     
@@ -1060,166 +1176,124 @@ extension Godot
         
         deinit 
         {
-            Godot.api.core.1.0.godot_dictionary_destroy(&self.core)
-        }
-    }
-}
-
-
-extension Godot 
-{
-    struct Metaclass:ExpressibleByStringLiteral 
-    {
-        private 
-        struct ID:Hashable 
-        {
-            let value:UnsafeMutableRawPointer
-            
-            init(symbol:Swift.String) 
-            {
-                var name:godot_string_name = .init() 
-                    Godot.api.core.1.0.godot_string_name_new_data(&name, symbol)
-                defer 
-                {
-                    Godot.api.core.1.0.godot_string_name_destroy(&name)
-                }
-                
-                guard let id:UnsafeMutableRawPointer = 
-                    withUnsafePointer(to: name, Godot.api.core.1.2.godot_get_class_tag)
-                else 
-                {
-                    fatalError("could not load class metadata for class 'Godot::\(symbol)'")
-                }
-                self.value = id
-            }
-        }
-        
-        let symbol:Swift.String 
-        private lazy 
-        var id:ID = .init(symbol: self.symbol)
-        
-        init(symbol:Swift.String) 
-        {
-            self.symbol = symbol
-        }
-        init(stringLiteral:Swift.String) 
-        {
-            self.init(symbol: stringLiteral)
-        }
-        
-        // mutating because `id` is loaded lazily 
-        mutating 
-        func `is`(instance:UnsafeMutableRawPointer) -> Bool 
-        {
-            // cast_to does not appear to perform its own retain, so no balancing 
-            // release is necessary 
-            Godot.api.core.1.2.godot_object_cast_to(instance, self.id.value) != nil
+            Godot.api.1.0.godot_dictionary_destroy(&self.core)
         }
     }
 }
 
 extension Godot 
 {    
-    struct Delegate:AnyDelegate, Ancestor.Delegate
+    class AnyDelegate
     {
-        private 
-        enum Existential 
+        class 
+        var symbol:Swift.String { "Object" }
+        final 
+        let core:UnsafeMutableRawPointer 
+        // non-failable init assumes instance has been type-checked!
+        required
+        init(unretained core:UnsafeMutableRawPointer) 
         {
-            case unmanaged(core:UnsafeMutableRawPointer)
-            case managed(Object)
+            self.core = core
         }
+    }
+    class AnyObject:AnyDelegate              
+    {
+        override class 
+        var symbol:Swift.String { "Reference" }
         
-        static 
-        var metaclass:Godot.Metaclass = "Object"
-        private 
-        let existential:Existential
-    }
-}
-extension Godot.Delegate:Godot.Variant
-{
-    init(unretained core:UnsafeMutableRawPointer) 
-    {
-        if let object:Godot.Object = .init(unretained: core) 
+        required 
+        init(unretained core:UnsafeMutableRawPointer) 
         {
-            self.existential = .managed(object)
+            super.init(unretained: Godot.runtime.retain(core))
         }
-        else 
-        {
-            self.existential = .unmanaged(core: core)
+        deinit
+        { 
+            Godot.runtime.release(self.core)
         }
-    }
-    
-    var core:UnsafeMutableRawPointer 
-    {
-        switch self.existential 
-        {
-        case .unmanaged(core: let core):    return core 
-        case .managed(let object):          return object.core
-        }
-    }
-}
-extension Godot.AnyObject 
-{
-    init?(unretained core:UnsafeMutableRawPointer) 
-    {
-        guard Self.metaclass.is(instance: core) else { return nil }
-        self.init(retained: Godot.runtime.retain(core))
-    }
-}
-extension Godot.AnyUnmanaged 
-{
-    init?(unretained core:UnsafeMutableRawPointer) 
-    {
-        guard Self.metaclass.is(instance: core) else { return nil }
-        self.init(core: core)
     }
 }
 
+// basic variants 
 extension Godot.Void:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let _:Swift.Void = value(as: Swift.Void.self) else { return nil }
+        value.load(where: GODOT_VARIANT_TYPE_NIL){ _ in Self.init() }
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
-        .init()
+        .init(Godot.api.1.0.godot_variant_new_nil)
     }
 } 
 extension Bool:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        if let value:Self = value(as: Bool.self) { self = value } else { return nil }
+        value.load(where: GODOT_VARIANT_TYPE_BOOL, Godot.api.1.0.godot_variant_as_bool)
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
-        .init(self)
-    }
-}
-extension Int64:Godot.Variant 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        if let value:Self = value(as: Int64.self) { self = value } else { return nil }
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(self)
+        .init(value: self, Godot.api.1.0.godot_variant_new_bool)
     }
 }
-extension Float64:Godot.Variant 
+extension FixedWidthInteger where Self:SignedInteger 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        if let value:Self = value(as: Float64.self) { self = value } else { return nil }
+        value.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.1.0.godot_variant_as_int)
+            .map(Self.init(exactly:)) ?? nil
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
-        .init(self)
+        .init(value: .init(self), Godot.api.1.0.godot_variant_new_int)
+    }
+}
+extension FixedWidthInteger where Self:UnsignedInteger 
+{
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
+    {
+        value.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.1.0.godot_variant_as_uint)
+            .map(Self.init(exactly:)) ?? nil
+    }
+    func passRetained() -> Godot.Variant.Unmanaged 
+    {
+        .init(value: .init(self), Godot.api.1.0.godot_variant_new_uint)
+    }
+}
+extension BinaryFloatingPoint 
+{
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
+    {
+        value.load(where: GODOT_VARIANT_TYPE_REAL, Godot.api.1.0.godot_variant_as_real)
+            .map(Self.init(_:))
+    }
+    func passRetained() -> Godot.Variant.Unmanaged 
+    {
+        .init(value: .init(self), Godot.api.1.0.godot_variant_new_real)
     }
 }
 
+extension Int64:Godot.Variant               {}
+extension Float64:Godot.Variant             {}
+
+extension Float32:Godot.VariantRepresentable{}
+extension Float16:Godot.VariantRepresentable{}
+
+extension Int32:Godot.VariantRepresentable  {}
+extension Int16:Godot.VariantRepresentable  {}
+extension Int8:Godot.VariantRepresentable   {}
+extension Int:Godot.VariantRepresentable    {}
+
+extension UInt64:Godot.VariantRepresentable {}
+extension UInt32:Godot.VariantRepresentable {}
+extension UInt16:Godot.VariantRepresentable {}
+extension UInt8:Godot.VariantRepresentable  {}
+extension UInt:Godot.VariantRepresentable   {}
 
 fileprivate 
 protocol _GodotRawAggregate 
@@ -1263,7 +1337,7 @@ extension godot_vector2:Godot.RawAggregate
         let tracer:Vector2<Float32> = (1, 2)*
         
         var data:Self = .init()
-        Godot.api.core.1.0.godot_vector2_new(&data, tracer.x, tracer.y)
+        Godot.api.1.0.godot_vector2_new(&data, tracer.x, tracer.y)
         
         return data.unpacked == tracer
     }
@@ -1290,7 +1364,7 @@ extension godot_vector3:Godot.RawAggregate
         let tracer:Vector3<Float32> = (1, 2, 3)*
         
         var data:Self = .init()
-        Godot.api.core.1.0.godot_vector3_new(&data, tracer.x, tracer.y, tracer.z)
+        Godot.api.1.0.godot_vector3_new(&data, tracer.x, tracer.y, tracer.z)
         
         return data.unpacked == tracer
     }
@@ -1330,7 +1404,7 @@ extension godot_rect2:Godot.RawAggregate
             withUnsafePointer(to: size)
             {
                 (size:UnsafePointer<godot_vector2>) in  
-                Godot.api.core.1.0.godot_rect2_new_with_position_and_size(&data, start, size)
+                Godot.api.1.0.godot_rect2_new_with_position_and_size(&data, start, size)
             }
         }
         
@@ -1372,7 +1446,7 @@ extension godot_aabb:Godot.RawAggregate
             withUnsafePointer(to: size)
             {
                 (size:UnsafePointer<godot_vector3>) in  
-                Godot.api.core.1.0.godot_aabb_new(&data, start, size)
+                Godot.api.1.0.godot_aabb_new(&data, start, size)
             }
         }
         
@@ -1413,7 +1487,7 @@ extension godot_transform2d:Godot.RawAggregate
                 withUnsafePointer(to: godot_vector2.init(packing: tracer.2))
                 {
                     (c:UnsafePointer<godot_vector2>) in 
-                    Godot.api.core.1.0.godot_transform2d_new_axis_origin(&data, a, b, c)
+                    Godot.api.1.0.godot_transform2d_new_axis_origin(&data, a, b, c)
                 }
             }
         }
@@ -1472,7 +1546,7 @@ extension godot_transform:Godot.RawAggregate
                     withUnsafePointer(to: godot_vector3.init(packing: tracer.3))
                     {
                         (d:UnsafePointer<godot_vector3>) in 
-                        Godot.api.core.1.0.godot_transform_new_with_axis_origin(&data, a, b, c, d)
+                        Godot.api.1.0.godot_transform_new_with_axis_origin(&data, a, b, c, d)
                     }
                 }
             }
@@ -1521,7 +1595,7 @@ extension godot_basis:Godot.RawAggregate
                 withUnsafePointer(to: godot_vector3.init(packing: rows.2))
                 {
                     (c:UnsafePointer<godot_vector3>) in 
-                    Godot.api.core.1.0.godot_basis_new_with_rows(&data, a, b, c)
+                    Godot.api.1.0.godot_basis_new_with_rows(&data, a, b, c)
                 }
             }
         }
@@ -1609,24 +1683,18 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     static 
     func load2(_ value:Godot.Variant.Unmanaged) -> Vector2<Self>?
     {
-        guard let data:godot_vector2 = value.load(where: GODOT_VARIANT_TYPE_VECTOR2, 
-            Godot.api.core.1.0.godot_variant_as_vector2)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_VECTOR2)
         {
-            return nil 
-        }
-        return .init(data.unpacked)
+            .init(Godot.api.1.0.godot_variant_as_vector2($0).unpacked)
+        } 
     }
     static 
     func load3(_ value:Godot.Variant.Unmanaged) -> Vector3<Self>?
     {
-        guard let data:godot_vector3 = value.load(where: GODOT_VARIANT_TYPE_VECTOR3, 
-            Godot.api.core.1.0.godot_variant_as_vector3)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_VECTOR3)
         {
-            return nil 
-        }
-        return .init(data.unpacked)
+            .init(Godot.api.1.0.godot_variant_as_vector3($0).unpacked)
+        } 
     }
     
     static 
@@ -1634,7 +1702,7 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     {
         withUnsafePointer(to: godot_vector2.init(packing: .init(value))) 
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_vector2)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_vector2)
         }
     }
     static 
@@ -1642,7 +1710,7 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     {
         withUnsafePointer(to: godot_vector3.init(packing: .init(value))) 
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_vector3)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_vector3)
         }
     }
 }
@@ -1651,26 +1719,22 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     static 
     func load2x2(_ value:Godot.Variant.Unmanaged) -> (Vector2<Self>, Vector2<Self>)?
     {
-        guard let data:godot_rect2 = value.load(where: GODOT_VARIANT_TYPE_RECT2, 
-            Godot.api.core.1.0.godot_variant_as_rect2)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_RECT2)
         {
-            return nil 
-        }
-        let bounds:(Vector2<Float32>, Vector2<Float32>) = data.unpacked
-        return (.init(bounds.0), .init(bounds.1))
+            let bounds:(Vector2<Float32>, Vector2<Float32>) = 
+                Godot.api.1.0.godot_variant_as_rect2($0).unpacked
+            return (.init(bounds.0), .init(bounds.1))
+        } 
     }
     static 
     func load3x2(_ value:Godot.Variant.Unmanaged) -> (Vector3<Self>, Vector3<Self>)?
     {
-        guard let data:godot_aabb = value.load(where: GODOT_VARIANT_TYPE_AABB, 
-            Godot.api.core.1.0.godot_variant_as_aabb)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_AABB)
         {
-            return nil 
-        }
-        let bounds:(Vector3<Float32>, Vector3<Float32>) = data.unpacked
-        return (.init(bounds.0), .init(bounds.1))
+            let bounds:(Vector3<Float32>, Vector3<Float32>) = 
+                Godot.api.1.0.godot_variant_as_aabb($0).unpacked
+            return (.init(bounds.0), .init(bounds.1))
+        } 
     }
     
     static 
@@ -1678,7 +1742,7 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     {
         withUnsafePointer(to: godot_rect2.init(packing: (.init(value.0), .init(value.0)))) 
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_rect2)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_rect2)
         }
     }
     static 
@@ -1686,7 +1750,7 @@ extension BinaryFloatingPoint where Self:SIMDScalar
     {
         withUnsafePointer(to: godot_aabb.init(packing: (.init(value.0), .init(value.0)))) 
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_aabb)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_aabb)
         }
     }
 }
@@ -1752,12 +1816,12 @@ extension SIMD3:Godot.VariantRepresentable.RectangleStorage
 extension Vector:Godot.VariantRepresentable 
     where Storage:Godot.VariantRepresentable.VectorStorage
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let value:Self = Storage.load(value) else { return nil }
-        self    = value  
+        Storage.load(value)
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         Storage.store(self)
     }
@@ -1770,16 +1834,12 @@ extension Vector:Godot.Variant
 extension VectorFiniteRangeExpression
     where Storage:Godot.VariantRepresentable.RectangleStorage 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let (start, end):(Bound, Bound) = Storage.load2(value)
-        else 
-        {
-            return nil 
-        }
-        self.init(lowerBound: start, upperBound: end)
+        Storage.load2(value).map{ Self.init(lowerBound: $0.0, upperBound: $0.1) }
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         Storage.store2((self.lowerBound, self.upperBound))
     }
@@ -1800,150 +1860,141 @@ extension Vector.ClosedRectangle:Godot.VariantRepresentable
 
 extension Godot.Transform2.Affine:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let data:godot_transform2d = value.load(where: GODOT_VARIANT_TYPE_TRANSFORM2D, 
-            Godot.api.core.1.0.godot_variant_as_transform2d)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_TRANSFORM2D)
         {
-            return nil 
-        }
-        self.matrix = data.unpacked 
+            .init(matrix: Godot.api.1.0.godot_variant_as_transform2d($0).unpacked)
+        } 
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         Swift.withUnsafePointer(to: godot_transform2d.init(packing: self.matrix))
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_transform2d)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_transform2d)
         }
     }
 }
 extension Godot.Transform3.Affine:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let data:godot_transform = value.load(where: GODOT_VARIANT_TYPE_TRANSFORM, 
-            Godot.api.core.1.0.godot_variant_as_transform)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_TRANSFORM)
         {
-            return nil 
-        }
-        self.matrix = data.unpacked 
+            .init(matrix: Godot.api.1.0.godot_variant_as_transform($0).unpacked)
+        } 
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         Swift.withUnsafePointer(to: godot_transform.init(packing: self.matrix))
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_transform)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_transform)
         }
     }
 } 
 extension Godot.Transform3.Linear:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let data:godot_basis = value.load(where: GODOT_VARIANT_TYPE_BASIS, 
-            Godot.api.core.1.0.godot_variant_as_basis)
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_BASIS)
         {
-            return nil 
+            .init(matrix: Godot.api.1.0.godot_variant_as_basis($0).unpacked)
         }
-        self.matrix = data.unpacked 
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         Swift.withUnsafePointer(to: godot_basis.init(packing: self.matrix))
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_basis)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_basis)
         }
     }
 } 
 
 extension Godot.String:Godot.Variant 
 {
-    convenience
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let core:godot_string = value.load(where: GODOT_VARIANT_TYPE_STRING, 
-            Godot.api.core.1.0.godot_variant_as_string)
-        else 
-        { 
-            return nil 
-        }
-        self.init(retained: core)
+        value.load(where: GODOT_VARIANT_TYPE_STRING)
+        {
+            .init(retained: Godot.api.1.0.godot_variant_as_string($0))
+        } 
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         self.withUnsafePointer
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_string)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_string)
         }
     }
 }
 extension Godot.List:Godot.Variant 
 {
-    convenience
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let core:godot_array = value.load(where: GODOT_VARIANT_TYPE_ARRAY, 
-            Godot.api.core.1.0.godot_variant_as_array)
-        else 
-        { 
-            return nil 
+        value.load(where: GODOT_VARIANT_TYPE_ARRAY)
+        {
+            .init(retained: Godot.api.1.0.godot_variant_as_array($0))
         }
-        self.init(retained: core)
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         self.withUnsafePointer
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_array)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_array)
         }
     }
 }
 extension Godot.Map:Godot.Variant 
 {
-    convenience
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let core:godot_dictionary = value.load(where: GODOT_VARIANT_TYPE_DICTIONARY, 
-            Godot.api.core.1.0.godot_variant_as_dictionary)
-        else 
-        { 
-            return nil 
+        value.load(where: GODOT_VARIANT_TYPE_DICTIONARY)
+        {
+            .init(retained: Godot.api.1.0.godot_variant_as_dictionary($0))
         }
-        self.init(retained: core)
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         self.withUnsafePointer
         {
-            .init(value: $0, Godot.api.core.1.0.godot_variant_new_dictionary)
+            .init(value: $0, Godot.api.1.0.godot_variant_new_dictionary)
         }
     }
 }
-extension Godot.AnyDelegate 
+extension Godot.AnyDelegate:Godot.Variant 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        guard let core:UnsafeMutableRawPointer = value.load(where: GODOT_VARIANT_TYPE_OBJECT, 
-            Godot.api.core.1.0.godot_variant_as_object) ?? nil
-        else 
+        value.load(where: GODOT_VARIANT_TYPE_OBJECT) 
         {
-            return nil 
-        }
-        // `godot_variant_as_object` passes object unretained
-        self.init(unretained: core)
+            (variant:UnsafePointer<godot_variant>) -> Self? in
+            
+            guard let core:UnsafeMutableRawPointer = 
+                Godot.api.1.0.godot_variant_as_object(variant)
+            else 
+            {
+                return nil
+            }
+            // `godot_variant_as_object` passes object unretained
+            return Godot.type(of: core).init(unretained: core) as? Self
+        } ?? nil
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         withExtendedLifetime(self) 
         {
             // `godot_variant_new_object` passes the object retained, unlike 
             // `godot_variant_as_object` for some reason
-            .init(value: self.core, Godot.api.core.1.0.godot_variant_new_object)
+            .init(value: self.core, Godot.api.1.0.godot_variant_new_object)
         }
-    }
+    } 
 }
 
 struct _GodotVariantUnmanaged 
@@ -1957,7 +2008,6 @@ struct _GodotVariantUnmanaged
         self.data 
     } 
     
-    // needed because class convenience initializers cannot replace `self`
     fileprivate 
     func load<T>(where type:godot_variant_type, _ body:(UnsafePointer<godot_variant>) throws -> T) 
         rethrows -> T? 
@@ -1969,12 +2019,20 @@ struct _GodotVariantUnmanaged
     {
             self.withUnsafePointer( Self.type(of:) )  == type ?     ()       : nil
     }
+    
     fileprivate 
     init<T>(value:T, _ body:(UnsafeMutablePointer<godot_variant>, T) throws -> ()) 
         rethrows
     {
         self.data = .init()
         try body(&self.data, value)
+    }
+    fileprivate 
+    init(_ body:(UnsafeMutablePointer<godot_variant>) throws -> ()) 
+        rethrows
+    {
+        self.data = .init()
+        try body(&self.data)
     }
     
     private 
@@ -1991,49 +2049,6 @@ struct _GodotVariantUnmanaged
 }
 extension Godot.Variant.Unmanaged 
 {
-    init() 
-    {
-        self.data = .init() 
-        Godot.api.core.1.0.godot_variant_new_nil(&self.data)
-    }
-    init(_ value:Bool) 
-    {
-        self.init(value: value, Godot.api.core.1.0.godot_variant_new_bool)
-    }
-    init(_ value:Int64) 
-    {
-        self.init(value: value, Godot.api.core.1.0.godot_variant_new_int)
-    }
-    init(_ value:UInt64) 
-    {
-        self.init(value: value, Godot.api.core.1.0.godot_variant_new_uint)
-    }
-    init(_ value:Float64) 
-    {
-        self.init(value: value, Godot.api.core.1.0.godot_variant_new_real)
-    }
-    
-    func callAsFunction(as _:Void.Type) -> Void? 
-    {
-        self.load(where: GODOT_VARIANT_TYPE_NIL)
-    }
-    func callAsFunction(as _:Bool.Type) -> Bool? 
-    {
-        self.load(where: GODOT_VARIANT_TYPE_BOOL, Godot.api.core.1.0.godot_variant_as_bool)
-    }
-    func callAsFunction(as _:Int64.Type) -> Int64? 
-    {
-        self.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.core.1.0.godot_variant_as_int)
-    }
-    func callAsFunction(as _:UInt64.Type) -> UInt64? 
-    {
-        self.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.core.1.0.godot_variant_as_uint)
-    }
-    func callAsFunction(as _:Float64.Type) -> Float64? 
-    {
-        self.load(where: GODOT_VARIANT_TYPE_REAL, Godot.api.core.1.0.godot_variant_as_real)
-    }
-    
     @available(*, unavailable, message: "unimplemented")
     mutating 
     func retain() 
@@ -2042,7 +2057,7 @@ extension Godot.Variant.Unmanaged
     mutating 
     func release() 
     {
-        Godot.api.core.1.0.godot_variant_destroy(&self.data)
+        Godot.api.1.0.godot_variant_destroy(&self.data)
     }
 }
 extension Godot.Variant.Unmanaged 
@@ -2074,17 +2089,17 @@ extension Godot.Variant.Unmanaged
     func pass<T>(retained value:T) -> Self 
         where T:Godot.VariantRepresentable 
     {
-        value.retainedValue
+        value.passRetained()
     }
     static 
     func pass(retained value:Godot.Variant) -> Self
     {
-        value.retainedValue
+        value.passRetained()
     }
     static 
     func pass(retained value:Void) -> Self
     {
-        .init()
+        .init(Godot.api.1.0.godot_variant_new_nil)
     }
     
     // FIXME: this should really use an atomic swap
@@ -2112,16 +2127,16 @@ extension Godot.Variant.Unmanaged
         where T:Godot.VariantRepresentable 
     {
         defer { self.release() }
-        return T.init(unretainedValue: self)
+        return T.takeUnretained(self)
     }
     func take<T>(unretained _:T.Type) -> T? 
         where T:Godot.VariantRepresentable 
     {
-        return T.init(unretainedValue: self)
+        T.takeUnretained(self)
     }
     func take(unretained _:Void.Type) -> Void?
     {
-        self(as: Void.self)
+        self.load(where: GODOT_VARIANT_TYPE_NIL)
     }
     func take(unretained _:Godot.Variant.Protocol) -> Godot.Variant
     {
@@ -2132,52 +2147,52 @@ extension Godot.Variant.Unmanaged
             case GODOT_VARIANT_TYPE_NIL:
                 return Godot.Void.init()
             case GODOT_VARIANT_TYPE_BOOL:
-                return Godot.api.core.1.0.godot_variant_as_bool($0)
+                return Godot.api.1.0.godot_variant_as_bool($0)
             case GODOT_VARIANT_TYPE_INT:
-                return Godot.api.core.1.0.godot_variant_as_int($0)
+                return Godot.api.1.0.godot_variant_as_int($0)
             case GODOT_VARIANT_TYPE_REAL:
-                return Godot.api.core.1.0.godot_variant_as_real($0)
+                return Godot.api.1.0.godot_variant_as_real($0)
             
             case GODOT_VARIANT_TYPE_VECTOR2:
-                return Godot.api.core.1.0.godot_variant_as_vector2($0).unpacked
+                return Godot.api.1.0.godot_variant_as_vector2($0).unpacked
             case GODOT_VARIANT_TYPE_VECTOR3:
-                return Godot.api.core.1.0.godot_variant_as_vector3($0).unpacked
+                return Godot.api.1.0.godot_variant_as_vector3($0).unpacked
             
             case GODOT_VARIANT_TYPE_RECT2:
                 let bounds:(Vector2<Float32>, Vector2<Float32>) = 
-                    Godot.api.core.1.0.godot_variant_as_rect2($0).unpacked
+                    Godot.api.1.0.godot_variant_as_rect2($0).unpacked
                 return Vector2<Float32>.Rectangle.init(
                     lowerBound: bounds.0, upperBound: bounds.1)
             
             case GODOT_VARIANT_TYPE_AABB:
                 let bounds:(Vector3<Float32>, Vector3<Float32>) = 
-                    Godot.api.core.1.0.godot_variant_as_aabb($0).unpacked
+                    Godot.api.1.0.godot_variant_as_aabb($0).unpacked
                 return Vector3<Float32>.Rectangle.init(
                     lowerBound: bounds.0, upperBound: bounds.1)
             
             case GODOT_VARIANT_TYPE_TRANSFORM2D:
                 return Godot.Transform2.Affine.init(matrix: 
-                    Godot.api.core.1.0.godot_variant_as_transform2d($0).unpacked)
+                    Godot.api.1.0.godot_variant_as_transform2d($0).unpacked)
             case GODOT_VARIANT_TYPE_TRANSFORM:
                 return Godot.Transform3.Affine.init(matrix: 
-                    Godot.api.core.1.0.godot_variant_as_transform($0).unpacked) 
+                    Godot.api.1.0.godot_variant_as_transform($0).unpacked) 
             case GODOT_VARIANT_TYPE_BASIS:
                 return Godot.Transform3.Linear.init(matrix: 
-                    Godot.api.core.1.0.godot_variant_as_basis($0).unpacked) 
+                    Godot.api.1.0.godot_variant_as_basis($0).unpacked) 
             
             case GODOT_VARIANT_TYPE_STRING:
                 return Godot.String.init(retained: 
-                    Godot.api.core.1.0.godot_variant_as_string($0))
+                    Godot.api.1.0.godot_variant_as_string($0))
             case GODOT_VARIANT_TYPE_ARRAY:
                 return Godot.List.init(retained: 
-                    Godot.api.core.1.0.godot_variant_as_array($0))
+                    Godot.api.1.0.godot_variant_as_array($0))
             case GODOT_VARIANT_TYPE_DICTIONARY:
                 return Godot.Map.init(retained: 
-                    Godot.api.core.1.0.godot_variant_as_dictionary($0))
+                    Godot.api.1.0.godot_variant_as_dictionary($0))
             
             case GODOT_VARIANT_TYPE_OBJECT:
-                guard let value:UnsafeMutableRawPointer = 
-                    Godot.api.core.1.0.godot_variant_as_object($0)
+                guard let core:UnsafeMutableRawPointer = 
+                    Godot.api.1.0.godot_variant_as_object($0)
                 else 
                 {
                     Godot.print(error: "encountered nil delegate pointer while unwrapping variant")
@@ -2185,7 +2200,7 @@ extension Godot.Variant.Unmanaged
                 }
                 // loading an object pointer from a variant does not seem to 
                 // increment its reference count, so we take it unretained
-                return Godot.Delegate.init(unretained: value)
+                return Godot.type(of: core).init(unretained: core)
             
             case let code:
                 Godot.print(error: "variant type (code: \(code)) is unsupported")
@@ -2200,7 +2215,7 @@ extension Godot.String
     convenience
     init(_ string:Swift.String)
     {
-        self.init(retained: Godot.api.core.1.0.godot_string_chars_to_utf8(string))
+        self.init(retained: Godot.api.1.0.godot_string_chars_to_utf8(string))
     }
 }
 extension Swift.String 
@@ -2208,9 +2223,9 @@ extension Swift.String
     init(_ string:Godot.String)
     {
         var utf8:godot_char_string = 
-            string.withUnsafePointer(Godot.api.core.1.0.godot_string_utf8)
+            string.withUnsafePointer(Godot.api.1.0.godot_string_utf8)
         self.init(cString: unsafeBitCast(utf8, to: UnsafePointer<Int8>.self))
-        Godot.api.core.1.0.godot_char_string_destroy(&utf8)
+        Godot.api.1.0.godot_char_string_destroy(&utf8)
     } 
 }
 
@@ -2253,13 +2268,13 @@ extension Godot.List:RandomAccessCollection, MutableCollection
     convenience 
     init(capacity:Int = 0) 
     {
-        self.init(with: Godot.api.core.1.0.godot_array_new)
+        self.init(with: Godot.api.1.0.godot_array_new)
         self.resize(to: capacity)
     }
     
     func resize(to capacity:Int) 
     {
-        Godot.api.core.1.0.godot_array_resize(&self.core, .init(capacity))
+        Godot.api.1.0.godot_array_resize(&self.core, .init(capacity))
     }
     
     var startIndex:Int 
@@ -2268,7 +2283,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection
     }
     var endIndex:Int 
     {
-        .init(self.withUnsafePointer(Godot.api.core.1.0.godot_array_size))
+        .init(self.withUnsafePointer(Godot.api.1.0.godot_array_size))
     }
     
     subscript(unmanaged index:Int) -> Godot.Variant.Unmanaged 
@@ -2277,7 +2292,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection
         {
             guard let raw:UnsafeRawPointer = (self.withUnsafePointer 
             {
-                Godot.api.core.1.0.godot_array_operator_index_const($0, .init(index))
+                Godot.api.1.0.godot_array_operator_index_const($0, .init(index))
             }).map(UnsafeRawPointer.init(_:))
             else 
             {
@@ -2294,7 +2309,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection
         set(value)
         {
             guard let raw:UnsafeMutableRawPointer = 
-                Godot.api.core.1.0.godot_array_operator_index(&self.core, .init(index))
+                Godot.api.1.0.godot_array_operator_index(&self.core, .init(index))
                 .map(UnsafeMutableRawPointer.init(_:))
             else 
             {
@@ -2308,30 +2323,6 @@ extension Godot.List:RandomAccessCollection, MutableCollection
             }
             pointer.pointee = value 
         } 
-        /* _modify
-        {
-            let raw:UnsafeMutableRawPointer =
-            {
-                guard let raw:UnsafeMutableRawPointer = 
-                    Godot.api.core.1.0.godot_array_operator_index(&self.core, .init(index))
-                    .map(UnsafeMutableRawPointer.init(_:))
-                else 
-                {
-                    fatalError("nil pointer to list element (\(index))")
-                }
-                return raw
-            }()
-            
-            let pointer:UnsafeMutablePointer<Godot.Variant.Unmanaged> = 
-                raw.bindMemory(to: Godot.Variant.Unmanaged.self, capacity: 1)
-            defer 
-            {
-                raw.bindMemory(to:           godot_variant.self, capacity: 1)
-            }
-            
-            yield &pointer.pointee
-        }  */
-
     } 
     subscript(index:Int) -> Godot.Variant 
     {
@@ -2373,7 +2364,7 @@ extension Godot.Map
     convenience 
     init() 
     {
-        self.init(with: Godot.api.core.1.0.godot_dictionary_new)
+        self.init(with: Godot.api.1.0.godot_dictionary_new)
     }
     
     subscript(unmanaged key:Godot.Variant) -> Godot.Variant.Unmanaged 
@@ -2386,7 +2377,7 @@ extension Godot.Map
                 (key:UnsafePointer<godot_variant>) in 
                 self.withUnsafePointer 
                 {
-                    Godot.api.core.1.0.godot_dictionary_operator_index_const($0, key)
+                    Godot.api.1.0.godot_dictionary_operator_index_const($0, key)
                 }
             }).map(UnsafeRawPointer.init(_:))
             else 
@@ -2407,7 +2398,7 @@ extension Godot.Map
             (Godot.Variant.Unmanaged.pass(key)
             {
                 (key:UnsafePointer<godot_variant>) in 
-                Godot.api.core.1.0.godot_dictionary_operator_index(&self.core, key)
+                Godot.api.1.0.godot_dictionary_operator_index(&self.core, key)
             }).map(UnsafeMutableRawPointer.init(_:))
             else 
             {
@@ -2449,80 +2440,47 @@ extension Godot.Map:ExpressibleByDictionaryLiteral
 
 extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantRepresentable 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        if let wrapped:Wrapped  = value.take(unretained: Wrapped.self) 
+        if let wrapped:Wrapped  = value.take(unretained: Wrapped.self)
         {
-            self = .some(wrapped)
+            return .some(wrapped)
         }
         else if let _:Void      = value.take(unretained: Void.self) 
         {
-            self = .none 
+            return .some(.none)
         }
         else 
         {
             return nil 
         }
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
-        self?.retainedValue ?? .init()
+        if let wrapped:Wrapped = self 
+        {
+            return .pass(retained: wrapped)
+        }
+        else 
+        {
+            return .pass(retained: ())
+        }
     }
 }
 
 extension String:Godot.VariantRepresentable 
 {
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
+    static 
+    func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        if let value:Godot.String = value.take(unretained: Godot.String.self) 
-        { 
-            self.init(value) 
-        } 
-        else 
-        { 
-            return nil 
-        }
+        value.take(unretained: Godot.String.self).map(Self.init(_:))
     }
-    var retainedValue:Godot.Variant.Unmanaged 
+    func passRetained() -> Godot.Variant.Unmanaged 
     {
         .pass(retained: Godot.String.init(self))
     }
 } 
-
-extension FixedWidthInteger where Self:SignedInteger 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:Int64 = value(as: Int64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(Int64.init(self))
-    }
-}
-extension Int32:Godot.VariantRepresentable  {}
-extension Int16:Godot.VariantRepresentable  {}
-extension Int8:Godot.VariantRepresentable   {}
-extension Int:Godot.VariantRepresentable    {}
-
-extension FixedWidthInteger where Self:UnsignedInteger 
-{
-    init?(unretainedValue value:Godot.Variant.Unmanaged) 
-    {
-        guard let value:UInt64 = value(as: UInt64.self) else { return nil }
-        self.init(exactly: value)
-    }
-    var retainedValue:Godot.Variant.Unmanaged 
-    {
-        .init(UInt64.init(self))
-    }
-}
-extension UInt64:Godot.VariantRepresentable {}
-extension UInt32:Godot.VariantRepresentable {}
-extension UInt16:Godot.VariantRepresentable {}
-extension UInt8:Godot.VariantRepresentable  {}
-extension UInt:Godot.VariantRepresentable   {}
 
 
 extension Godot 
@@ -2557,25 +2515,4 @@ extension Godot.Error:CustomStringConvertible
             return "cannot convert value of type '\(String.init(reflecting: type(of: value)))' to expected argument type '\(String.init(reflecting: expected))'"
         }
     }
-}
-
-@_cdecl("godot_gdnative_init")
-public 
-func godot_gdnative_init(options:UnsafePointer<godot_gdnative_init_options>)
-{
-    Godot.initialize(gdnative: .init(head: options.pointee.api_struct.pointee))
-}
-
-@_cdecl("godot_nativescript_init")
-public 
-func godot_nativescript_init(handle:UnsafeMutableRawPointer) 
-{
-    Godot.initialize(library: handle)
-}
-
-@_cdecl("godot_gdnative_terminate")
-public 
-func godot_gdnative_terminate(options _:UnsafePointer<godot_gdnative_terminate_options>)
-{
-    Godot.deinitialize()
 }

@@ -133,50 +133,59 @@ extension GodotAPI.Class
             singleton:Bool, 
             managed:Bool
         )
+        typealias Identifier = 
+        (
+            namespace:Namespace,
+            name:String
+        )
+        enum Namespace:String, CustomStringConvertible
+        {
+            case root       = "Godot"
+            case unmanaged  = "Godot.Unmanaged"
+            case singleton  = "Godot.Singleton"
+            
+            var description:String 
+            {
+                self.rawValue
+            }
+        }
         
         // gdscript class name, flags
-        let info:(symbol:String, is:Flags)?
+        let info:(symbol:String, is:Flags)
         // swift type 
-        let name:String
-        private(set)
-        var parent:String?
+        let identifier:Identifier 
         
         private(set)
-        var children:[Node]
-        
-        init(name:String) 
-        {
-            self.children   = []
-            self.name       = name 
-            self.info       = nil
-            self.parent     = nil
-        }
+        var children:[Node],
+            parent:Identifier?
         
         init(class:GodotAPI.Class) 
         {
             self.children   = []
+            self.parent     = nil 
             if `class`.singleton.isEmpty 
             {
-                self.parent = `class`.parent.isEmpty ? nil : Self.name(`class`.parent)
-                self.name   =                                Self.name(`class`.name)
-                self.info   = 
+                self.info       = 
                 (
                     `class`.name, 
                     (
-                        instantiable:   `class`.instantiable,
+                        instantiable:  `class`.instantiable,
                         singleton:      false, 
                         // https://github.com/godotengine/godot-cpp/issues/432
                         // api.json bug: 
                         //      `Godot::Reference` is not tagged as managed, but is actually managed
-                        managed:        `class`.managed || `class`.name == "Reference"
+                        managed:       `class`.managed || `class`.name == "Reference"
                     )
+                )
+                self.identifier = 
+                (
+                    namespace:  self.info.is.managed || `class`.name == "Object" ? .root : .unmanaged,
+                    name:       Self.name(`class`.name)
                 )
             }
             else 
             {
-                self.parent = Self.name("Object") // Godot.AnyDelegate
-                self.name   = `class`.singleton
-                self.info   =
+                self.info       =
                 (
                     `class`.name, 
                     (
@@ -193,17 +202,13 @@ extension GodotAPI.Class
                         managed:        false
                     )
                 ) 
+                self.identifier = (namespace: .singleton, name: `class`.singleton)
             }
         }
         
         func append(child:Node) 
         {
-            self.children.append(child)
-        }
-        // reparents the node
-        func move(child:Node) 
-        {
-            child.parent = self.name
+            child.parent = self.identifier
             self.children.append(child)
         }
         
@@ -223,9 +228,9 @@ extension GodotAPI.Class
             switch original
             {
             case "Object":
-                name = "Delegate"
+                name = "AnyDelegate"
             case "Reference":
-                name = "Object"
+                name = "AnyObject"
             // fix problematic names 
             case "NativeScript":
                 name = "NativeScriptDelegate"
@@ -238,7 +243,7 @@ extension GodotAPI.Class
         @Source.Code
         var description:String 
         {
-            self.name 
+            "\(self.identifier.namespace).\(self.identifier.name)" 
             Source.fragment(indent: 1)
             {
                 for child:Node in self.children 
@@ -260,7 +265,7 @@ extension GodotAPI.Class.Node
 extension GodotAPI
 {
     static 
-    let root:(unmanaged:Class.Node, object:Class.Node) = 
+    var tree:Class.Node  
     {
         let path:AbsolutePath = AbsolutePath.init(#filePath)
             .parentDirectory.appending(component: "godot-api.json")
@@ -281,157 +286,78 @@ extension GodotAPI
             fatalError("could not parse 'godot-api.json' file (\(error))")
         }
         
-        // construct tree 
-        var nodes:[String: Class.Node] = 
+        // construct tree. include original parent keys in the dictionary 
+        let nodes:[String: (parent:String?, node:Class.Node)] = 
             .init(uniqueKeysWithValues: classes.map 
         {
-            let node:Class.Node = .init(class: $0)
-            return (node.name, node)
+            return ($0.name, ($0.parent.isEmpty ? nil : $0.parent, Class.Node.init(class: $0)))
         })
         // sort to provide some stability in generated code
-        for node:Class.Node in nodes.values.sorted(by: { $0.name < $1.name }) 
+        for (parent, node):(String?, Class.Node) in 
+            nodes.values.sorted(by: { $0.node.identifier.name < $1.node.identifier.name }) 
         {
-            if  let name:String         = node.parent, 
-                let parent:Class.Node   = nodes[name]
+            if  let key:String          = parent, 
+                let parent:Class.Node   = nodes[key]?.node
             {
                 parent.append(child: node)
             }
         }
-        // perform tree rotation so all unmanaged/singleton classes have a 
-        // single ancestor 
-        guard   let object:Class.Node   = nodes["Object"], 
-                let delegate:Class.Node = nodes["Delegate"]
+        
+        guard let root:Class.Node = nodes["Object"]?.node
         else 
         {
-            fatalError("missing 'Godot.Object' and 'Godot.Delegate' classes")
+            fatalError("missing 'Godot.AnyDelegate' root class")
         }
-        let unmanaged:Class.Node        = .init(name: "Unmanaged")
-        for node:Class.Node in delegate.children where node !== object
+        return root
+    }
+    
+    private static 
+    func definitions(root:Class.Node) -> (godot:[String], unmanaged:[String], singleton:[String])
+    {
+        var definitions:(godot:[String], unmanaged:[String], singleton:[String]) = 
+        (
+            [], [], []
+        )
+        for node:Class.Node in root.preorder 
+            // skip `AnyDelegate` and `AnyObject`, which have special behavior
+            where   node.identifier != (.unmanaged, "AnyDelegate") &&
+                    node.identifier != (.root,      "AnyObject"  )
         {
-            unmanaged.move(child: node)
+            guard let parent:Class.Node.Identifier = node.parent 
+            else 
+            {
+                continue 
+            }
+            let definition:String = Source.fragment 
+            {
+                if node.children.isEmpty 
+                {
+                "final" 
+                }
+                "class \(node.identifier.name):\(parent.namespace).\(parent.name)"
+                Source.block 
+                {
+                    """
+                    override class var symbol:Swift.String { "\(node.info.symbol)" }
+                    """
+                }
+            }
+            switch node.identifier.namespace 
+            {
+            case .root:         definitions.godot.append(definition)
+            case .unmanaged:    definitions.unmanaged.append(definition)
+            case .singleton:    definitions.singleton.append(definition)
+            }
         }
-        return (unmanaged: unmanaged, object: object)
-    }()
+        return definitions
+    }
     
     @Source.Code 
     static 
     var swift:String 
     {
+        let root:Class.Node = Self.tree
         """
-        // delegate class ancestor hierarchy
-        extension Godot 
-        {
-            enum Ancestor 
-            {
-            }
-        }
-        extension Godot.Ancestor
-        """
-        Source.block 
-        {
-            """
-            typealias Delegate = Object & Unmanaged 
-            """
-            for root:Class.Node in [Self.root.object, Self.root.unmanaged] 
-            {
-                for node:Class.Node in root.preorder 
-                {
-                    if      node.children.isEmpty 
-                    {
-                        "typealias \(node.name) = _GodotAncestor\(node.name)"
-                    }
-                    else if node.children.count == 1 
-                    {
-                        "typealias \(node.name) = \(node.children[0].name)"
-                    }
-                    else 
-                    {
-                        """
-                        
-                        typealias \(node.name) = 
-                                \(node.children.map(\.name).joined(separator: " \n    &   "))
-                        """
-                    }
-                }
-            }
-        }
-        for node:Class.Node in Self.root.object.leaves + Self.root.unmanaged.leaves
-        {
-            """
-            protocol _GodotAncestor\(node.name) {}
-            """
-        }
-        // generate class inheritance hierarchy. 
-        // `Godot.AnyDelegate`, `Godot.AnyUnmanaged` and `Godot.AnyObject`
-        // have special behavior, so we define them manually
-        """
-        
-        // delegate class inheritance tree
-        protocol _GodotAnyDelegate:Godot.VariantRepresentable 
-        {
-            // settable because class metadata has to be loaded at runtime
-            static 
-            var metaclass:Godot.Metaclass 
-            {
-                get
-                set 
-            }
-            
-            init?(unretained:UnsafeMutableRawPointer) 
-            var core:UnsafeMutableRawPointer 
-            {
-                get 
-            }
-        }
-        protocol _GodotAnyObject:Godot.AnyDelegate              
-        {
-            // non-failable init assumes instance has been type-checked, and does 
-            // not perform any retains!
-            init(retained:UnsafeMutableRawPointer) 
-        }
-        protocol _GodotAnyUnmanaged:Godot.AnyDelegate
-        {
-            // non-failable init assumes instance has been type-checked, and does 
-            // not perform any retains!
-            init(core:UnsafeMutableRawPointer)
-        }
-        """
-        for root:Class.Node in Self.root.object.children + Self.root.unmanaged.children 
-        {
-            // skip leaf nodes (final classes) 
-            for node:Class.Node in root.preorder where !node.children.isEmpty
-            {
-                // cannot use `guard` in result builder
-                if let parent:String = node.parent 
-                {
-                    // TODO: will need to place virtual method declarations here
-                    """
-                    protocol _GodotAny\(node.name):Godot.Any\(parent) {}
-                    """
-                }
-                else 
-                {
-                    let _ = fatalError("unreachable")
-                }
-            }
-        }
-        """
-        extension Godot
-        """
-        Source.block 
-        {
-            """
-            typealias AnyDelegate = _GodotAnyDelegate
-            
-            """
-            for node:Class.Node in Self.root.object.preorder + Self.root.unmanaged.preorder 
-                where !node.children.isEmpty
-            {
-                "typealias Any\(node.name) = _GodotAny\(node.name)"
-            }
-        }
-        """
-        
         extension Godot 
         {
             enum Unmanaged 
@@ -442,81 +368,14 @@ extension GodotAPI
             }
         }
         """
-        var namespace:(godot:[String], unmanaged:[String], singleton:[String]) = 
-        (
-            [], [], []
-        )
-        for root:Class.Node in [Self.root.object, Self.root.unmanaged] 
-        {
-            for node:Class.Node in root.preorder 
-            {
-                // `Godot.Unmanaged` and `Godot.Singleton` are pseudoclasses, 
-                // which only exist in protocol form, so do not emit a 
-                // definition in this case
-                if let info:(symbol:String, is:Class.Node.Flags) = node.info 
-                {
-                    let definition:String = Source.fragment 
-                    {
-                        let kind:String = info.is.managed ? "final class" : "struct"
-                        if let parent:String = node.parent, node.children.isEmpty
-                        {
-                            // final class, no existential of its own, conforms 
-                            // to its parent’s existential 
-                            "\(kind) \(node.name):Godot.Any\(parent), Godot.Ancestor.\(node.name)"
-                        }
-                        else 
-                        {
-                            // open class, conforms to its own existential 
-                            "\(kind) \(node.name):Godot.Any\(node.name), Godot.Ancestor.\(node.name)"
-                        }
-                        Source.block 
-                        {
-                            """
-                            static 
-                            var metaclass:Godot.Metaclass = "\(info.symbol)"
-                            let core:UnsafeMutableRawPointer
-                            """
-                            if info.is.managed 
-                            {
-                                // sanity check 
-                                let _ = assert(root === Self.root.object, node.name)
-                                """
-                                init(retained core:UnsafeMutableRawPointer) { self.core = core }
-                                deinit               { Godot.runtime.release( self.core )      }
-                                """
-                            }
-                            else 
-                            {
-                                // sanity check 
-                                let _ = assert(root === Self.root.unmanaged, node.name)
-                                """
-                                init(core:UnsafeMutableRawPointer)          { self.core = core }
-                                """
-                            }
-                        }
-                    }
-                    
-                    if      info.is.managed 
-                    {
-                        let _ = namespace.godot.append(definition)
-                    }
-                    else if info.is.singleton 
-                    {
-                        let _ = namespace.singleton.append(definition)
-                    }
-                    else 
-                    {
-                        let _ = namespace.unmanaged.append(definition)
-                    }
-                }
-            }
-        }
+        let definitions:(godot:[String], unmanaged:[String], singleton:[String]) = 
+            Self.definitions(root: root)
         
-        for (definitions, namespace):([String], String) in 
+        for (definitions, namespace):([String], Class.Node.Namespace) in 
         [
-            (namespace.godot,       "Godot"), 
-            (namespace.unmanaged,   "Godot.Unmanaged"),
-            (namespace.singleton,   "Godot.Singleton"),
+            (definitions.godot,     .root), 
+            (definitions.unmanaged, .unmanaged),
+            (definitions.singleton, .singleton),
         ] 
         {
             """
@@ -527,6 +386,25 @@ extension GodotAPI
                 for definition:String in definitions 
                 {
                     definition
+                }
+            }
+        }
+        """
+        // table for setting global type tags 
+        extension Godot
+        """
+        Source.block 
+        {
+            """
+            // type metadata table
+            static 
+            let DelegateTypes:[AnyDelegate.Type] =
+            """
+            Source.block(delimiters: ("[", "]"))
+            {
+                for node:Class.Node in Self.tree.preorder 
+                {
+                    "\(node.identifier.namespace).\(node.identifier.name).self,"
                 }
             }
         }

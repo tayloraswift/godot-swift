@@ -828,7 +828,7 @@ extension Synthesizer
             {
                 parameterization.generateBindingOperatorOverload()
             }
-            for (typename, symbols, _):(String, [String], [String]) in interface 
+            for typename:String in interface.map(\.typename) 
             {
                 let _ = print("generating 'Godot.NativeScript' conformance for type '\(typename)'")
                 // if `instance` is a class, this will simply produce the class instance pointer. 
@@ -847,28 +847,28 @@ extension Synthesizer
             extension \(typename)
             {
                 static 
-                func register(with api:Godot.API.NativeScript) 
+                func register(_ symbols:[String], with api:Godot.Library) 
                 {
-                    let initializer:Godot.API.NativeScript.Initializer = 
+                    let initializer:Godot.Library.Initializer = 
                     {
                         (
                             delegate:UnsafeMutableRawPointer?, 
-                            metatype:UnsafeMutableRawPointer?
+                            metadata:UnsafeMutableRawPointer?
                         ) -> UnsafeMutableRawPointer? in 
                         
-                        \(typename).Interface.initialize(delegate: delegate, metatype: metatype)
+                        \(typename).Interface.initialize(delegate: delegate, metadata: metadata)
                     }
-                    let deinitializer:Godot.API.NativeScript.Deinitializer =
+                    let deinitializer:Godot.Library.Deinitializer =
                     {
                         (
                             delegate:UnsafeMutableRawPointer?, 
-                            metatype:UnsafeMutableRawPointer?, 
+                            metadata:UnsafeMutableRawPointer?, 
                             instance:UnsafeMutableRawPointer?
                         ) in
                         
-                        \(typename).Interface.deinitialize(instance: instance, metatype: metatype)
+                        \(typename).Interface.deinitialize(instance: instance, metadata: metadata)
                     }
-                    let dispatch:Godot.API.NativeScript.Method = 
+                    let dispatch:Godot.Library.Dispatcher = 
                     {
                         (
                             delegate:UnsafeMutableRawPointer?, 
@@ -885,22 +885,21 @@ extension Synthesizer
                             arguments: (arguments, .init(count)))
                     }
                     
-                    let unregister:Godot.API.NativeScript.WitnessDeinitializer = 
+                    let unregister:Godot.Library.WitnessDeinitializer = 
                     {
-                        (metatype:UnsafeMutableRawPointer?) in 
+                        (metadata:UnsafeMutableRawPointer?) in 
                         
-                        guard let metatype:UnsafeMutableRawPointer = metatype 
+                        guard let metadata:UnsafeMutableRawPointer = metadata 
                         else 
                         {
-                            fatalError("(swift) \(typename).sanitizer received nil metatype pointer")
+                            fatalError("(swift) \(typename).sanitizer received nil metadata pointer")
                         }
                         
-                        Unmanaged<Godot.Metatype>.fromOpaque(metatype).release()
+                        Unmanaged<Godot.NativeScriptMetadata>.fromOpaque(metadata).release()
                     }
                     
-                    let symbols:[String] = [\(symbols.map{ "\"\($0)\"" }.joined(separator: ", "))]
                     #if ENABLE_ARC_SANITIZER
-                    let tracker:Godot.Metatype.RetainTracker = 
+                    let tracker:Godot.RetainTracker = 
                         .init(type: \(typename).self, symbols: symbols)
                     #endif
                     
@@ -908,19 +907,19 @@ extension Synthesizer
                     {
                         // register type 
                         #if ENABLE_ARC_SANITIZER
-                        let metatype:UnsafeMutableRawPointer = Unmanaged<Godot.Metatype>
+                        let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
                             .passRetained(.init(symbol: symbol, tracker: tracker))
                             .toOpaque()
                         #else 
-                        let metatype:UnsafeMutableRawPointer = Unmanaged<Godot.Metatype>
+                        let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
                             .passRetained(.init(symbol: symbol))
                             .toOpaque()
                         #endif
                         
                         let constructor:godot_instance_create_func = .init(
-                            create_func:    initializer, method_data: metatype, free_func: unregister)
+                            create_func:    initializer, method_data: metadata, free_func: unregister)
                         let destructor:godot_instance_destroy_func = .init(
-                            destroy_func: deinitializer, method_data: metatype, free_func: nil)
+                            destroy_func: deinitializer, method_data: metadata, free_func: nil)
                         
                         api.register(initializer: constructor, deinitializer: destructor, 
                             for: Self.self, as: symbol)

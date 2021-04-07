@@ -28,14 +28,17 @@ func _ready():
     
     test.pass_one_argument(127)
     
+    var object = Resource.new()
+    test.pass_object_argument(object)
+    
     print(b)
     test.pass_tuple_argument(b)
     print(b)
     test.pass_inout_tuple_argument(b)
     print(b)
     
-    var s1:String = "string 1"
-    var s2:String = "string 2"
+    var s1:String = 'string 1'
+    var s2:String = 'string 2'
     print('s1: ', s1, ', s2: ', s2)
     test.pass_inout_argument(s1)
     print('s1: ', s1, ', s2: ', s2)

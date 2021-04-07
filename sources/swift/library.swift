@@ -1,4 +1,4 @@
-extension Godot 
+extension Godot.Library 
 {
     @Interface 
     public static 
@@ -14,7 +14,7 @@ struct TestSemantics:Godot.NativeScript
     final 
     class ARCManaged:Godot.NativeScript 
     {
-        init(delegate _:Godot.Object)
+        init(delegate _:Godot.AnyObject)
         {
             print("initialized instance of '\(Self.self)'")
         }
@@ -29,7 +29,8 @@ struct TestSemantics:Godot.NativeScript
     var interface:Interface 
     {
         method(delegate:) <- "pass_zero_arguments"
-        /* method(delegate:a:) <- "pass_one_argument"
+        method(delegate:a:) <- "pass_one_argument"
+        method(delegate:o:) <- "pass_object_argument"
         method(delegate:nil:) <- "pass_null_argument"
         method(delegate:tuple:) <- "pass_tuple_argument"
         method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
@@ -45,7 +46,7 @@ struct TestSemantics:Godot.NativeScript
         returnInoutList(delegate:list:) <- "return_inout_list"
         returnTuple(delegate:) <- "return_tuple"
         
-        returnVectors(delegate:) <- "return_vectors" */
+        returnVectors(delegate:) <- "return_vectors" 
         
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
@@ -83,6 +84,10 @@ struct TestSemantics:Godot.NativeScript
     func method(delegate:Godot.Unmanaged.MeshInstance, a:Int8) 
     {
         Godot.print("hello from 1-argument method, recieved: \(a)")
+    }
+    func method(delegate:Godot.Unmanaged.MeshInstance, o:Godot.AnyObject) 
+    {
+        Godot.print("hello from object-argument method, recieved: \(o)")
     }
     func method(delegate:Godot.Unmanaged.MeshInstance, tuple:(String, String)) 
     {

@@ -49,14 +49,15 @@ def clear_files( * extensions , directory = '.', root = None, basename = None):
     for current_root, directories, files in os.walk(directory, topdown = False):
         if not directories and not files:
             os.rmdir(current_root)
-
+# swift libraries cannot be reloaded, see 
+# https://forums.swift.org/t/what-happens-to-static-variables-when-a-shared-swift-library-gets-reloaded/47211
 def emit_gdnlib(resource_path, product):
     return """[general]
 
 singleton=false
 load_once=true
 symbol_prefix="godot_"
-reloadable=true
+reloadable=false
 
 [entry]
 
