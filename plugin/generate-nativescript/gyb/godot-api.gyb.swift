@@ -8,7 +8,8 @@ import class Foundation.JSONDecoder
 struct Words:Equatable, CustomStringConvertible
 {
     private 
-    var components:[String]
+    var components:[String] 
+    let original:String
     
     static 
     func split(pascal:String) -> Self 
@@ -48,7 +49,7 @@ struct Words:Equatable, CustomStringConvertible
         {
             words.append(word)
         }
-        return .init(components: words)
+        return .init(components: words, original: pascal)
     }
     
     static 
@@ -65,7 +66,7 @@ struct Words:Equatable, CustomStringConvertible
                 // should never have empty subsequences 
                 return .init($0)
             }
-        })
+        }, original: snake)
     }
     
     // expands unswifty abbreviations, and fix some strange spellings 
@@ -148,7 +149,7 @@ struct Words:Equatable, CustomStringConvertible
                 break 
             }
         }
-        return .init(components: prefix)
+        return .init(components: prefix, original: "")
     }
     
     var description:String 
@@ -203,10 +204,10 @@ enum GodotAPI
         var words:Words = .split(pascal: reconciled)
         words.normalize()
         
-        if "\(words)" != original 
+        /* if "\(words)" != original 
         {
             print("'\(original)' -> '\(words)'")
-        }
+        } */
         
         return words 
     }
@@ -226,17 +227,12 @@ enum GodotAPI
         words.normalize()
         words.factor(out: scope)
         
-        if "\(words)" != original 
+        /* if "\(words)" != original 
         {
             print("'\(scope).\(original)' -> '\(scope).\(words)'")
-        }
+        } */
         
         return words
-    }
-    private static 
-    func name(cases original:[(name:Words, rawValue:Int)]) -> [(name:Words, rawValue:Int)]
-    {
-        return original
     }
     
     struct Class:Codable 
@@ -501,6 +497,31 @@ extension GodotAPI.Class.Node
 }
 extension GodotAPI
 {
+    enum KnownType 
+    {
+        case void 
+        case bool 
+        case int 
+        case float 
+        case vector2
+        case vector3
+        
+        case rectangle2 
+        case rectangle3
+        case affine2 
+        case affine3
+        case linear3
+        
+        case string 
+        case list 
+        case map 
+        
+        case object(String)
+        case enumeration(String)
+        
+        case unsupported
+    }
+    
     static 
     var tree:Class.Node  
     {
@@ -523,14 +544,80 @@ extension GodotAPI
             fatalError("could not parse 'godot-api.json' file (\(error))")
         }
         
-        // collect icall argument/return-value types 
-        /* for `class` in classes 
+        // construct symbol mappings. include original parent keys in the dictionary 
+        let nodes:[String: (parent:String?, node:Class.Node)] = 
+            .init(uniqueKeysWithValues: classes.map 
         {
-            for enumeration in `class`.enumerations
+            return ($0.name, ($0.parent.isEmpty ? nil : $0.parent, Class.Node.init(class: $0)))
+        })
+        
+        // build type database 
+        var types:[String: KnownType] = 
+        [
+            "void"              :   .void,
+            "bool"              :   .bool,
+            "int"               :   .int,
+            "float"             :   .float,
+            "Vector2"           :   .vector2,
+            "Vector3"           :   .vector3,
+            
+            "Rect2"             :   .rectangle2,
+            "AABB"              :   .rectangle3,
+            "Transform2D"       :   .affine2,
+            "Transform"         :   .affine3,
+            "Basis"             :   .linear3,
+            
+            "String"            :   .string,
+            "Array"             :   .list,
+            "Dictionary"        :   .map,
+            
+            "RID"               :   .unsupported,
+            "NodePath"          :   .unsupported,
+            "Color"             :   .unsupported,
+            "Plane"             :   .unsupported,
+            "Quat"              :   .unsupported,
+            
+            "PoolByteArray"     :   .unsupported,
+            "PoolIntArray"      :   .unsupported,
+            "PoolRealArray"     :   .unsupported,
+            "PoolStringArray"   :   .unsupported,
+            "PoolVector2Array"  :   .unsupported,
+            "PoolVector3Array"  :   .unsupported,
+            "PoolColorArray"    :   .unsupported,
+            
+            "Variant"           :   .unsupported,
+            // hacks
+            "enum.Variant::Type"        :   .unsupported,
+            "enum.Variant::Operator"    :   .unsupported,
+            "enum.Error"                :   .unsupported,
+        ]
+        for (key, node):(String, Class.Node) in nodes.mapValues(\.node)
+        {
+            assert(types[key] == nil)
+            let scope:String    = "\(node.identifier.namespace).\(node.identifier.name)"
+            types[key]          = .object(scope)
+            
+            for enumeration:Words in node.enumerations.map(\.name) 
             {
-                print(enumeration.name, enumeration.cases)
+                let key:String = "enum.\(key)::\(enumeration.original)"
+                assert(types[key] == nil)
+                types[key] = .enumeration("\(scope).\(enumeration)")
             }
-        } */
+        }
+        
+        for `class`:Class in classes 
+        {
+            for method:Class.Method in `class`.methods 
+            {
+                for type:String in method.arguments.map(\.type) + [method.return]
+                {
+                    if types[type] == nil
+                    {
+                        print("unknown type: \(type)")
+                    }
+                }
+            }
+        }
         //let _types:Set<String> = .init(classes.flatMap 
         //{
         //    $0.methods.flatMap 
@@ -540,13 +627,7 @@ extension GodotAPI
         //})
         //print(_types.sorted())
         
-        // construct tree. include original parent keys in the dictionary 
-        let nodes:[String: (parent:String?, node:Class.Node)] = 
-            .init(uniqueKeysWithValues: classes.map 
-        {
-            return ($0.name, ($0.parent.isEmpty ? nil : $0.parent, Class.Node.init(class: $0)))
-        })
-        // sort to provide some stability in generated code
+        // construct tree. sort to provide some stability in generated code
         for (parent, node):(String?, Class.Node) in 
             nodes.values.sorted(by: { "\($0.node.identifier.name)" < "\($1.node.identifier.name)" }) 
         {

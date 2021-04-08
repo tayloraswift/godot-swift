@@ -444,8 +444,6 @@ extension Godot.Library
         #endif
         }
         
-        Godot.runtime.load()
-        
         // assert unsafebitcast memory layouts 
         MemoryLayout<godot_vector2>.assert()
         MemoryLayout<godot_vector3>.assert()
@@ -621,156 +619,73 @@ extension Godot
 }
 #endif 
 
-// runtime bootstrap 
-extension Godot 
+/* func _testsemantics() 
 {
-    static 
-    var runtime:Runtime = .init()
-    
-    struct Runtime 
+    do 
     {
-        private 
-        typealias Function  = UnsafeMutablePointer<godot_method_bind>
+        // +1
+        var s1:godot_string = Godot.api.1.0.godot_string_chars_to_utf8("foofoo")
         
-        private 
-        typealias Functions = 
-        (
-            retain:Function?,
-            release:Function?,
-            classname:Function?
-        )
+        Godot.dump(s1)
         
-        private 
-        var functions:Functions 
+        // +2
+        var v1:godot_variant = .init() 
+        Godot.api.1.0.godot_variant_new_string(&v1, &s1)
         
-        init() 
-        {
-            self.functions = (nil, nil, nil)
-        }
-    }
-}
-extension Godot.Runtime 
-{
-    mutating 
-    func load() 
-    {
-        self.load(("Reference", "reference"  ), as: \.retain)
-        self.load(("Reference", "unreference"), as: \.release)
-        self.load(("Object"   , "get_class"  ), as: \.classname)
-    }
-    
-    private mutating 
-    func load(_ symbol:(class:String, method:String), as path:WritableKeyPath<Functions, Function?>) 
-    {
-        if let function:Function = 
-            Godot.api.1.0.godot_method_bind_get_method(symbol.class, symbol.method)
-        {
-            self.functions[keyPath: path] = function 
-        }
-        else 
-        {
-            fatalError("could not load gdscript function '\(symbol.class).\(symbol.method)'")
-        }
-    } 
-    
-    @discardableResult
-    func retain(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer
-    {
-        var status:Bool = false 
-        Godot.api.1.0.godot_method_bind_ptrcall(
-            self.functions.retain, object, nil, &status)
-        guard status 
-        else 
-        {
-            fatalError("could not retain object of class '\(self.classname(of: object))' at <\(object)>")
-        }
-        return object 
-    }
-    @discardableResult
-    func release(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? 
-    {
-        var status:Bool = false 
-        Godot.api.1.0.godot_method_bind_ptrcall(
-            self.functions.release, object, nil, &status)
-        return status ? nil : object // nil if we released the last reference
-    }
-    
-    func classname(of delegate:UnsafeMutableRawPointer) -> Swift.String 
-    {
-        var core:godot_string = .init()
-        Godot.api.1.0.godot_method_bind_ptrcall(
-            self.functions.classname, delegate, nil, &core)
-        return Swift.String.init(Godot.String.init(retained: core))
-    }
-    
-    /* func _testsemantics() 
-    {
-        do 
-        {
-            // +1
-            var s1:godot_string = Godot.api.1.0.godot_string_chars_to_utf8("foofoo")
-            
-            Godot.dump(s1)
-            
-            // +2
-            var v1:godot_variant = .init() 
-            Godot.api.1.0.godot_variant_new_string(&v1, &s1)
-            
-            Godot.dump(s1)
-            
-            // +3
-            var s2:godot_string = Godot.api.1.0.godot_variant_as_string(&v1)
-            
-            Godot.dump(s1)
-            Godot.dump(s2)
-            
-            Godot.api.1.0.godot_variant_destroy(&v1)
-            // +2
-            
-            Godot.dump(s1)
-            
-            Godot.api.1.0.godot_string_destroy(&s2)
-            // +1
-            
-            Godot.dump(s1)
-        }
+        Godot.dump(s1)
         
-        do 
-        {
-            // +1 
-            var a1:godot_array = .init() 
-            Godot.api.1.0.godot_array_new(&a1)
-            
-            Godot.dump(a1)
-            
-            Godot.api.1.0.godot_array_resize(&a1, 5)
-            
-            Godot.dump(a1)
-            
-            // +2
-            var v1:godot_variant = .init() 
-            Godot.api.1.0.godot_variant_new_array(&v1, &a1)
-            
-            Godot.dump(a1)
-            
-            // +3
-            var a2:godot_array = Godot.api.1.0.godot_variant_as_array(&v1)
-            
-            Godot.dump(a1)
-            Godot.dump(a2)
-            
-            Godot.api.1.0.godot_variant_destroy(&v1)
-            // +2
-            
-            Godot.dump(a1)
-            
-            Godot.api.1.0.godot_array_destroy(&a2)
-            // +1
-            
-            Godot.dump(a1)
-        }
-    } */
-}
+        // +3
+        var s2:godot_string = Godot.api.1.0.godot_variant_as_string(&v1)
+        
+        Godot.dump(s1)
+        Godot.dump(s2)
+        
+        Godot.api.1.0.godot_variant_destroy(&v1)
+        // +2
+        
+        Godot.dump(s1)
+        
+        Godot.api.1.0.godot_string_destroy(&s2)
+        // +1
+        
+        Godot.dump(s1)
+    }
+    
+    do 
+    {
+        // +1 
+        var a1:godot_array = .init() 
+        Godot.api.1.0.godot_array_new(&a1)
+        
+        Godot.dump(a1)
+        
+        Godot.api.1.0.godot_array_resize(&a1, 5)
+        
+        Godot.dump(a1)
+        
+        // +2
+        var v1:godot_variant = .init() 
+        Godot.api.1.0.godot_variant_new_array(&v1, &a1)
+        
+        Godot.dump(a1)
+        
+        // +3
+        var a2:godot_array = Godot.api.1.0.godot_variant_as_array(&v1)
+        
+        Godot.dump(a1)
+        Godot.dump(a2)
+        
+        Godot.api.1.0.godot_variant_destroy(&v1)
+        // +2
+        
+        Godot.dump(a1)
+        
+        Godot.api.1.0.godot_array_destroy(&a2)
+        // +1
+        
+        Godot.dump(a1)
+    }
+} */
 
 // user-facing DSL
 infix operator <- : AssignmentPrecedence
@@ -1183,6 +1098,58 @@ extension Godot
 
 extension Godot 
 {    
+    /* mutating 
+    func load() 
+    {
+        self.retain     = .load(method: "reference",   in: Godot.AnyObject.self)
+        self.release    = .load(method: "unreference", in: Godot.AnyObject.self)
+        self.classname  = .load(method: "get_class",   in: Godot.AnyDelegate.self)
+    }
+    
+    private mutating 
+    func load(_ symbol:(class:String, method:String), as path:WritableKeyPath<Functions, BoundMethod?>) 
+    {
+        if let function:Function = 
+            Godot.api.1.0.godot_method_bind_get_method(symbol.class, symbol.method)
+        {
+            self.functions[keyPath: path] = function 
+        }
+        else 
+        {
+            fatalError("could not load gdscript function '\(symbol.class).\(symbol.method)'")
+        }
+    } 
+    
+    @discardableResult
+    func retain(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer
+    {
+        //let status:Bool = self.retain(self: object)
+        var status:Bool = false 
+        Godot.api.1.0.godot_method_bind_ptrcall(
+            self.functions.retain, object, nil, &status)
+        guard status 
+        else 
+        {
+            fatalError("could not retain object of class '\(self.classname(of: object))' at <\(object)>")
+        }
+        return object 
+    }
+    @discardableResult
+    func release(_ object:UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? 
+    {
+        var status:Bool = false 
+        Godot.api.1.0.godot_method_bind_ptrcall(
+            self.functions.release, object, nil, &status)
+        return status ? nil : object // nil if we released the last reference
+    }
+    
+    func classname(of delegate:UnsafeMutableRawPointer) -> Swift.String 
+    {
+        var core:godot_string = .init()
+        Godot.api.1.0.godot_method_bind_ptrcall(
+            self.functions.classname, delegate, nil, &core)
+        return Swift.String.init(Godot.String.init(retained: core))
+    } */
     class AnyDelegate
     {
         class 
@@ -1194,6 +1161,18 @@ extension Godot
         init(unretained core:UnsafeMutableRawPointer) 
         {
             self.core = core
+            //Swift.print("--- bridged object of type \(self._classname())")
+        }
+        
+        // static variables are lazy, which is good because we need to wait for 
+        // the library to be loaded before we can bind methods. also reduces startup overhead
+        private static 
+        var classname:BoundMethod = .bind(method: "get_class", from: AnyDelegate.self)
+        
+        final
+        func classname() -> Swift.String 
+        {
+            AnyDelegate.classname(self: self)
         }
     }
     class AnyObject:AnyDelegate              
@@ -1204,11 +1183,37 @@ extension Godot
         required 
         init(unretained core:UnsafeMutableRawPointer) 
         {
-            super.init(unretained: Godot.runtime.retain(core))
+            super.init(unretained: core)
+            guard self.retain()
+            else 
+            {
+                fatalError(
+                    """
+                    could not retain delegate of type \
+                    '\(Swift.String.init(reflecting: Self.self))' at <\(self.core)>
+                    """)
+            }
         }
         deinit
         { 
-            Godot.runtime.release(self.core)
+            self.release()
+        }
+        
+        private static 
+        var retain:BoundMethod  = .bind(method: "reference",   from: AnyObject.self), 
+            release:BoundMethod = .bind(method: "unreference", from: AnyObject.self)
+        
+        @discardableResult
+        final
+        func retain() -> Bool 
+        {
+            Self.retain(self: self) 
+        }
+        @discardableResult
+        final
+        func release() -> Bool 
+        {
+            Self.release(self: self) 
         }
     }
 }
@@ -2482,6 +2487,112 @@ extension String:Godot.VariantRepresentable
     }
 } 
 
+// “icall” types. these are related, but orthogonal to `Variant`/`VariantRepresentable`
+protocol _GodotBoundMethodPassable
+{
+    static 
+    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
+    func pass(_ body:(UnsafeRawPointer) -> ())
+}
+extension Godot 
+{
+    struct BoundMethod 
+    {
+        typealias Passable = _GodotBoundMethodPassable
+        
+        private 
+        let function:UnsafeMutablePointer<godot_method_bind>
+    }
+}
+extension Godot.BoundMethod 
+{
+    static 
+    func bind<T>(method:String, from _:T.Type) -> Self 
+        where T:Godot.AnyDelegate
+    {
+        guard let function:UnsafeMutablePointer<godot_method_bind> = 
+            Godot.api.1.0.godot_method_bind_get_method(T.symbol, method)
+        else 
+        {
+            fatalError("could not load method 'Godot::\(T.symbol).\(method)'")
+        }
+        return .init(function: function)
+    }
+    
+    func callAsFunction<V0>(self delegate:Godot.AnyDelegate) -> V0
+        where V0:Passable 
+    {
+        .take 
+        {
+            (result:UnsafeMutableRawPointer) in 
+            withExtendedLifetime(delegate)
+            {
+                Godot.api.1.0.godot_method_bind_ptrcall(self.function, 
+                    delegate.core, nil, result)
+            }
+        }
+    }
+    func callAsFunction<U0, U1, U2, V0>(self delegate:Godot.AnyDelegate, _ u0:U0, _ u1:U1, _ u2:U2)
+        -> V0
+        where U0:Passable, U1:Passable, U2:Passable, V0:Passable 
+    {
+        .take 
+        {
+            (result:UnsafeMutableRawPointer) in 
+            u0.pass 
+            {
+                (u0:UnsafeRawPointer?) in 
+                u1.pass 
+                {
+                    (u1:UnsafeRawPointer?) in 
+                    u2.pass 
+                    {
+                        (u2:UnsafeRawPointer?) in 
+                        
+                        withExtendedLifetime(delegate)
+                        {
+                            var arguments:[UnsafeRawPointer?] = [u0, u1, u2]
+                            arguments.withUnsafeMutableBufferPointer 
+                            {
+                                Godot.api.1.0.godot_method_bind_ptrcall(self.function, 
+                                    delegate.core, $0.baseAddress, result)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+extension Bool:Godot.BoundMethod.Passable 
+{
+    static 
+    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
+    {
+        var value:Bool = false
+        body(&value)
+        return value
+    }
+    func pass(_ body:(UnsafeRawPointer) -> ())
+    {
+        fatalError("unimplemented")
+    }
+}
+extension Swift.String:Godot.BoundMethod.Passable 
+{
+    // closure is responsible for initializing the value
+    static 
+    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
+    {
+        var core:godot_string = .init()
+        body(&core)
+        return .init(Godot.String.init(retained: core))
+    }
+    func pass(_ body:(UnsafeRawPointer) -> ())
+    {
+        fatalError("unimplemented")
+    }
+}
 
 extension Godot 
 {
