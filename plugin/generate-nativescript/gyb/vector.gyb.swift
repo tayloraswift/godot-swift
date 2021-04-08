@@ -1204,6 +1204,18 @@ enum Vector
             Source.block 
             {
                 Self.initializers(n: n, components: components)
+                if n < 4 
+                {
+                    """
+                    
+                    // homogenization 
+                    static 
+                    func || (body:Self, tail:T) -> Vector\(n + 1)<T> 
+                    {
+                        .init(body, tail)
+                    }
+                    """
+                }
             }
             """
             
@@ -1405,5 +1417,63 @@ enum Vector
                 """
             }
         }
+        """
+        
+        // quaternion 
+        struct Quaternion<T>:Hashable 
+            where T:SIMDScalar & Numerics.Real & BinaryFloatingPoint
+        {
+            private(set)
+            var composite:Vector4<T> 
+            
+            var real:T 
+            {
+                self.composite.w
+            } 
+            var imaginary:Vector3<T> 
+            {
+                self.composite[.xyz]
+            }
+            
+            static 
+            var identity:Self
+            {
+                .init((0, 0, 0, 1)*)
+            }
+            
+            init(_ composite:Vector4<T>) 
+            {
+                self.composite = composite
+            }
+            
+            init(from start:Vector3<T>, to end:Vector3<T>) 
+            {
+                let a:T         = (2 * (1 + start <> end)).squareRoot()
+                self.composite  = start >|< end / a || 0.5 * a
+            }
+            
+            init(axis:Vector3<T>, angle:T)
+            {
+                let half:T      = 0.5 * angle 
+                self.composite  = T.sin(half) * axis || T.cos(half)
+            }
+            
+            func normalized() -> Self
+            {
+                .init(self.composite.normalized())
+            }
+            mutating 
+            func normalize() 
+            {
+                self.composite.normalize()
+            }
+            
+            static 
+            postfix func * (_ quaternion:Self) -> Self
+            {
+                .init(quaternion.composite * (-1, -1, -1, +1)*)
+            }
+        }
+        """
     }
 }
