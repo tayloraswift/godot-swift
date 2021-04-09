@@ -444,12 +444,12 @@ extension Synthesizer.Form
         case .void, .scalar(type: _):
             return Source.fragment
             {
-                ".pass(retained: \(variable))" 
+                ".pass(retaining: \(variable))" 
             }
         case .tuple(let elements):
             return Source.fragment
             {
-                ".pass(retained: \(list).init(consuming: "
+                ".pass(retaining: \(list).init(consuming: "
                 Source.fragment(indent: 1) 
                 {
                     elements.enumerated().map
@@ -469,7 +469,11 @@ extension Synthesizer.Form
         case .void:
             return ""
         case .scalar(type: _):
-            return "\(variable.base).\(list)\(variable.path).\(list)[unmanaged: \(position)].assign(retained: \(variable.base)\(variable.path).\(position))"
+            return 
+                """
+                \(variable.base).\(list)\(variable.path).\(list)\
+                .assign(retaining: \(variable.base)\(variable.path).\(position), at: \(position))
+                """
         case .tuple(let elements):
             return Source.fragment 
             {
@@ -491,7 +495,7 @@ extension Synthesizer.Form
             return Source.fragment
             {
                 """
-                if let value:Void = \(list.root)[unmanaged: \(position)].take(unretained: Void.self)
+                if let value:Void = \(list.root).take(unretained: Void.self, at: \(position))
                 {
                     \(variable.base)\(variable.path).\(position) = value 
                 }
@@ -499,7 +503,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: Void.self), 
                         function: symbol)
-                    return .pass(retained: ())
+                    return .pass(retaining: ())
                 }
                 """
             }
@@ -507,7 +511,7 @@ extension Synthesizer.Form
             return Source.fragment
             {
                 """
-                if let value:\(type) = \(list.root)[unmanaged: \(position)].take(unretained: \(type).self)
+                if let value:\(type) = \(list.root).take(unretained: \(type).self, at: \(position))
                 {
                     \(variable.base)\(variable.path).\(position) = value 
                 }
@@ -515,7 +519,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
                         function: symbol)
-                    return .pass(retained: ())
+                    return .pass(retaining: ())
                 }
                 """
             }
@@ -523,10 +527,9 @@ extension Synthesizer.Form
             return Source.fragment
             {
                 """
-                if let \(list.root):\(list.type) = \(list.root)[unmanaged: \(position)].take(unretained: \(list.type).self)
-                {
+                if let \(list.root):\(list.type) = \(list.root).take(unretained: \(list.type).self, at: \(position))
                 """
-                Source.fragment(indent: 1) 
+                Source.block
                 {
                     if mutable 
                     {
@@ -540,12 +543,11 @@ extension Synthesizer.Form
                     }
                 }
                 """
-                }
                 else 
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
                         function: symbol)
-                    return .pass(retained: ())
+                    return .pass(retaining: ())
                 }
                 """
             }
@@ -648,76 +650,73 @@ extension Synthesizer.FunctionParameterization
                     {
                         "\($0.parameter)\($0.constraint)"
                     }.joined(separator: ",\n        "))
-            {
-                .method(witness: 
-                {
             """
-            Source.fragment(indent: 2) 
+            Source.block
             {
-                """
-                (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
-                    -> Godot.Variant.Unmanaged in
-                
-                guard arguments.count == \(self.domain.count) 
-                else 
+                ".method(witness: "
+                Source.block(delimiters: ("{", "}, symbol: symbol)"))
                 {
-                    Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
-                        function: symbol)
-                    return .pass(retained: ())
-                }
-                """
-                
-                if let domain:String = 
-                    Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
-                {
-                    if self.domain.contains(where: \.inout) 
-                    {
-                        """
-                        
-                        var inputs:
-                        \(domain)
-                        
-                        inputs.list.list = arguments
-                        
-                        """
-                    }
+                    """
+                    (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
+                        -> Godot.Variant.Unmanaged in
+                    
+                    guard arguments.count == \(self.domain.count) 
                     else 
                     {
-                        """
-                        
-                        let inputs:
-                        \(domain)
-                        
-                        """
+                        Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
+                            function: symbol)
+                        return .pass(retaining: ())
                     }
+                    """
+                    
+                    if let domain:String = 
+                        Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
+                    {
+                        if self.domain.contains(where: \.inout) 
+                        {
+                            """
+                            
+                            var inputs:
+                            \(domain)
+                            
+                            inputs.list.list = arguments
+                            
+                            """
+                        }
+                        else 
+                        {
+                            """
+                            
+                            let inputs:
+                            \(domain)
+                            
+                            """
+                        }
+                    }
+                    for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                        self.domain.enumerated() 
+                    {
+                        parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
+                            into: ("inputs", ""), at: position, mutable: parameter.inout)
+                    }
+                    
+                    """
+                    
+                    let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
+                    
+                    """
+                    
+                    for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                        self.domain.enumerated() 
+                        where parameter.inout 
+                    {
+                        parameter.type.update(nodes: "list", in: ("inputs", ""), at: position)
+                    }
+                    """
+                    return \(self.range.structure(nodes: "Godot.List", from: "output"))
+                    """
                 }
-                for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
-                    self.domain.enumerated() 
-                {
-                    parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
-                        into: ("inputs", ""), at: position, mutable: parameter.inout)
-                }
-                
-                """
-                
-                let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
-                
-                """
-                
-                for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
-                    self.domain.enumerated() 
-                    where parameter.inout 
-                {
-                    parameter.type.update(nodes: "list", in: ("inputs", ""), at: position)
-                }
-                """
-                return \(self.range.structure(nodes: "Godot.List", from: "output"))
-                """
             }
-            """
-                }, symbol: symbol)
-            }
-            """
         }
     }
 }

@@ -121,7 +121,7 @@ struct TestSemantics:Godot.NativeScript
         for i:Int in list.indices 
         {
             print("removing element at index \(i)")
-            list[i] = Godot.Void.init()
+            list[i] = nil
         }
     }
     func concatenate(delegate:Godot.Unmanaged.MeshInstance, s1:String, s2:String) -> String 
@@ -143,7 +143,8 @@ struct TestSemantics:Godot.NativeScript
     func returnInoutList(delegate:Godot.Unmanaged.MeshInstance, list:inout Godot.List) -> Godot.List 
     {
         print("hello from returnInoutList(delegate:list:), recieved: \(list)")
-        let a:Godot.Variant = list[0]
+        // common pitfall! must be Optional<Godot.Variant>
+        let a:Godot.Variant? = list[0]
         list[0] = list[1]
         list[1] = a
         
