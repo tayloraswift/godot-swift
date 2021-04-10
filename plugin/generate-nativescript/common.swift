@@ -7,7 +7,7 @@ enum Synthesizer
     {
         Source.generate(file: common)
         {
-            GodotAPI.swift 
+            Godot.swift 
             Vector.swift 
         }
     }

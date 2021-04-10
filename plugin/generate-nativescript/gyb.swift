@@ -20,6 +20,18 @@ struct Source
     }
     
     static 
+    func fragment(relativeTo caller:String = #filePath, filename:String) -> String 
+    {
+        let path:AbsolutePath           = .init(caller).parentDirectory.appending(component: filename)
+        guard let contents:ByteString   = try? TSCBasic.localFileSystem.readFileContents(path)
+        else 
+        {
+            fatalError("could not find or read file '\(path)'")
+        }
+        return contents.description
+    }
+    
+    static 
     func block(extraIndendation tabs:Int = 0, delimiters:(String, String) = ("{", "}"),
         @Code generator:() -> String) 
         -> String 

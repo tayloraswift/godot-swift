@@ -185,7 +185,7 @@ struct Words:Equatable, CustomStringConvertible
     }
 }
 
-enum GodotAPI 
+enum Godot 
 {
     // symbol name mappings 
     private static 
@@ -350,7 +350,7 @@ enum GodotAPI
         }
     }
 }
-extension GodotAPI.Class 
+extension Godot.Class 
 {
     final 
     class Node 
@@ -390,7 +390,7 @@ extension GodotAPI.Class
         // members 
         let enumerations:[(name:Words, cases:[(name:Words, rawValue:Int)])]
         
-        init(class:GodotAPI.Class) 
+        init(class:Godot.Class) 
         {
             self.children   = []
             self.parent     = nil 
@@ -411,7 +411,7 @@ extension GodotAPI.Class
                 self.identifier = 
                 (
                     namespace:  self.info.is.managed || `class`.name == "Object" ? .root : .unmanaged,
-                    name:       GodotAPI.name(class: `class`.name)
+                    name:       Godot.name(class: `class`.name)
                 )
             }
             else 
@@ -433,13 +433,13 @@ extension GodotAPI.Class
                         managed:        false
                     )
                 ) 
-                self.identifier = (namespace: .singleton, name: GodotAPI.name(class: `class`.singleton))
+                self.identifier = (namespace: .singleton, name: Godot.name(class: `class`.singleton))
             }
             
             let scope:Words = self.identifier.name
             self.enumerations = `class`.enumerations.map 
             {
-                (enumeration:GodotAPI.Class.Enumeration) in 
+                (enumeration:Godot.Class.Enumeration) in 
                 
                 var cases:[(name:Words, rawValue:Int)] = 
                     enumeration.cases.sorted(by: {$0.value < $1.value}).map 
@@ -448,7 +448,7 @@ extension GodotAPI.Class
                     name.normalize()
                     return (name, $0.value)
                 }
-                let scope:Words     = GodotAPI.name(enumeration: enumeration.name, scope: scope)
+                let scope:Words     = Godot.name(enumeration: enumeration.name, scope: scope)
                 let prefix:Words    = .greatestCommonPrefix(among: cases.map(\.name))
                 for i:Int in cases.indices 
                 {
@@ -487,7 +487,7 @@ extension GodotAPI.Class
         }
     }
 }
-extension GodotAPI.Class.Node 
+extension Godot.Class.Node 
 {
     @Source.Code
     var existential:String 
@@ -495,7 +495,7 @@ extension GodotAPI.Class.Node
         ""
     }
 }
-extension GodotAPI
+extension Godot
 {
     enum KnownType 
     {
@@ -719,6 +719,194 @@ extension GodotAPI
     static 
     var swift:String 
     {
+        Source.fragment(filename: "external.swift.fragment")
+        Source.fragment(filename: "runtime.swift.fragment")
+        Source.fragment(filename: "variant.swift.fragment")
+        Source.fragment(filename: "dsl.swift.fragment")
+        
+        for name:String in 
+        [
+            "node_path", "string", "array", "dictionary", 
+            "pool_byte_array", 
+            "pool_int_array",
+            "pool_real_array",
+            "pool_string_array",
+            "pool_vector2_array",
+            "pool_vector3_array",
+            "pool_color_array",
+        ]
+        {
+            """
+            extension godot_\(name):Godot.RawReference
+            {
+                init(with initializer:(UnsafeMutablePointer<Self>) -> ()) 
+                {
+                    self.init()
+                    initializer(&self)
+                }
+                mutating 
+                func `deinit`()
+                {
+                    Godot.api.1.0.godot_\(name)_destroy(&self)
+                }
+            }
+            """
+        }
+        
+        // generate variant hooks for pool arrays 
+        for (swift, godot, array, storage):(String, String?, String, String?) in 
+        [
+            ("UInt8",                   nil,                "pool_byte_array",      nil),
+            ("Int32",                   nil,                "pool_int_array",       nil),
+            ("Float32",                 nil,                "pool_real_array",      nil),
+            ("String",                  "godot_string",     "pool_string_array",    nil),
+            ("Vector<Self, Scalar>",    "godot_vector2",    "pool_vector2_array",   "SIMD2"),
+            ("Vector<Self, Scalar>",    "godot_vector3",    "pool_vector3_array",   "SIMD3"),
+            ("Vector<Self, Scalar>",    "godot_color",      "pool_color_array",     "SIMD4"),
+        ]
+        {
+            let type:String = storage == nil ? "Self" : swift
+            if let storage:String = storage 
+            {
+                "extension \(storage):Godot.ArrayElementStorage where Scalar == Float32"
+            }
+            else 
+            {
+                "extension \(swift):Godot.ArrayElement"
+            }
+            Source.block 
+            {
+                """
+                typealias RawArrayReference = godot_\(array)
+                
+                static 
+                func downcast(array value:Godot.Variant.Unmanaged) -> RawArrayReference?
+                {
+                    value.load(where: GODOT_VARIANT_TYPE_\(array.uppercased()), 
+                        Godot.api.1.0.godot_variant_as_\(array))
+                }
+                static 
+                func upcast(array value:RawArrayReference) -> Godot.Variant.Unmanaged
+                {
+                    withUnsafePointer(to: value) 
+                    {
+                        .init(value: $0, Godot.api.1.0.godot_variant_new_\(array))
+                    }
+                }
+                static 
+                func convert(array godot:RawArrayReference) -> [\(type)]
+                """
+                Source.block
+                {
+                    """
+                    guard let lock:UnsafeMutablePointer<godot_\(array)_read_access> = 
+                        withUnsafePointer(to: godot, Godot.api.1.0.godot_\(array)_read)
+                    else 
+                    {
+                        fatalError("recieved nil pointer from `godot_\(array)_read(_:)`")
+                    }
+                    defer 
+                    {
+                        Godot.api.1.0.godot_\(array)_read_access_destroy(lock)
+                    }
+                    let count:Int = .init(
+                        withUnsafePointer(to: godot, Godot.api.1.0.godot_\(array)_size))
+                    return .init(unsafeUninitializedCapacity: count) 
+                    """
+                    Source.block
+                    {
+                        """
+                        guard let source:UnsafePointer<\(godot ?? "Self")> = 
+                            Godot.api.1.0.godot_\(array)_read_access_ptr(lock)
+                        else 
+                        {
+                            fatalError("recieved nil pointer from `godot_\(array)_read_access_ptr(_:)`")
+                        }
+                        """
+                        if let _:String = godot
+                        {
+                            """
+                            if let base:UnsafeMutablePointer<\(type)> = $0.baseAddress 
+                            {
+                                for i:Int in 0 ..< count 
+                                {
+                                    (base + i).initialize(to: source[i].unpacked)
+                                }
+                            }
+                            """
+                        }
+                        else 
+                        {
+                            """
+                            $0.baseAddress?.initialize(from: source, count: count)
+                            """
+                        }
+                        """
+                        $1 = count 
+                        """
+                    }
+                }
+                """
+                static 
+                func convert(array swift:[\(type)]) -> RawArrayReference
+                """
+                Source.block 
+                {
+                    """
+                    var array:godot_\(array) = .init(with: Godot.api.1.0.godot_\(array)_new)
+                    Godot.api.1.0.godot_\(array)_resize(&array, .init(swift.count))
+                    
+                    guard let lock:UnsafeMutablePointer<godot_\(array)_write_access> = 
+                        Godot.api.1.0.godot_\(array)_write(&array)
+                    else 
+                    {
+                        fatalError("recieved nil pointer from `godot_\(array)_write(_:)`")
+                    }
+                    defer 
+                    {
+                        Godot.api.1.0.godot_\(array)_write_access_destroy(lock)
+                    }
+                    
+                    guard let destination:UnsafeMutablePointer<\(godot ?? "Self")> = 
+                        Godot.api.1.0.godot_\(array)_write_access_ptr(lock)
+                    else 
+                    {
+                        fatalError("recieved nil pointer from `godot_\(array)_write_access_ptr(_:)`")
+                    }
+                    """
+                    if let _:String = godot
+                    {
+                        "for (i, element):(Int, \(type)) in swift.enumerated()"
+                        Source.block
+                        {
+                            if swift == "String" 
+                            {
+                                "destination[i].deinit() // is this needed?"
+                            }
+                            "destination[i] = .init(packing: element)"
+                        }
+                    }
+                    else 
+                    {
+                        """
+                        swift.withUnsafeBufferPointer 
+                        {
+                            guard let base:UnsafePointer<Self> = $0.baseAddress
+                            else 
+                            {
+                                return 
+                            }
+                            destination.initialize(from: base, count: swift.count)
+                        }
+                        """
+                    }
+                    """
+                    return array
+                    """
+                }
+            }
+        }
+        
         let root:Class.Node = Self.tree
         """
         extension Godot 

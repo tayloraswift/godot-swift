@@ -1,0 +1,82 @@
+// user-facing DSL
+infix operator <- : AssignmentPrecedence
+
+func <- <T>(type:T.Type, symbol:String) -> Godot.Library.Interface.Binding
+    where T:Godot.AnyNativeScript
+{
+    (T.self, symbol)
+}
+
+extension Godot.Library.Interface 
+{
+    static 
+    func buildExpression(_ binding:Binding) -> [Binding]
+    {
+        [binding]
+    }
+    static 
+    func buildBlock(_ bindings:[Binding]...) -> [Binding]
+    {
+        .init(bindings.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ bindings:[Binding]) -> Self 
+    {
+        let dictionary:[ObjectIdentifier: [Binding]] = 
+            .init(grouping: bindings) 
+            {
+                ObjectIdentifier.init($0.type)
+            }
+        return .init(types: dictionary.sorted
+        {
+            $0.key < $1.key
+        }.map 
+        {
+            ($0.value[0].type, $0.value.map(\.symbol))
+        })
+    }
+}
+extension Godot.NativeScriptInterface 
+{
+    enum Member 
+    {
+        case property(witness:Witness.Property, symbol:String)
+        case method(  witness:Witness.Method,   symbol:String)
+    }
+    
+    static 
+    func buildExpression(_ member:Member) -> [Member]
+    {
+        [member]
+    }
+    static 
+    func buildBlock(_ members:[Member]...) -> [Member]
+    {
+        .init(members.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ members:[Member]) -> Self 
+    {
+        return .init(
+            properties: members.compactMap 
+            {
+                guard case .property(witness: let witness, symbol: let symbol) = $0 
+                else 
+                {
+                    return nil 
+                }
+                return (witness, symbol)
+            }, 
+            methods: members.compactMap 
+            {
+                guard case .method(witness: let witness, symbol: let symbol) = $0 
+                else 
+                {
+                    return nil 
+                }
+                return (witness, symbol)
+            })
+    }
+}
