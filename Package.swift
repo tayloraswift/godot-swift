@@ -25,7 +25,13 @@ let package = Package(
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
                 .product(name: "SwiftPM",           package: "swift-package-manager"), 
             ],
-            path: "plugin/generate-nativescript"),
+            path: "plugin/generate-nativescript", 
+            exclude: 
+            [
+                "fragments/",
+                "gyb/.sections/",
+                "gyb/godot-api.json",
+            ]),
 
         .target(name: "GDNativeHeaders", dependencies: [],
             path: "sources/godot-native/c", 

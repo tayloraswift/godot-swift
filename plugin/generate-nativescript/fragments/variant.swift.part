@@ -30,6 +30,11 @@ extension Godot
         let core:UnsafeMutableRawPointer 
         // non-failable init assumes instance has been type-checked!
         required
+        init(retained core:UnsafeMutableRawPointer) 
+        {
+            self.core = core
+        }
+        required
         init(unretained core:UnsafeMutableRawPointer) 
         {
             self.core = core
@@ -52,6 +57,11 @@ extension Godot
         override class 
         var symbol:Swift.String { "Reference" }
         
+        required
+        init(retained core:UnsafeMutableRawPointer) 
+        {
+            super.init(retained: core)
+        }
         required 
         init(unretained core:UnsafeMutableRawPointer) 
         {
@@ -191,11 +201,24 @@ extension UInt:Godot.VariantRepresentable   {}
 
 extension Godot 
 {
-    typealias RawReference = _GodotRawReference 
+    typealias RawValue      = _GodotRawValue
+    typealias RawReference  = _GodotRawReference 
 }
-protocol _GodotRawReference
+protocol _GodotRawValue
+{
+    init()
+}
+extension Godot.RawValue 
 {
     init(with initializer:(UnsafeMutablePointer<Self>) -> ()) 
+    {
+        self.init()
+        initializer(&self)
+    }
+}
+
+protocol _GodotRawReference:Godot.RawValue
+{
     mutating
     func `deinit`()
 }
@@ -505,9 +528,9 @@ extension Godot.Array:Godot.Variant
 // aggregate types 
 extension Godot 
 {
-    struct Plane3<T> where T:SIMDScalar & BinaryFloatingPoint 
+    struct Plane3<T>:Hashable where T:SIMDScalar & BinaryFloatingPoint 
     {
-        private 
+        fileprivate 
         let composite:Vector4<T> 
         
         var origin:T 
@@ -528,38 +551,81 @@ extension Godot
         {
             self.composite = unit || origin
         }
+        init<U>(_ other:Plane3<U>) where U:SIMDScalar & BinaryFloatingPoint 
+        {
+            self.init(composite: .init(other.composite))
+        }
     }
     enum Transform2<T> where T:SIMDScalar & BinaryFloatingPoint 
     {
-        struct Affine  
+        struct Affine:Equatable  
         {
             let matrix:Vector2<T>.Matrix3
+            
+            init(matrix:Vector2<T>.Matrix3) 
+            {
+                self.matrix = matrix
+            }
+            init<U>(_ other:Transform2<U>.Affine) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector2<T>.cast(other.matrix))
+            }
+            
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
         }
     }
     enum Transform3<T> where T:SIMDScalar & BinaryFloatingPoint 
     {
-        struct Linear 
+        struct Linear:Equatable 
         {
             let matrix:Vector3<T>.Matrix 
+            
+            init(matrix:Vector3<T>.Matrix) 
+            {
+                self.matrix = matrix
+            }
+            init<U>(_ other:Transform3<U>.Linear) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector3<T>.cast(other.matrix))
+            }
+            
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
         }
-        struct Affine  
+        struct Affine:Equatable  
         {
             let matrix:Vector3<T>.Matrix4
+            
+            init(matrix:Vector3<T>.Matrix4) 
+            {
+                self.matrix = matrix
+            }
+            init<U>(_ other:Transform3<U>.Affine) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector3<T>.cast(other.matrix))
+            }
+            
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
         }
     }
-    struct ResourceIdentifier 
+    struct ResourceIdentifier:Hashable 
     {
-        fileprivate 
-        let data:godot_rid 
-        
-        var bitPattern:Int32 
-        {
-            withUnsafePointer(to: self.data, Godot.api.1.0.godot_rid_get_id)
-        }
+        let bitPattern:Int
     }
 }
 
-protocol _GodotRawAggregate 
+protocol _GodotRawAggregate:Godot.RawValue 
 {
     associatedtype Unpacked 
     associatedtype Packed
@@ -567,17 +633,17 @@ protocol _GodotRawAggregate
     static 
     func unpacked(variant:Godot.Variant.Unmanaged) -> Unpacked? 
     static 
-    func variant(unpacked:Unpacked) -> Godot.Variant.Unmanaged
-}
-private 
-protocol _GodotRawAggregatePrivate:Godot.RawAggregate
-{
+    func variant(packing:Unpacked) -> Godot.Variant.Unmanaged
+    
     init(packing:Unpacked)
     var unpacked:Unpacked 
     {
         get 
     }
-    
+}
+private 
+protocol _GodotRawAggregatePrivate:Godot.RawAggregate
+{
     // used for runtime sanity checks
     static 
     func trace() -> Bool
@@ -601,20 +667,18 @@ extension godot_vector2:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector2<Float32>) -> Godot.Variant.Unmanaged
+    func variant(packing vector:Vector2<Float32>) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked)) 
+        withUnsafePointer(to: Self.init(packing: vector)) 
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_vector2)
         }
     }
     
-    fileprivate 
     init(packing vector:Vector2<Float32>)
     {
         self = unsafeBitCast(vector*, to: Self.self)
     }
-    fileprivate 
     var unpacked:Vector2<Float32> 
     {
         unsafeBitCast(self, to: Packed.self)*
@@ -644,20 +708,18 @@ extension godot_vector3:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector3<Float32>) -> Godot.Variant.Unmanaged
+    func variant(packing vector:Vector3<Float32>) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked)) 
+        withUnsafePointer(to: Self.init(packing: vector)) 
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_vector3)
         }
     }
     
-    fileprivate 
     init(packing vector:Vector3<Float32>)
     {
         self = unsafeBitCast(vector*, to: Self.self)
     }
-    fileprivate 
     var unpacked:Vector3<Float32> 
     {
         unsafeBitCast(self, to: Packed.self)*
@@ -688,20 +750,18 @@ extension godot_color:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector4<Float32>) -> Godot.Variant.Unmanaged
+    func variant(packing vector:Vector4<Float32>) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked)) 
+        withUnsafePointer(to: Self.init(packing: vector)) 
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_color)
         }
     }
     
-    fileprivate 
     init(packing vector:Vector4<Float32>)
     {
         self = unsafeBitCast(vector*, to: Self.self)
     }
-    fileprivate 
     var unpacked:Vector4<Float32> 
     {
         unsafeBitCast(self, to: Packed.self)*
@@ -723,7 +783,7 @@ extension godot_quat:Godot.RawAggregatePrivate
     typealias Packed = (Float32, Float32, Float32, Float32)
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector4<Float32>? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Quaternion<Float32>? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_QUAT)
         {
@@ -731,32 +791,31 @@ extension godot_quat:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector4<Float32>) -> Godot.Variant.Unmanaged
+    func variant(packing quaternion:Quaternion<Float32>) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked)) 
+        withUnsafePointer(to: Self.init(packing: quaternion)) 
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_quat)
         }
     }
     
-    fileprivate 
-    init(packing vector:Vector4<Float32>)
+    init(packing quaternion:Quaternion<Float32>)
     {
-        self = unsafeBitCast(vector*, to: Self.self)
+        self = unsafeBitCast(quaternion.composite*, to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector4<Float32> 
+    var unpacked:Quaternion<Float32> 
     {
-        unsafeBitCast(self, to: Packed.self)*
+        .init(composite: unsafeBitCast(self, to: Packed.self)*)
     }
     
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector4<Float32> = (1, 2, 3, 4)*
+        let tracer:Quaternion<Float32> = .init(composite: (1, 2, 3, 4)*)
         
         var data:Self = .init()
-        Godot.api.1.0.godot_quat_new(&data, tracer.x, tracer.y, tracer.z, tracer.w)
+        Godot.api.1.0.godot_quat_new(&data, 
+            tracer.imaginary.x, tracer.imaginary.y, tracer.imaginary.z, tracer.real)
         
         return data.unpacked == tracer
     }
@@ -766,7 +825,7 @@ extension godot_plane:Godot.RawAggregatePrivate
     typealias Packed = (Float32, Float32, Float32, Float32)
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector4<Float32>? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Plane3<Float32>? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_PLANE)
         {
@@ -774,34 +833,32 @@ extension godot_plane:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector4<Float32>) -> Godot.Variant.Unmanaged
+    func variant(packing plane:Godot.Plane3<Float32>) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked)) 
+        withUnsafePointer(to: Self.init(packing: plane)) 
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_plane)
         }
     }
     
-    fileprivate 
-    init(packing vector:Vector4<Float32>)
+    init(packing plane:Godot.Plane3<Float32>)
     {
-        self = unsafeBitCast(vector*, to: Self.self)
+        self = unsafeBitCast(plane.composite*, to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector4<Float32> 
+    var unpacked:Godot.Plane3<Float32> 
     {
-        unsafeBitCast(self, to: Packed.self)*
+        .init(composite: unsafeBitCast(self, to: Packed.self)*)
     }
     
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector4<Float32> = (1, 2, 3, 4)*
+        let tracer:Godot.Plane3<Float32> = .init(composite: (1, 2, 3, 4)*)
         
         var data:Self = .init()
-        withUnsafePointer(to: godot_vector3.init(packing: tracer[.xyz]))
+        withUnsafePointer(to: godot_vector3.init(packing: tracer.unit))
         {
-            Godot.api.1.0.godot_plane_new_with_normal(&data, $0, tracer.w)
+            Godot.api.1.0.godot_plane_new_with_normal(&data, $0, tracer.origin)
         }
         
         return data.unpacked == tracer
@@ -812,7 +869,7 @@ extension godot_rect2:Godot.RawAggregatePrivate
     typealias Packed = ((Float32, Float32), (Float32, Float32))
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector2<Float32>.Matrix2? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector2<Float32>.Rectangle? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_RECT2)
         {
@@ -820,42 +877,36 @@ extension godot_rect2:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector2<Float32>.Matrix2) -> Godot.Variant.Unmanaged
+    func variant(packing rectangle:Vector2<Float32>.Rectangle) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked))
+        withUnsafePointer(to: Self.init(packing: rectangle))
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_rect2)
         }
     }
     
-    fileprivate 
-    init(packing bounds:Vector2<Float32>.Matrix2)
+    init(packing rectangle:Vector2<Float32>.Rectangle)
     {
-        let position:Vector2<Float32>   =            bounds.0
-        let size:Vector2<Float32>       = bounds.1 - bounds.0
-        self = unsafeBitCast((position*, size*), to: Self.self)
+        self = unsafeBitCast((rectangle.lowerBound*, rectangle.size*), to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector2<Float32>.Matrix2
+    var unpacked:Vector2<Float32>.Rectangle
     {
         let packed:Packed               = unsafeBitCast(self, to: Packed.self)
-        let position:Vector2<Float32>   = packed.0*
-        let size:Vector2<Float32>       = packed.1*
-        return (position, position + size)
+        let position:Vector2<Float32>   = packed.0*,
+            size:Vector2<Float32>       = packed.1*
+        return position ..< position + size
     }
     
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector2<Float32>.Matrix2 = ((1, 2)*, (4, 6)*)
+        let tracer:Vector2<Float32>.Rectangle = (1, 2)* ..< (4, 6)*
         
-        let start:godot_vector2 = .init(packing:            tracer.0)
-        let size:godot_vector2  = .init(packing: tracer.1 - tracer.0)
-        var data:Self           = .init()
-        withUnsafePointer(to: start)
+        var data:Self = .init()
+        withUnsafePointer(to: .init(packing: tracer.lowerBound))
         {
             (start:UnsafePointer<godot_vector2>) in 
-            withUnsafePointer(to: size)
+            withUnsafePointer(to: .init(packing: tracer.size))
             {
                 (size:UnsafePointer<godot_vector2>) in  
                 Godot.api.1.0.godot_rect2_new_with_position_and_size(&data, start, size)
@@ -870,7 +921,7 @@ extension godot_aabb:Godot.RawAggregatePrivate
     typealias Packed = ((Float32, Float32, Float32), (Float32, Float32, Float32))
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>.Matrix2? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>.Rectangle? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_AABB)
         {
@@ -878,42 +929,36 @@ extension godot_aabb:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector3<Float32>.Matrix2) -> Godot.Variant.Unmanaged
+    func variant(packing rectangle:Vector3<Float32>.Rectangle) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked))
+        withUnsafePointer(to: Self.init(packing: rectangle))
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_aabb)
         }
     }
     
-    fileprivate
-    init(packing bounds:Vector3<Float32>.Matrix2)
+    init(packing rectangle:Vector3<Float32>.Rectangle)
     {
-        let position:Vector3<Float32>   =            bounds.0
-        let size:Vector3<Float32>       = bounds.1 - bounds.0
-        self = unsafeBitCast((position*, size*), to: Self.self)
+        self = unsafeBitCast((rectangle.lowerBound*, rectangle.size*), to: Self.self)
     }
-    fileprivate
-    var unpacked:Vector3<Float32>.Matrix2
+    var unpacked:Vector3<Float32>.Rectangle
     {
         let packed:Packed               = unsafeBitCast(self, to: Packed.self)
-        let position:Vector3<Float32>   = packed.0*
-        let size:Vector3<Float32>       = packed.1*
-        return (position, position + size)
+        let position:Vector3<Float32>   = packed.0*,
+            size:Vector3<Float32>       = packed.1*
+        return position ..< position + size
     }
     
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector3<Float32>.Matrix2 = ((1, 2, 3)*, (5, 7, 9)*)
+        let tracer:Vector3<Float32>.Rectangle = (1, 2, 3)* ..< (5, 7, 9)*
         
-        let start:godot_vector3 = .init(packing:            tracer.0)
-        let size:godot_vector3  = .init(packing: tracer.1 - tracer.0)
-        var data:Self           = .init()
-        withUnsafePointer(to: start)
+        var data:Self = .init()
+        withUnsafePointer(to: .init(packing: tracer.lowerBound))
         {
             (start:UnsafePointer<godot_vector3>) in 
-            withUnsafePointer(to: size)
+            withUnsafePointer(to: .init(packing: tracer.size))
             {
                 (size:UnsafePointer<godot_vector3>) in  
                 Godot.api.1.0.godot_aabb_new(&data, start, size)
@@ -930,7 +975,7 @@ extension godot_transform2d:Godot.RawAggregatePrivate
     typealias Packed = ((Float32, Float32), (Float32, Float32), (Float32, Float32))
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector2<Float32>.Matrix3? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform2<Float32>.Affine? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_TRANSFORM2D)
         {
@@ -938,39 +983,43 @@ extension godot_transform2d:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector2<Float32>.Matrix3) -> Godot.Variant.Unmanaged
+    func variant(packing transform:Godot.Transform2<Float32>.Affine) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked))
+        withUnsafePointer(to: Self.init(packing: transform))
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_transform2d)
         }
     }
     
-    fileprivate 
-    init(packing matrix:Vector2<Float32>.Matrix3)
+    init(packing transform:Godot.Transform2<Float32>.Affine)
     {
-        self = unsafeBitCast((matrix.0*, matrix.1*, matrix.2*), to: Self.self)
+        self = unsafeBitCast(
+            (
+                transform.matrix.0*, 
+                transform.matrix.1*, 
+                transform.matrix.2*
+            ), to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector2<Float32>.Matrix3
+    var unpacked:Godot.Transform2<Float32>.Affine
     {
         let packed:Packed = unsafeBitCast(self, to: Packed.self)
-        return (packed.0*, packed.1*, packed.2*)
+        return .init(matrix: (packed.0*, packed.1*, packed.2*))
     }
 
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector2<Float32>.Matrix3 = ((1, 2)*, (3, 4)*, (5, 6)*)
+        let tracer:Godot.Transform2<Float32>.Affine = 
+            .init(matrix: ((1, 2)*, (3, 4)*, (5, 6)*))
         
         var data:godot_transform2d          = .init()
-        withUnsafePointer(to: godot_vector2.init(packing: tracer.0))
+        withUnsafePointer(to: godot_vector2.init(packing: tracer.matrix.0))
         {
             (a:UnsafePointer<godot_vector2>) in 
-            withUnsafePointer(to: godot_vector2.init(packing: tracer.1))
+            withUnsafePointer(to: godot_vector2.init(packing: tracer.matrix.1))
             {
                 (b:UnsafePointer<godot_vector2>) in 
-                withUnsafePointer(to: godot_vector2.init(packing: tracer.2))
+                withUnsafePointer(to: godot_vector2.init(packing: tracer.matrix.2))
                 {
                     (c:UnsafePointer<godot_vector2>) in 
                     Godot.api.1.0.godot_transform2d_new_axis_origin(&data, a, b, c)
@@ -1000,7 +1049,7 @@ extension godot_transform:Godot.RawAggregatePrivate
     )
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>.Matrix4? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform3<Float32>.Affine? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_TRANSFORM)
         {
@@ -1008,44 +1057,43 @@ extension godot_transform:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector3<Float32>.Matrix4) -> Godot.Variant.Unmanaged
+    func variant(packing transform:Godot.Transform3<Float32>.Affine) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked))
+        withUnsafePointer(to: Self.init(packing: transform))
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_transform)
         }
     }
     
-    fileprivate 
-    init(packing matrix:Vector3<Float32>.Matrix4)
+    init(packing transform:Godot.Transform3<Float32>.Affine)
     {
-        let rows:Vector3<Float32>.Matrix = (matrix.0, matrix.1, matrix.2)*
-        self = unsafeBitCast(((rows.0*, rows.1*, rows.2*), matrix.3*), to: Self.self)
+        let rows:Vector3<Float32>.Matrix = (transform.matrix.0, transform.matrix.1, transform.matrix.2)*
+        self = unsafeBitCast(((rows.0*, rows.1*, rows.2*), transform.matrix.3*), to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector3<Float32>.Matrix4
+    var unpacked:Godot.Transform3<Float32>.Affine
     {
         let packed:Packed                     =  unsafeBitCast(self, to: Packed.self)
         let columns:Vector3<Float32>.Matrix   = (packed.basis.0*, packed.basis.1*, packed.basis.2*)*
-        return (columns.0, columns.1, columns.2, packed.origin*)
+        return .init(matrix: (columns.0, columns.1, columns.2, packed.origin*))
     }
 
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector3<Float32>.Matrix4 = ((1, 2, 3)*, (4, 5, 6)*, (7, 8, 9)*, (10, 11, 12)*)
+        let tracer:Godot.Transform3<Float32>.Affine = 
+            .init(matrix: ((1, 2, 3)*, (4, 5, 6)*, (7, 8, 9)*, (10, 11, 12)*))
         // no transposition, as `godot_transform_new_with_axis_origin` takes all-columns
         var data:godot_transform            = .init()
-        withUnsafePointer(to: godot_vector3.init(packing: tracer.0))
+        withUnsafePointer(to: godot_vector3.init(packing: tracer.matrix.0))
         {
             (a:UnsafePointer<godot_vector3>) in 
-            withUnsafePointer(to: godot_vector3.init(packing: tracer.1))
+            withUnsafePointer(to: godot_vector3.init(packing: tracer.matrix.1))
             {
                 (b:UnsafePointer<godot_vector3>) in 
-                withUnsafePointer(to: godot_vector3.init(packing: tracer.2))
+                withUnsafePointer(to: godot_vector3.init(packing: tracer.matrix.2))
                 {
                     (c:UnsafePointer<godot_vector3>) in 
-                    withUnsafePointer(to: godot_vector3.init(packing: tracer.3))
+                    withUnsafePointer(to: godot_vector3.init(packing: tracer.matrix.3))
                     {
                         (d:UnsafePointer<godot_vector3>) in 
                         Godot.api.1.0.godot_transform_new_with_axis_origin(&data, a, b, c, d)
@@ -1068,7 +1116,7 @@ extension godot_basis:Godot.RawAggregatePrivate
     )
     
     static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>.Matrix? 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform3<Float32>.Linear? 
     {
         variant.load(where: GODOT_VARIANT_TYPE_BASIS)
         {
@@ -1076,33 +1124,32 @@ extension godot_basis:Godot.RawAggregatePrivate
         } 
     }
     static 
-    func variant(unpacked:Vector3<Float32>.Matrix) -> Godot.Variant.Unmanaged
+    func variant(packing transform:Godot.Transform3<Float32>.Linear) -> Godot.Variant.Unmanaged
     {
-        withUnsafePointer(to: Self.init(packing: unpacked))
+        withUnsafePointer(to: Self.init(packing: transform))
         {
             .init(value: $0, Godot.api.1.0.godot_variant_new_basis)
         }
     }
     
-    fileprivate 
-    init(packing matrix:Vector3<Float32>.Matrix)
+    init(packing transform:Godot.Transform3<Float32>.Linear)
     {
-        let rows:Vector3<Float32>.Matrix = matrix*
+        let rows:Vector3<Float32>.Matrix = transform.matrix*
         self = unsafeBitCast((rows.0*, rows.1*, rows.2*), to: Self.self)
     }
-    fileprivate 
-    var unpacked:Vector3<Float32>.Matrix
+    var unpacked:Godot.Transform3<Float32>.Linear
     {
         let packed:Packed = unsafeBitCast(self, to: Packed.self)
-        return (packed.0*, packed.1*, packed.2*)*
+        return .init(matrix: (packed.0*, packed.1*, packed.2*)*)
     }
 
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Vector3<Float32>.Matrix  = ((1, 2, 3)*, (4, 5, 6)*, (7, 8, 9)*)
+        let tracer:Godot.Transform3<Float32>.Linear = 
+            .init(matrix:((1, 2, 3)*, (4, 5, 6)*, (7, 8, 9)*))
         
-        let rows:Vector3<Float32>.Matrix    = tracer*
+        let rows:Vector3<Float32>.Matrix    = tracer.matrix*
         var data:godot_basis                = .init()
         withUnsafePointer(to: godot_vector3.init(packing: rows.0))
         {
@@ -1119,6 +1166,54 @@ extension godot_basis:Godot.RawAggregatePrivate
         }
         
         return data.unpacked == tracer 
+    }
+}
+extension godot_rid:Godot.RawAggregatePrivate 
+{
+    // godot_rid always same size as machine pointer
+    typealias Packed = Int
+    
+    static 
+    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.ResourceIdentifier? 
+    {
+        variant.load(where: GODOT_VARIANT_TYPE_RID)
+        {
+            Godot.api.1.0.godot_variant_as_rid($0).unpacked
+        } 
+    }
+    static 
+    func variant(packing identifier:Godot.ResourceIdentifier) -> Godot.Variant.Unmanaged
+    {
+        withUnsafePointer(to: Self.init(packing: identifier))
+        {
+            .init(value: $0, Godot.api.1.0.godot_variant_new_rid)
+        }
+    }
+    
+    init(packing identifier:Godot.ResourceIdentifier)
+    {
+        self = unsafeBitCast(identifier.bitPattern, to: Self.self)
+    }
+    var unpacked:Godot.ResourceIdentifier
+    {
+        return .init(bitPattern: unsafeBitCast(self, to: Packed.self))
+    }
+
+    // the godot C api does not provide a means of constructing a godot_rid with 
+    // an arbitrary integer value, so we don’t have a way of properly tracing its 
+    // semantics yet...
+    fileprivate static 
+    func trace() -> Bool 
+    {
+        return true 
+        /* let tracer:Godot.ResourceIdentifier = .init(bitPattern: 0x12_34_56_78)
+        
+        let data:godot_rid  = .init(packing: tracer)
+        // this causes a crash, because `godot_rid_get_id` requires the rid to 
+        // actually be a valid rid
+        let expected:Int    = .init(withUnsafePointer(to: data, Godot.api.1.0.godot_rid_get_id))
+        
+        return tracer.bitPattern == expected */
     }
 }
 extension MemoryLayout where T:Godot.RawAggregatePrivate
@@ -1140,217 +1235,7 @@ extension MemoryLayout where T:Godot.RawAggregatePrivate
     }
 } 
 
-// huge amount of meaningless boilerplate needed to make numeric conversions work, 
-// since swift does not support generic associated types.
-protocol _GodotVariantRepresentableVectorElement:SIMDScalar 
-{
-    associatedtype Vector2Aggregate:Godot.RawAggregate
-    associatedtype Vector3Aggregate:Godot.RawAggregate
-    associatedtype Vector4Aggregate:Godot.RawAggregate
-    
-    static 
-    func generalize(_ specific:Vector2Aggregate.Unpacked) -> Vector2<Self> 
-    static 
-    func generalize(_ specific:Vector3Aggregate.Unpacked) -> Vector3<Self> 
-    static 
-    func generalize(_ specific:Vector4Aggregate.Unpacked) -> Vector4<Self> 
-    static 
-    func specialize(_ general:Vector2<Self>) -> Vector2Aggregate.Unpacked 
-    static 
-    func specialize(_ general:Vector3<Self>) -> Vector3Aggregate.Unpacked 
-    static 
-    func specialize(_ general:Vector4<Self>) -> Vector4Aggregate.Unpacked 
-}
-protocol _GodotVariantRepresentableRectangleElement:SIMDScalar 
-{
-    associatedtype Rectangle2Aggregate:Godot.RawAggregate
-    associatedtype Rectangle3Aggregate:Godot.RawAggregate
-
-    static 
-    func generalize(_ specific:Rectangle2Aggregate.Unpacked) -> Vector2<Self>.Matrix2 
-    static 
-    func generalize(_ specific:Rectangle3Aggregate.Unpacked) -> Vector3<Self>.Matrix2 
-    static 
-    func specialize(_ general:Vector2<Self>.Matrix2) -> Rectangle2Aggregate.Unpacked 
-    static 
-    func specialize(_ general:Vector3<Self>.Matrix2) -> Rectangle3Aggregate.Unpacked 
-}
-protocol _GodotVariantRepresentableVectorStorage:SIMD where Scalar:SIMDScalar 
-{
-    associatedtype VectorAggregate:Godot.RawAggregate
-    
-    static 
-    func generalize(_ specific:VectorAggregate.Unpacked) -> Vector<Self, Scalar> 
-    static 
-    func specialize(_ general:Vector<Self, Scalar>) -> VectorAggregate.Unpacked 
-}
-protocol _GodotVariantRepresentableRectangleStorage:SIMD where Scalar:SIMDScalar 
-{
-    associatedtype RectangleAggregate:Godot.RawAggregate
-    
-    static 
-    func generalize(_ specific:RectangleAggregate.Unpacked) -> Vector<Self, Scalar>.Matrix2 
-    static 
-    func specialize(_ general:Vector<Self, Scalar>.Matrix2) -> RectangleAggregate.Unpacked 
-}
-extension Godot.VariantRepresentable 
-{
-    typealias VectorElement     = _GodotVariantRepresentableVectorElement
-    typealias VectorStorage     = _GodotVariantRepresentableVectorStorage
-    
-    typealias RectangleElement  = _GodotVariantRepresentableRectangleElement
-    typealias RectangleStorage  = _GodotVariantRepresentableRectangleStorage
-}
-
-extension Float16:Godot.VariantRepresentable.VectorElement {}
-extension Float32:Godot.VariantRepresentable.VectorElement {}
-extension Float64:Godot.VariantRepresentable.VectorElement {}
-
-extension Float16:Godot.VariantRepresentable.RectangleElement {}
-extension Float32:Godot.VariantRepresentable.RectangleElement {}
-extension Float64:Godot.VariantRepresentable.RectangleElement {}
-// need to work around type system limitations
-extension BinaryFloatingPoint where Self:SIMDScalar
-{
-    typealias Vector2Aggregate = godot_vector2
-    typealias Vector3Aggregate = godot_vector3
-    typealias Vector4Aggregate = godot_color
-    
-    typealias Rectangle2Aggregate = godot_rect2
-    typealias Rectangle3Aggregate = godot_aabb
-    
-    static 
-    func generalize(_ specific:Vector2<Float32>) -> Vector2<Self> 
-    {
-        .init(specific)
-    }
-    static 
-    func generalize(_ specific:Vector3<Float32>) -> Vector3<Self> 
-    {
-        .init(specific)
-    }
-    static 
-    func generalize(_ specific:Vector4<Float32>) -> Vector4<Self> 
-    {
-        .init(specific)
-    }
-    static 
-    func specialize(_ general:Vector2<Self>) -> Vector2<Float32> 
-    {
-        .init(general)
-    }
-    static 
-    func specialize(_ general:Vector3<Self>) -> Vector3<Float32> 
-    {
-        .init(general)
-    }
-    static 
-    func specialize(_ general:Vector4<Self>) -> Vector4<Float32> 
-    {
-        .init(general)
-    }
-    
-    static 
-    func generalize(_ specific:Vector2<Float32>.Matrix2) -> Vector2<Self>.Matrix2 
-    {
-        (.init(specific.0), .init(specific.1))
-    }
-    static 
-    func generalize(_ specific:Vector3<Float32>.Matrix2) -> Vector3<Self>.Matrix2 
-    {
-        (.init(specific.0), .init(specific.1))
-    }
-    static 
-    func specialize(_ general:Vector2<Self>.Matrix2) -> Vector2<Float32>.Matrix2 
-    {
-        (.init(general.0),  .init(general.1))
-    }
-    static 
-    func specialize(_ general:Vector3<Self>.Matrix2) -> Vector3<Float32>.Matrix2 
-    {
-        (.init(general.0),  .init(general.1))
-    }
-}
-
-extension SIMD2:Godot.VariantRepresentable.VectorStorage 
-    where Scalar:Godot.VariantRepresentable.VectorElement
-{
-    typealias VectorAggregate = Scalar.Vector2Aggregate
-    static 
-    func generalize(_ specific:VectorAggregate.Unpacked) -> Vector2<Scalar> 
-    {
-        Scalar.generalize(specific)
-    }
-    static 
-    func specialize(_ general:Vector2<Scalar>) -> VectorAggregate.Unpacked
-    {
-        Scalar.specialize(general)
-    }
-}
-extension SIMD3:Godot.VariantRepresentable.VectorStorage 
-    where Scalar:Godot.VariantRepresentable.VectorElement
-{
-    typealias VectorAggregate = Scalar.Vector3Aggregate
-    static 
-    func generalize(_ specific:VectorAggregate.Unpacked) -> Vector3<Scalar> 
-    {
-        Scalar.generalize(specific)
-    }
-    static 
-    func specialize(_ general:Vector3<Scalar>) -> VectorAggregate.Unpacked
-    {
-        Scalar.specialize(general)
-    }
-}
-extension SIMD4:Godot.VariantRepresentable.VectorStorage 
-    where Scalar:Godot.VariantRepresentable.VectorElement
-{
-    typealias VectorAggregate = Scalar.Vector4Aggregate
-    static 
-    func generalize(_ specific:VectorAggregate.Unpacked) -> Vector4<Scalar> 
-    {
-        Scalar.generalize(specific)
-    }
-    static 
-    func specialize(_ general:Vector4<Scalar>) -> VectorAggregate.Unpacked
-    {
-        Scalar.specialize(general)
-    }
-}
-
-extension SIMD2:Godot.VariantRepresentable.RectangleStorage 
-    where Scalar:Godot.VariantRepresentable.RectangleElement
-{
-    typealias RectangleAggregate = Scalar.Rectangle2Aggregate
-    static 
-    func generalize(_ specific:RectangleAggregate.Unpacked) -> Vector2<Scalar>.Matrix2 
-    {
-        Scalar.generalize(specific)
-    }
-    static 
-    func specialize(_ general:Vector2<Scalar>.Matrix2) -> RectangleAggregate.Unpacked
-    {
-        Scalar.specialize(general)
-    }
-}
-extension SIMD3:Godot.VariantRepresentable.RectangleStorage 
-    where Scalar:Godot.VariantRepresentable.RectangleElement
-{
-    typealias RectangleAggregate = Scalar.Rectangle3Aggregate
-    static 
-    func generalize(_ specific:RectangleAggregate.Unpacked) -> Vector3<Scalar>.Matrix2 
-    {
-        Scalar.generalize(specific)
-    }
-    static 
-    func specialize(_ general:Vector3<Scalar>.Matrix2) -> RectangleAggregate.Unpacked
-    {
-        Scalar.specialize(general)
-    }
-}
-
-extension Vector:Godot.VariantRepresentable 
-    where Storage:Godot.VariantRepresentable.VectorStorage
+extension Vector:Godot.VariantRepresentable where Storage:Godot.VectorStorage
 {
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
@@ -1359,42 +1244,42 @@ extension Vector:Godot.VariantRepresentable
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        Storage.VectorAggregate.variant(unpacked: Storage.specialize(self))
+        Storage.VectorAggregate.variant(packing: Storage.specialize(self))
     }
 }
-extension Vector:Godot.Variant 
-    where Storage:Godot.VariantRepresentable.VectorStorage, T == Float32 
+extension Vector:Godot.Variant where Storage:Godot.VectorStorage, T == Float32 
 {
 }
 
-extension VectorFiniteRangeExpression
-    where Storage:Godot.VariantRepresentable.RectangleStorage 
+extension VectorFiniteRangeExpression where Storage:Godot.RectangleStorage 
 {
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
         Storage.RectangleAggregate.unpacked(variant: value).map
         {
-            let (a, b):Vector<Storage, T>.Matrix2 = Storage.generalize($0)
-            return Self.init(lowerBound: a, upperBound: b) 
+            return Self.init(
+                lowerBound: Storage.generalize($0.lowerBound), 
+                upperBound: Storage.generalize($0.upperBound)) 
         }
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        Storage.RectangleAggregate.variant(unpacked: 
-            Storage.specialize((self.lowerBound, self.upperBound)))
+        Storage.RectangleAggregate.variant(packing: .init(
+            lowerBound: Storage.specialize(self.lowerBound), 
+            upperBound: Storage.specialize(self.upperBound)))
     }
 }
 extension Vector.Rectangle:Godot.Variant 
-    where Storage:Godot.VariantRepresentable.RectangleStorage, T == Float32 
+    where Storage:Godot.RectangleStorage, T == Float32 
 {
 }
 extension Vector.Rectangle:Godot.VariantRepresentable 
-    where Storage:Godot.VariantRepresentable.RectangleStorage, T:Comparable
+    where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
 extension Vector.ClosedRectangle:Godot.VariantRepresentable 
-    where Storage:Godot.VariantRepresentable.RectangleStorage, T:Comparable
+    where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
 
@@ -1404,14 +1289,11 @@ extension Quaternion:Godot.VariantRepresentable
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        godot_quat.unpacked(variant: value).map
-        {
-            Self.init(.init($0))
-        }
+        godot_quat.unpacked(variant: value).map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        godot_quat.variant(unpacked: .init(self.composite))
+        godot_quat.variant(packing: .init(self))
     }
 }
 extension Godot.Plane3:Godot.VariantRepresentable 
@@ -1419,14 +1301,11 @@ extension Godot.Plane3:Godot.VariantRepresentable
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        godot_plane.unpacked(variant: value).map
-        {
-            Self.init(composite: .init($0))
-        }
+        godot_plane.unpacked(variant: value).map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        godot_plane.variant(unpacked: .init(self.composite))
+        godot_plane.variant(packing: .init(self))
     }
 }
 
@@ -1435,15 +1314,11 @@ extension Godot.Transform2.Affine:Godot.VariantRepresentable
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        godot_transform2d.unpacked(variant: value).map
-        {
-            Self.init(matrix: (.init($0.0), .init($0.1), .init($0.2)))
-        }
+        godot_transform2d.unpacked(variant: value).map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        godot_transform2d.variant(unpacked: 
-            (.init(self.matrix.0), .init(self.matrix.1), .init(self.matrix.2)))
+        godot_transform2d.variant(packing: .init(self))
     }
 }
 extension Godot.Transform3.Affine:Godot.VariantRepresentable 
@@ -1451,15 +1326,11 @@ extension Godot.Transform3.Affine:Godot.VariantRepresentable
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        godot_transform.unpacked(variant: value).map
-        {
-            Self.init(matrix: (.init($0.0), .init($0.1), .init($0.2), .init($0.3)))
-        }
+        godot_transform.unpacked(variant: value).map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        godot_transform.variant(unpacked: 
-            (.init(self.matrix.0), .init(self.matrix.1), .init(self.matrix.2), .init(self.matrix.3)))
+        godot_transform.variant(packing: .init(self))
     }
 } 
 extension Godot.Transform3.Linear:Godot.VariantRepresentable 
@@ -1467,15 +1338,11 @@ extension Godot.Transform3.Linear:Godot.VariantRepresentable
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        godot_basis.unpacked(variant: value).map
-        {
-            Self.init(matrix: (.init($0.0), .init($0.1), .init($0.2)))
-        }
+        godot_basis.unpacked(variant: value).map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        godot_basis.variant(unpacked: 
-            (.init(self.matrix.0), .init(self.matrix.1), .init(self.matrix.2)))
+        godot_basis.variant(packing: .init(self))
     }
 } 
 extension Godot.ResourceIdentifier:Godot.Variant
@@ -1483,15 +1350,11 @@ extension Godot.ResourceIdentifier:Godot.Variant
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_RID, Godot.api.1.0.godot_variant_as_rid)
-            .map(Self.init(data:))
+        godot_rid.unpacked(variant: value)
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
-        withUnsafePointer(to: self.data)
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_rid)
-        }
+        godot_rid.variant(packing: self)
     }
 }
 extension Quaternion:Godot.Variant              where T == Float32 {}
@@ -1525,6 +1388,13 @@ struct _GodotVariantUnmanaged
     {
         self.data = .init()
         try body(&self.data, value)
+    }
+    fileprivate 
+    init(with body:(UnsafeMutablePointer<godot_variant>) throws -> ()) 
+        rethrows
+    {
+        self.data = .init()
+        try body(&self.data)
     }
     
     private static 
@@ -1567,7 +1437,7 @@ extension Godot.Variant.Unmanaged
     static 
     func pass(retaining _:Void) -> Self
     {
-        .init(value: ()){ (data, _) in Godot.api.1.0.godot_variant_new_nil(data) }
+        .init(with: Godot.api.1.0.godot_variant_new_nil)
     }
     
     // FIXME: this should really use an atomic swap
@@ -1646,8 +1516,7 @@ extension Godot.Variant.Unmanaged
                 return Godot.api.1.0.godot_variant_as_real($0)
             
             case GODOT_VARIANT_TYPE_RID:
-                return Godot.ResourceIdentifier.init(data: 
-                    Godot.api.1.0.godot_variant_as_rid($0))
+                return Godot.api.1.0.godot_variant_as_rid($0).unpacked
             
             case GODOT_VARIANT_TYPE_VECTOR2:
                 return Godot.api.1.0.godot_variant_as_vector2($0).unpacked
@@ -1656,33 +1525,22 @@ extension Godot.Variant.Unmanaged
             case GODOT_VARIANT_TYPE_COLOR:
                 return Godot.api.1.0.godot_variant_as_color($0).unpacked
             case GODOT_VARIANT_TYPE_QUAT:
-                return Quaternion<Float32>.init(
-                    Godot.api.1.0.godot_variant_as_quat($0).unpacked)
+                return Godot.api.1.0.godot_variant_as_quat($0).unpacked
             case GODOT_VARIANT_TYPE_PLANE:
-                return Godot.Plane3<Float32>.init(composite:
-                    Godot.api.1.0.godot_variant_as_plane($0).unpacked)
+                return Godot.api.1.0.godot_variant_as_plane($0).unpacked
             
             case GODOT_VARIANT_TYPE_RECT2:
-                let bounds:(Vector2<Float32>, Vector2<Float32>) = 
-                    Godot.api.1.0.godot_variant_as_rect2($0).unpacked
-                return Vector2<Float32>.Rectangle.init(
-                    lowerBound: bounds.0, upperBound: bounds.1)
+                return Godot.api.1.0.godot_variant_as_rect2($0).unpacked
             
             case GODOT_VARIANT_TYPE_AABB:
-                let bounds:(Vector3<Float32>, Vector3<Float32>) = 
-                    Godot.api.1.0.godot_variant_as_aabb($0).unpacked
-                return Vector3<Float32>.Rectangle.init(
-                    lowerBound: bounds.0, upperBound: bounds.1)
+                return Godot.api.1.0.godot_variant_as_aabb($0).unpacked
             
             case GODOT_VARIANT_TYPE_TRANSFORM2D:
-                return Godot.Transform2<Float32>.Affine.init(matrix: 
-                    Godot.api.1.0.godot_variant_as_transform2d($0).unpacked)
+                return Godot.api.1.0.godot_variant_as_transform2d($0).unpacked
             case GODOT_VARIANT_TYPE_TRANSFORM:
-                return Godot.Transform3<Float32>.Affine.init(matrix: 
-                    Godot.api.1.0.godot_variant_as_transform($0).unpacked) 
+                return Godot.api.1.0.godot_variant_as_transform($0).unpacked
             case GODOT_VARIANT_TYPE_BASIS:
-                return Godot.Transform3<Float32>.Linear.init(matrix: 
-                    Godot.api.1.0.godot_variant_as_basis($0).unpacked) 
+                return Godot.api.1.0.godot_variant_as_basis($0).unpacked
             
             case GODOT_VARIANT_TYPE_NODE_PATH:
                 return Godot.NodePath.init(retained: 
@@ -2125,23 +1983,7 @@ extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantReprese
     }
 }
 
-// “icall” types. these are related, but orthogonal to `Variant`/`VariantRepresentable`
-protocol _GodotFunctionPassable
-{
-    static 
-    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
-    func pass(_ body:(UnsafeRawPointer) -> ())
-}
-extension Godot 
-{
-    struct Function 
-    {
-        typealias Passable = _GodotFunctionPassable
-        
-        private 
-        let function:UnsafeMutablePointer<godot_method_bind>
-    }
-}
+
 extension Godot.Function 
 {
     static 
@@ -2155,82 +1997,5 @@ extension Godot.Function
             fatalError("could not load method 'Godot::\(T.symbol).\(method)'")
         }
         return .init(function: function)
-    }
-    
-    func callAsFunction<V0>(self delegate:Godot.AnyDelegate) -> V0
-        where V0:Passable 
-    {
-        .take 
-        {
-            (result:UnsafeMutableRawPointer) in 
-            withExtendedLifetime(delegate)
-            {
-                Godot.api.1.0.godot_method_bind_ptrcall(self.function, 
-                    delegate.core, nil, result)
-            }
-        }
-    }
-    func callAsFunction<U0, U1, U2, V0>(self delegate:Godot.AnyDelegate, _ u0:U0, _ u1:U1, _ u2:U2)
-        -> V0
-        where U0:Passable, U1:Passable, U2:Passable, V0:Passable 
-    {
-        .take 
-        {
-            (result:UnsafeMutableRawPointer) in 
-            u0.pass 
-            {
-                (u0:UnsafeRawPointer?) in 
-                u1.pass 
-                {
-                    (u1:UnsafeRawPointer?) in 
-                    u2.pass 
-                    {
-                        (u2:UnsafeRawPointer?) in 
-                        
-                        withExtendedLifetime(delegate)
-                        {
-                            var arguments:[UnsafeRawPointer?] = [u0, u1, u2]
-                            arguments.withUnsafeMutableBufferPointer 
-                            {
-                                Godot.api.1.0.godot_method_bind_ptrcall(self.function, 
-                                    delegate.core, $0.baseAddress, result)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-extension Bool:Godot.Function.Passable 
-{
-    static 
-    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
-    {
-        var value:Bool = false
-        body(&value)
-        return value
-    }
-    func pass(_ body:(UnsafeRawPointer) -> ())
-    {
-        fatalError("unimplemented")
-    }
-}
-extension Swift.String:Godot.Function.Passable 
-{
-    // closure is responsible for initializing the value
-    static 
-    func take(_ body:(UnsafeMutableRawPointer) -> ()) -> Self 
-    {
-        var core:godot_string = .init{ body(.init($0)) }
-        defer 
-        {
-            core.deinit()
-        }
-        return core.unpacked
-    }
-    func pass(_ body:(UnsafeRawPointer) -> ())
-    {
-        fatalError("unimplemented")
     }
 }

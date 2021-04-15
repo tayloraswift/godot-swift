@@ -7,7 +7,13 @@ enum Synthesizer
     {
         Source.generate(file: common)
         {
+            Source.text(from: "fragments", "external.swift.part")
+            Source.text(from: "fragments", "runtime.swift.part")
+            Source.text(from: "fragments", "variant.swift.part")
+            Source.text(from: "fragments", "dsl.swift.part")
+            
             Godot.swift 
+            
             Vector.swift 
         }
     }

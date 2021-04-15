@@ -1,14 +1,11 @@
 import TSCBasic
 
-struct Source
+enum Source
 {
     @resultBuilder
     struct Code 
     {
     }
-    
-    let file:AbsolutePath
-    let code:String 
     
     static 
     func fragment(indent tabs:Int = 0, @Code generator:() -> String) -> String 
@@ -19,18 +16,55 @@ struct Source
         }.joined(separator: "\n")
     }
     
-    static 
-    func fragment(relativeTo caller:String = #filePath, filename:String) -> String 
+    private static 
+    func inline(_ elements:[String], delimiters:(String, String), else empty:String? = nil) 
+        -> String 
     {
-        let path:AbsolutePath           = .init(caller).parentDirectory.appending(component: filename)
-        guard let contents:ByteString   = try? TSCBasic.localFileSystem.readFileContents(path)
+        if let empty:String = empty, elements.isEmpty 
+        {
+            return empty 
+        } 
         else 
         {
-            fatalError("could not find or read file '\(path)'")
+            return "\(delimiters.0)\(elements.joined(separator: ", "))\(delimiters.1)"
         }
-        return contents.description
     }
-    
+    static 
+    func inline(angled:[String], else empty:String? = nil) -> String 
+    {
+        Self.inline(angled, delimiters: ("<", ">"), else: empty)
+    }
+    static 
+    func inline(bracketed:[String], else empty:String? = nil) -> String 
+    {
+        Self.inline(bracketed, delimiters: ("[", "]"), else: empty)
+    }
+    static 
+    func inline(list:[String], else empty:String? = nil) -> String 
+    {
+        Self.inline(list, delimiters: ("(", ")"), else: empty)
+    }
+    static 
+    func constraints(_ constraints:[String]) -> String 
+    {
+        switch constraints.count 
+        {
+        case 0:
+            return ""
+        case 1:
+            return 
+                """
+                
+                    where \(constraints.joined(separator: ", "))
+                """
+        default: 
+            return 
+                """
+                
+                    where   \(constraints.joined(separator: ", \n            "))
+                """
+        }
+    }
     static 
     func block(extraIndendation tabs:Int = 0, delimiters:(String, String) = ("{", "}"),
         @Code generator:() -> String) 
@@ -52,26 +86,47 @@ struct Source
     }
     
     static 
-    func code(file:AbsolutePath, @Code generator:() -> String) -> Self 
+    func text(from components:String..., relativeTo caller:String = #filePath) -> String 
     {
-        .init(file: file, code: generator())
+        let path:AbsolutePath           = .init(caller).parentDirectory.appending(components: components)
+        guard let contents:ByteString   = try? TSCBasic.localFileSystem.readFileContents(path)
+        else 
+        {
+            fatalError("could not find or read file '\(path)'")
+        }
+        return contents.description
     }
     
     static 
-    func generate(file:AbsolutePath, @Code generator:() -> String) 
+    func section(name:String, relativeTo caller:String = #filePath, 
+        @Code generator:() -> String) 
+        -> String 
     {
-        Self.init(file: file, code: generator()).emit()
+        let directory:AbsolutePath  = .init(caller).parentDirectory.appending(component: ".sections") 
+        guard let _:Void            = try? TSCBasic.localFileSystem
+            .createDirectory(directory, recursive: true)
+        else 
+        {
+            fatalError("could not create directory '\(directory)'")
+        }
+        
+        return Self.generate(file: directory.appending(component: name), generator: generator)
     }
     
-    func emit(filesystem:FileSystem = TSCBasic.localFileSystem) 
+    @discardableResult
+    static 
+    func generate(file:AbsolutePath, filesystem:FileSystem = TSCBasic.localFileSystem, 
+        @Code generator:() -> String) -> String
     {
-        guard let _:Void = try? filesystem.writeFileContents(self.file, 
-            bytes: .init(encodingAsUTF8: self.code), 
+        let code:String  = generator()
+        guard let _:Void = try? filesystem.writeFileContents(file, 
+            bytes: .init(encodingAsUTF8: code), 
             atomically: true)
         else 
         {
-            fatalError("failed to write to output file '\(self.file)'")
+            fatalError("failed to write to output file '\(file)'")
         }
+        return code 
     }
 }
 

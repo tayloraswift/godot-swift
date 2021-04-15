@@ -427,6 +427,8 @@ extension Godot.Library
         MemoryLayout<godot_transform2d>.assert()
         MemoryLayout<godot_transform>.assert()
         MemoryLayout<godot_basis>.assert() 
+        
+        MemoryLayout<godot_rid>.assert() 
     }
     fileprivate 
     func deinitialize() 

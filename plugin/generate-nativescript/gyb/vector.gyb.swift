@@ -100,8 +100,8 @@ enum Vector
     }
     
     @Source.Code 
-    static 
-    var swift:String 
+    private static 
+    var code:String 
     {
         let components:
         (
@@ -221,7 +221,7 @@ enum Vector
         Source.block 
         {
             """
-            struct Rectangle:VectorFiniteRangeExpression
+            struct Rectangle:VectorFiniteRangeExpression, Hashable
             {
                 var lowerBound:Vector<Storage, T>
                 var upperBound:Vector<Storage, T>
@@ -233,7 +233,7 @@ enum Vector
                 }
             }
             
-            struct ClosedRectangle:VectorFiniteRangeExpression
+            struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
             {
                 var lowerBound:Vector<Storage, T>
                 var upperBound:Vector<Storage, T>
@@ -1244,7 +1244,53 @@ enum Vector
                 {
                     self.init(storage: .init(other.storage, rounding: rule))
                 }
+                
                 """
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(clamping other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
+                        where U:FixedWidthInteger 
+                    {
+                        (\((0 ..< m).map{ ".init(clamping: other.\($0))" }.joined(separator: ", ")))
+                    }
+                    """
+                }
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(truncatingIfNeeded other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
+                        where U:FixedWidthInteger 
+                    {
+                        (\((0 ..< m).map{ ".init(truncatingIfNeeded: other.\($0))" }.joined(separator: ", ")))
+                    }
+                    """
+                }
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
+                        where U:BinaryFloatingPoint 
+                    {
+                        (\((0 ..< m).map{ ".init(other.\($0))" }.joined(separator: ", ")))
+                    }
+                    """
+                }
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(_ other:Vector\(n)<U>.Matrix\(m), rounding rule:FloatingPointRoundingRule) 
+                        -> Matrix\(m) 
+                        where U:BinaryFloatingPoint 
+                    {
+                        (\((0 ..< m).map{ ".init(other.\($0), rounding: rule)" }.joined(separator: ", ")))
+                    }
+                    """
+                }
             }
             """
             extension Vector where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
@@ -1260,7 +1306,30 @@ enum Vector
                 {
                     self.init(storage: .init(other.storage))
                 }
+                
                 """
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
+                        where U:FixedWidthInteger 
+                    {
+                        (\((0 ..< m).map{ ".init(other.\($0))" }.joined(separator: ", ")))
+                    }
+                    """
+                }
+                for m:Int in 2 ... 4 
+                {
+                    """
+                    static 
+                    func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
+                        where U:BinaryFloatingPoint 
+                    {
+                        (\((0 ..< m).map{ ".init(other.\($0))" }.joined(separator: ", ")))
+                    }
+                    """
+                }
             }
             """
             // components and swizzle-subscripts
@@ -1438,10 +1507,10 @@ enum Vector
             static 
             var identity:Self
             {
-                .init((0, 0, 0, 1)*)
+                .init(composite: (0, 0, 0, 1)*)
             }
             
-            init(_ composite:Vector4<T>) 
+            init(composite:Vector4<T>) 
             {
                 self.composite = composite
             }
@@ -1458,9 +1527,15 @@ enum Vector
                 self.composite  = T.sin(half) * axis || T.cos(half)
             }
             
+            init<U>(_ other:Quaternion<U>) 
+                where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
+            {
+                self.init(composite: .init(other.composite))
+            }
+            
             func normalized() -> Self
             {
-                .init(self.composite.normalized())
+                .init(composite: self.composite.normalized())
             }
             mutating 
             func normalize() 
@@ -1471,9 +1546,19 @@ enum Vector
             static 
             postfix func * (_ quaternion:Self) -> Self
             {
-                .init(quaternion.composite * (-1, -1, -1, +1)*)
+                .init(composite: quaternion.composite * (-1, -1, -1, +1)*)
             }
         }
         """
+    }
+    
+    @Source.Code 
+    static 
+    var swift:String 
+    {
+        Source.section(name: "vector.part.swift")
+        {
+            Self.code
+        }
     }
 }

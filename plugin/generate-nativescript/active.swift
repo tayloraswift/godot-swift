@@ -444,12 +444,12 @@ extension Synthesizer.Form
         case .void, .scalar(type: _):
             return Source.fragment
             {
-                ".pass(retaining: \(variable))" 
+                "Godot.Variant.Unmanaged.pass(retaining: \(variable))" 
             }
         case .tuple(let elements):
             return Source.fragment
             {
-                ".pass(retaining: \(list).init(consuming: "
+                "Godot.Variant.Unmanaged.pass(retaining: \(list).init(consuming: "
                 Source.fragment(indent: 1) 
                 {
                     elements.enumerated().map
@@ -503,7 +503,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: Void.self), 
                         function: symbol)
-                    return .pass(retaining: ())
+                    return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
                 """
             }
@@ -519,7 +519,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
                         function: symbol)
-                    return .pass(retaining: ())
+                    return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
                 """
             }
@@ -547,7 +547,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
                         function: symbol)
-                    return .pass(retaining: ())
+                    return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
                 """
             }
@@ -665,7 +665,7 @@ extension Synthesizer.FunctionParameterization
                     {
                         Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
                             function: symbol)
-                        return .pass(retaining: ())
+                        return Godot.Variant.Unmanaged.pass(retaining: ())
                     }
                     """
                     
@@ -805,7 +805,6 @@ extension Synthesizer
             """
             diagnostics.plant()
             """
-            
             import GDNative
             
             func <- <T>(property:Godot.NativeScriptInterface<T>.Witness.Property, symbol:String) 
