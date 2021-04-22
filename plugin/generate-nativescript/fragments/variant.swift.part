@@ -1,8 +1,9 @@
 // variant-related functionality
 extension Godot 
 {
-    typealias Variant = _GodotVariant
-    typealias VariantRepresentable = _GodotVariantRepresentable
+    typealias VariantRepresentable  = _GodotVariantRepresentable
+    typealias VariantConvertible    = _GodotVariantConvertible
+    typealias Variant               = _GodotVariant
 }
 protocol _GodotVariantRepresentable 
 {
@@ -13,14 +14,21 @@ protocol _GodotVariantRepresentable
     func takeUnretained(_:Godot.Variant.Unmanaged) -> Self?
     func passRetained() -> Godot.Variant.Unmanaged 
 }
-
-protocol _GodotVariant:Godot.VariantRepresentable
+protocol _GodotVariantConvertible:Godot.VariantRepresentable 
+{
+    static 
+    var variantCode:godot_variant_type
+    {
+        get 
+    }
+}
+protocol _GodotVariant:Godot.VariantConvertible
 {
     typealias Unmanaged = _GodotVariantUnmanaged
 }
 
 // objects
-extension Godot 
+/* extension Godot 
 {    
     class AnyDelegate
     {
@@ -98,13 +106,18 @@ extension Godot
             Self.release(self: self) 
         }
     }
-}
+} */
 extension Godot.AnyDelegate:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        GODOT_VARIANT_TYPE_OBJECT
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_OBJECT) 
+        value.load(where: Godot.AnyDelegate.variantCode) 
         {
             (variant:UnsafePointer<godot_variant>) -> Self? in
             
@@ -133,9 +146,14 @@ extension Godot.AnyDelegate:Godot.Variant
 extension Bool:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        GODOT_VARIANT_TYPE_BOOL
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_BOOL, Godot.api.1.0.godot_variant_as_bool)
+        value.load(where: Self.variantCode, Godot.api.1.0.godot_variant_as_bool)
     }
     func passRetained() -> Godot.Variant.Unmanaged 
     {
@@ -145,9 +163,14 @@ extension Bool:Godot.Variant
 extension FixedWidthInteger where Self:SignedInteger 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        GODOT_VARIANT_TYPE_INT
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.1.0.godot_variant_as_int)
+        value.load(where: Self.variantCode, Godot.api.1.0.godot_variant_as_int)
             .map(Self.init(exactly:)) ?? nil
     }
     func passRetained() -> Godot.Variant.Unmanaged 
@@ -158,9 +181,14 @@ extension FixedWidthInteger where Self:SignedInteger
 extension FixedWidthInteger where Self:UnsignedInteger 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        GODOT_VARIANT_TYPE_INT
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_INT, Godot.api.1.0.godot_variant_as_uint)
+        value.load(where: Self.variantCode, Godot.api.1.0.godot_variant_as_uint)
             .map(Self.init(exactly:)) ?? nil
     }
     func passRetained() -> Godot.Variant.Unmanaged 
@@ -171,9 +199,14 @@ extension FixedWidthInteger where Self:UnsignedInteger
 extension BinaryFloatingPoint 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        GODOT_VARIANT_TYPE_REAL
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_REAL, Godot.api.1.0.godot_variant_as_real)
+        value.load(where: Self.variantCode, Godot.api.1.0.godot_variant_as_real)
             .map(Self.init(_:))
     }
     func passRetained() -> Godot.Variant.Unmanaged 
@@ -185,19 +218,19 @@ extension BinaryFloatingPoint
 extension Int64:Godot.Variant               {}
 extension Float64:Godot.Variant             {}
 
-extension Float32:Godot.VariantRepresentable{}
-extension Float16:Godot.VariantRepresentable{}
+extension Float32:Godot.VariantConvertible{}
+extension Float16:Godot.VariantConvertible{}
 
-extension Int32:Godot.VariantRepresentable  {}
-extension Int16:Godot.VariantRepresentable  {}
-extension Int8:Godot.VariantRepresentable   {}
-extension Int:Godot.VariantRepresentable    {}
+extension Int32:Godot.VariantConvertible  {}
+extension Int16:Godot.VariantConvertible  {}
+extension Int8:Godot.VariantConvertible   {}
+extension Int:Godot.VariantConvertible    {}
 
-extension UInt64:Godot.VariantRepresentable {}
-extension UInt32:Godot.VariantRepresentable {}
-extension UInt16:Godot.VariantRepresentable {}
-extension UInt8:Godot.VariantRepresentable  {}
-extension UInt:Godot.VariantRepresentable   {}
+extension UInt64:Godot.VariantConvertible {}
+extension UInt32:Godot.VariantConvertible {}
+extension UInt16:Godot.VariantConvertible {}
+extension UInt8:Godot.VariantConvertible  {}
+extension UInt:Godot.VariantConvertible   {}
 
 extension Godot 
 {
@@ -207,6 +240,12 @@ extension Godot
 protocol _GodotRawValue
 {
     init()
+    
+    static 
+    var variantCode:godot_variant_type 
+    {
+        get 
+    }
 }
 extension Godot.RawValue 
 {
@@ -427,9 +466,14 @@ extension Godot
 extension Godot.NodePath:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        godot_node_path.variantCode
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_NODE_PATH)
+        value.load(where: Self.variantCode)
         {
             .init(retained: Godot.api.1.0.godot_variant_as_node_path($0))
         } 
@@ -448,9 +492,14 @@ extension Godot.NodePath:Godot.Variant
 extension Godot.String:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        godot_string.variantCode
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_STRING)
+        value.load(where: Self.variantCode)
         {
             .init(retained: Godot.api.1.0.godot_variant_as_string($0))
         } 
@@ -469,9 +518,14 @@ extension Godot.String:Godot.Variant
 extension Godot.List:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        godot_array.variantCode
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_ARRAY)
+        value.load(where: Self.variantCode)
         {
             .init(retained: Godot.api.1.0.godot_variant_as_array($0))
         }
@@ -490,9 +544,14 @@ extension Godot.List:Godot.Variant
 extension Godot.Map:Godot.Variant 
 {
     static 
+    var variantCode:godot_variant_type 
+    {
+        godot_dictionary.variantCode
+    }
+    static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
-        value.load(where: GODOT_VARIANT_TYPE_DICTIONARY)
+        value.load(where: Self.variantCode)
         {
             .init(retained: Godot.api.1.0.godot_variant_as_dictionary($0))
         }
@@ -510,6 +569,11 @@ extension Godot.Map:Godot.Variant
 }
 extension Godot.Array:Godot.Variant 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        Element.RawArrayReference.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -657,24 +721,7 @@ extension Godot
 extension godot_vector2:Godot.RawAggregatePrivate 
 {
     typealias Packed = (Float32, Float32)
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector2<Float32>? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_VECTOR2)
-        {
-            Godot.api.1.0.godot_variant_as_vector2($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing vector:Vector2<Float32>) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: vector)) 
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_vector2)
-        }
-    }
-    
+
     init(packing vector:Vector2<Float32>)
     {
         self = unsafeBitCast(vector*, to: Self.self)
@@ -698,23 +745,6 @@ extension godot_vector2:Godot.RawAggregatePrivate
 extension godot_vector3:Godot.RawAggregatePrivate 
 {
     typealias Packed = (Float32, Float32, Float32)
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_VECTOR3)
-        {
-            Godot.api.1.0.godot_variant_as_vector3($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing vector:Vector3<Float32>) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: vector)) 
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_vector3)
-        }
-    }
     
     init(packing vector:Vector3<Float32>)
     {
@@ -741,23 +771,6 @@ extension godot_color:Godot.RawAggregatePrivate
 {
     typealias Packed = (Float32, Float32, Float32, Float32)
     
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector4<Float32>? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_COLOR)
-        {
-            Godot.api.1.0.godot_variant_as_color($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing vector:Vector4<Float32>) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: vector)) 
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_color)
-        }
-    }
-    
     init(packing vector:Vector4<Float32>)
     {
         self = unsafeBitCast(vector*, to: Self.self)
@@ -781,23 +794,6 @@ extension godot_color:Godot.RawAggregatePrivate
 extension godot_quat:Godot.RawAggregatePrivate 
 {
     typealias Packed = (Float32, Float32, Float32, Float32)
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Quaternion<Float32>? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_QUAT)
-        {
-            Godot.api.1.0.godot_variant_as_quat($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing quaternion:Quaternion<Float32>) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: quaternion)) 
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_quat)
-        }
-    }
     
     init(packing quaternion:Quaternion<Float32>)
     {
@@ -823,23 +819,6 @@ extension godot_quat:Godot.RawAggregatePrivate
 extension godot_plane:Godot.RawAggregatePrivate 
 {
     typealias Packed = (Float32, Float32, Float32, Float32)
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Plane3<Float32>? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_PLANE)
-        {
-            Godot.api.1.0.godot_variant_as_plane($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing plane:Godot.Plane3<Float32>) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: plane)) 
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_plane)
-        }
-    }
     
     init(packing plane:Godot.Plane3<Float32>)
     {
@@ -867,23 +846,6 @@ extension godot_plane:Godot.RawAggregatePrivate
 extension godot_rect2:Godot.RawAggregatePrivate 
 {
     typealias Packed = ((Float32, Float32), (Float32, Float32))
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector2<Float32>.Rectangle? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_RECT2)
-        {
-            Godot.api.1.0.godot_variant_as_rect2($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing rectangle:Vector2<Float32>.Rectangle) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: rectangle))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_rect2)
-        }
-    }
     
     init(packing rectangle:Vector2<Float32>.Rectangle)
     {
@@ -919,23 +881,6 @@ extension godot_rect2:Godot.RawAggregatePrivate
 extension godot_aabb:Godot.RawAggregatePrivate 
 {
     typealias Packed = ((Float32, Float32, Float32), (Float32, Float32, Float32))
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Vector3<Float32>.Rectangle? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_AABB)
-        {
-            Godot.api.1.0.godot_variant_as_aabb($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing rectangle:Vector3<Float32>.Rectangle) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: rectangle))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_aabb)
-        }
-    }
     
     init(packing rectangle:Vector3<Float32>.Rectangle)
     {
@@ -973,23 +918,6 @@ extension godot_transform2d:Godot.RawAggregatePrivate
     // godot does not provide an interface for accessing the basis vectors, 
     // so we have to (unsafely) extract them from raw memory 
     typealias Packed = ((Float32, Float32), (Float32, Float32), (Float32, Float32))
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform2<Float32>.Affine? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_TRANSFORM2D)
-        {
-            Godot.api.1.0.godot_variant_as_transform2d($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing transform:Godot.Transform2<Float32>.Affine) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: transform))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_transform2d)
-        }
-    }
     
     init(packing transform:Godot.Transform2<Float32>.Affine)
     {
@@ -1047,24 +975,7 @@ extension godot_transform:Godot.RawAggregatePrivate
         origin:
         (Float32, Float32, Float32)
     )
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform3<Float32>.Affine? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_TRANSFORM)
-        {
-            Godot.api.1.0.godot_variant_as_transform($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing transform:Godot.Transform3<Float32>.Affine) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: transform))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_transform)
-        }
-    }
-    
+
     init(packing transform:Godot.Transform3<Float32>.Affine)
     {
         let rows:Vector3<Float32>.Matrix = (transform.matrix.0, transform.matrix.1, transform.matrix.2)*
@@ -1115,23 +1026,6 @@ extension godot_basis:Godot.RawAggregatePrivate
         (Float32, Float32, Float32)
     )
     
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.Transform3<Float32>.Linear? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_BASIS)
-        {
-            Godot.api.1.0.godot_variant_as_basis($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing transform:Godot.Transform3<Float32>.Linear) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: transform))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_basis)
-        }
-    }
-    
     init(packing transform:Godot.Transform3<Float32>.Linear)
     {
         let rows:Vector3<Float32>.Matrix = transform.matrix*
@@ -1172,23 +1066,6 @@ extension godot_rid:Godot.RawAggregatePrivate
 {
     // godot_rid always same size as machine pointer
     typealias Packed = Int
-    
-    static 
-    func unpacked(variant:Godot.Variant.Unmanaged) -> Godot.ResourceIdentifier? 
-    {
-        variant.load(where: GODOT_VARIANT_TYPE_RID)
-        {
-            Godot.api.1.0.godot_variant_as_rid($0).unpacked
-        } 
-    }
-    static 
-    func variant(packing identifier:Godot.ResourceIdentifier) -> Godot.Variant.Unmanaged
-    {
-        withUnsafePointer(to: Self.init(packing: identifier))
-        {
-            .init(value: $0, Godot.api.1.0.godot_variant_new_rid)
-        }
-    }
     
     init(packing identifier:Godot.ResourceIdentifier)
     {
@@ -1235,8 +1112,14 @@ extension MemoryLayout where T:Godot.RawAggregatePrivate
     }
 } 
 
-extension Vector:Godot.VariantRepresentable where Storage:Godot.VectorStorage
+extension Vector:Godot.VariantConvertible, Godot.VariantRepresentable 
+    where Storage:Godot.VectorStorage
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        Storage.VectorAggregate.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1253,6 +1136,11 @@ extension Vector:Godot.Variant where Storage:Godot.VectorStorage, T == Float32
 
 extension VectorFiniteRangeExpression where Storage:Godot.RectangleStorage 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        Storage.RectangleAggregate.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1274,18 +1162,23 @@ extension Vector.Rectangle:Godot.Variant
     where Storage:Godot.RectangleStorage, T == Float32 
 {
 }
-extension Vector.Rectangle:Godot.VariantRepresentable 
+extension Vector.Rectangle:Godot.VariantConvertible, Godot.VariantRepresentable 
     where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
-extension Vector.ClosedRectangle:Godot.VariantRepresentable 
+extension Vector.ClosedRectangle:Godot.VariantConvertible, Godot.VariantRepresentable  
     where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
 
 
-extension Quaternion:Godot.VariantRepresentable 
+extension Quaternion:Godot.VariantConvertible 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_quat.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1296,8 +1189,13 @@ extension Quaternion:Godot.VariantRepresentable
         godot_quat.variant(packing: .init(self))
     }
 }
-extension Godot.Plane3:Godot.VariantRepresentable 
+extension Godot.Plane3:Godot.VariantConvertible 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_plane.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1309,8 +1207,13 @@ extension Godot.Plane3:Godot.VariantRepresentable
     }
 }
 
-extension Godot.Transform2.Affine:Godot.VariantRepresentable 
+extension Godot.Transform2.Affine:Godot.VariantConvertible 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_transform2d.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1321,8 +1224,13 @@ extension Godot.Transform2.Affine:Godot.VariantRepresentable
         godot_transform2d.variant(packing: .init(self))
     }
 }
-extension Godot.Transform3.Affine:Godot.VariantRepresentable 
+extension Godot.Transform3.Affine:Godot.VariantConvertible 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_transform.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1333,8 +1241,13 @@ extension Godot.Transform3.Affine:Godot.VariantRepresentable
         godot_transform.variant(packing: .init(self))
     }
 } 
-extension Godot.Transform3.Linear:Godot.VariantRepresentable 
+extension Godot.Transform3.Linear:Godot.VariantConvertible 
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_basis.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1347,6 +1260,11 @@ extension Godot.Transform3.Linear:Godot.VariantRepresentable
 } 
 extension Godot.ResourceIdentifier:Godot.Variant
 {
+    static 
+    var variantCode:godot_variant_type 
+    {
+        godot_rid.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1622,7 +1540,7 @@ extension Godot.String
         self.init(retained: godot_string.init(packing: swift))
     }
 }
-extension String:Godot.VariantRepresentable 
+extension String:Godot.VariantConvertible 
 {
     init(_ godot:Godot.String)
     {
@@ -1632,6 +1550,11 @@ extension String:Godot.VariantRepresentable
         }
     } 
     
+    static 
+    var variantCode:godot_variant_type 
+    {
+        Godot.String.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {
@@ -1651,7 +1574,8 @@ extension Godot.Array
         self.init(retained: Element.convert(array: swift))
     }
 }
-extension Array:Godot.VariantRepresentable where Element:Godot.ArrayElement 
+extension Array:Godot.VariantConvertible, Godot.VariantRepresentable 
+    where Element:Godot.ArrayElement 
 {
     init(_ godot:Godot.Array<Element>) 
     {
@@ -1661,6 +1585,11 @@ extension Array:Godot.VariantRepresentable where Element:Godot.ArrayElement
         }
     }
     
+    static 
+    var variantCode:godot_variant_type 
+    {
+        Element.RawArrayReference.variantCode
+    }
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {

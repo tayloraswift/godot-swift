@@ -1,7 +1,7 @@
 // user-facing DSL
 infix operator <- : AssignmentPrecedence
 
-func <- <T>(type:T.Type, symbol:String) -> Godot.Library.Interface.Binding
+func <- <T>(_:T.Type, symbol:String) -> Godot.Library.Interface.Binding
     where T:Godot.AnyNativeScript
 {
     (T.self, symbol)
@@ -28,21 +28,32 @@ extension Godot.Library.Interface
             {
                 ObjectIdentifier.init($0.type)
             }
-        return .init(types: dictionary.sorted
-        {
-            $0.key < $1.key
-        }.map 
-        {
-            ($0.value[0].type, $0.value.map(\.symbol))
-        })
+        // sort by type string to provide stability 
+        return .init(types: dictionary.values
+            .map 
+            {
+                ($0[0].type, $0.map(\.symbol))
+            }
+            .sorted 
+            {
+                String.init(reflecting: $0.type) < String.init(reflecting: $1.type)
+            })
     }
 }
+
+func <- <T, Signal>(_:Signal.Type, symbol:String) -> Godot.NativeScriptInterface<T>.Member
+    where T:Godot.AnyNativeScript, Signal:Godot.Signal 
+{
+    .signal(signal: Signal.self, symbol: symbol)
+} 
+
 extension Godot.NativeScriptInterface 
 {
     enum Member 
     {
-        case property(witness:Witness.Property, symbol:String)
-        case method(  witness:Witness.Method,   symbol:String)
+        case property(witness:Witness.Property,     symbol:String)
+        case method(  witness:Witness.Method,       symbol:String)
+        case signal(  signal:Godot.AnySignal.Type,  symbol:String)
     }
     
     static 
@@ -77,6 +88,50 @@ extension Godot.NativeScriptInterface
                     return nil 
                 }
                 return (witness, symbol)
+            },
+            signals: members.compactMap 
+            {
+                guard case .signal(signal: let signal, symbol: let symbol) = $0 
+                else 
+                {
+                    return nil 
+                }
+                return (signal, symbol)
             })
     }
 }
+
+func <- <T, U>(accessor:KeyPath<T, U>, label:String) 
+    -> Godot.SignalInterface<T>.Argument
+    where U:Godot.VariantConvertible
+{
+    (
+        witness: 
+        {
+            (value:T) -> Godot.Variant.Unmanaged in
+            
+            .pass(retaining: value[keyPath: accessor])
+        }, 
+        label:  label, 
+        code:   U.variantCode
+    )
+} 
+
+extension Godot.SignalInterface
+{
+    static 
+    func buildExpression(_ argument:Argument) -> [Argument]
+    {
+        [argument]
+    }
+    static 
+    func buildBlock(_ arguments:[Argument]...) -> [Argument]
+    {
+        .init(arguments.joined())
+    }
+    static 
+    func buildFinalResult(_ arguments:[Argument]) -> Self 
+    {
+        .init(arguments: arguments)
+    }
+} 

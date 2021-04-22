@@ -2,6 +2,15 @@ enum Inspector
 {
     static 
     let entrypoint:String = "__inspector_entrypoint_loader__"
+    
+    typealias Interface = 
+    (
+        // `type.symbols` used for `library.json`
+        type:(name:String, symbols:[String]), 
+        methods:[String],
+        signals:[(name:String, symbol:String)],
+        delegate:String 
+    )
 }
 
 #if !BUILD_STAGE_INERT 
@@ -9,15 +18,14 @@ enum Inspector
 import TSCBasic
 import Workspace
 
+
 extension Inspector 
 {
     static 
     func inspect(workspace:AbsolutePath, toolchain:AbsolutePath, 
         dependency:(package:String, product:String, path:AbsolutePath)) throws
-        -> [(typename:String, symbols:[String], signatures:[String])]
+        -> [Interface]
     {
-        typealias InspectorFunction = () -> [(typename:String, symbols:[String], signatures:[String])]
-        
         let triple:Triple = .getHostTriple(usingSwiftCompiler: toolchain)
         
         var configuration:String { "debug" }
@@ -49,7 +57,7 @@ extension Inspector
         guard case .terminated(code: 0) = result.exitStatus
         else 
         {
-            fatalError("error: build stage 'inert' failed")
+            fatalError("error: build stage 'inert' failed (\(result))")
         }
         
         guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
@@ -65,9 +73,9 @@ extension Inspector
             fatalError("missing symbol '\(Self.entrypoint)'")
         }
         
-        guard let inspector:InspectorFunction = 
+        guard let interfaces:[Interface] = 
             Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
-            as? InspectorFunction
+            as? [Interface]
         else 
         {
             fatalError("wrong inspector function signature")
@@ -78,7 +86,7 @@ extension Inspector
         // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
         library.leak()
         
-        return inspector()
+        return interfaces
     }
 }
 
@@ -724,15 +732,42 @@ extension Synthesizer.FunctionParameterization
 extension Synthesizer 
 {
     static 
-    func generate(staged:AbsolutePath, interface:[(typename:String, symbols:[String], signatures:[String])])
+    func generate(staged:AbsolutePath, interfaces:[Inspector.Interface])
     {
         let diagnostics:Diagnostics = .init()
-        let parameterizations:Set<FunctionParameterization> = 
-            .init(interface.flatMap
+        // diagnose repeated signal types within the same nativescript 
+        for interface:Inspector.Interface in interfaces 
         {
-            (interface:(typename:String, symbols:[String], signatures:[String])) -> [FunctionParameterization] in 
             
-            interface.signatures.compactMap  
+            let multiplicity:[String: [(name:String, symbol:String)]] = 
+                .init(grouping: interface.signals, by: \.name)
+            for (signal, count):(String, Int) in multiplicity.mapValues(\.count) 
+            {
+                if count != 1 
+                {
+                    diagnostics.with(context: (typename: interface.type.name, signal: signal))
+                    {
+                        $0.error 
+                        {
+                            """
+                            signal type '\($0.signal)' cannot be bound to more than one signal name within the same nativescript type
+                            """
+                        }
+                        $0.note 
+                        {
+                            "in interface definition for type '\($0.typename)'"
+                        }
+                    }
+                }
+            }
+        }
+        
+        let parameterizations:Set<FunctionParameterization> = 
+            .init(interfaces.flatMap
+        {
+            (interface:Inspector.Interface) -> [FunctionParameterization] in 
+            
+            interface.methods.compactMap  
             {
                 (signature:String) in 
                 
@@ -743,7 +778,7 @@ extension Synthesizer
                     return nil 
                 }
                 
-                return diagnostics.with(context: (typename: interface.typename, signature: type))
+                return diagnostics.with(context: (typename: interface.type.name, signature: type))
                 {
                     (diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType)>) 
                         -> FunctionParameterization? in 
@@ -754,7 +789,7 @@ extension Synthesizer
                         diagnostics.error 
                         {
                             """
-                            function bound by operator '<-' must return a function type (return type is '\($0.signature)').
+                            function bound by operator '<-' must return a function type (return type is '\($0.signature)')
                             """
                         }
                         diagnostics.note 
@@ -826,9 +861,11 @@ extension Synthesizer
             {
                 parameterization.generateBindingOperatorOverload()
             }
-            for typename:String in interface.map(\.typename) 
+            for interface:Inspector.Interface in interfaces 
             {
-                let _ = print("generating 'Godot.NativeScript' conformance for type '\(typename)'")
+                let type:String = interface.type.name 
+                
+                let _ = print("generating 'Godot.NativeScript' conformance for type '\(type)'")
                 // if `instance` is a class, this will simply produce the class instance pointer. 
                 // if `instance` is a struct, which does not fit in the protocol-typed object’s
                 // inline storage, the struct will be copied to a new allocation, which is 
@@ -841,102 +878,129 @@ extension Synthesizer
                 //         instance data                          storage pointer
                 //                                                       ↓
                 //                                                instance data
-            """
-            extension \(typename)
-            {
-                static 
-                func register(_ symbols:[String], with api:Godot.Library) 
+                """
+                extension \(type)
                 {
-                    let initializer:Godot.Library.Initializer = 
+                    static 
+                    func register(_ symbols:[String], with api:Godot.Library) 
                     {
-                        (
-                            delegate:UnsafeMutableRawPointer?, 
-                            metadata:UnsafeMutableRawPointer?
-                        ) -> UnsafeMutableRawPointer? in 
-                        
-                        \(typename).Interface.initialize(delegate: delegate, metadata: metadata)
-                    }
-                    let deinitializer:Godot.Library.Deinitializer =
-                    {
-                        (
-                            delegate:UnsafeMutableRawPointer?, 
-                            metadata:UnsafeMutableRawPointer?, 
-                            instance:UnsafeMutableRawPointer?
-                        ) in
-                        
-                        \(typename).Interface.deinitialize(instance: instance, metadata: metadata)
-                    }
-                    let dispatch:Godot.Library.Dispatcher = 
-                    {
-                        (
-                            delegate:UnsafeMutableRawPointer?, 
-                            metadata:UnsafeMutableRawPointer?, 
-                            instance:UnsafeMutableRawPointer?, 
-                            count:Int32, 
-                            arguments:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
-                        ) -> godot_variant in 
-                        
-                        \(typename).interface.call(
-                            method:    .init(bitPattern: metadata), 
-                            instance:   instance, 
-                            delegate:   delegate, 
-                            arguments: (arguments, .init(count)))
-                    }
-                    
-                    let unregister:Godot.Library.WitnessDeinitializer = 
-                    {
-                        (metadata:UnsafeMutableRawPointer?) in 
-                        
-                        guard let metadata:UnsafeMutableRawPointer = metadata 
-                        else 
+                        let initializer:Godot.Library.Initializer = 
                         {
-                            fatalError("(swift) \(typename).sanitizer received nil metadata pointer")
+                            (
+                                delegate:UnsafeMutableRawPointer?, 
+                                metadata:UnsafeMutableRawPointer?
+                            ) -> UnsafeMutableRawPointer? in 
+                            
+                            \(type).Interface.initialize(delegate: delegate, metadata: metadata)
+                        }
+                        let deinitializer:Godot.Library.Deinitializer =
+                        {
+                            (
+                                delegate:UnsafeMutableRawPointer?, 
+                                metadata:UnsafeMutableRawPointer?, 
+                                instance:UnsafeMutableRawPointer?
+                            ) in
+                            
+                            \(type).Interface.deinitialize(instance: instance, metadata: metadata)
+                        }
+                        let dispatch:Godot.Library.Dispatcher = 
+                        {
+                            (
+                                delegate:UnsafeMutableRawPointer?, 
+                                metadata:UnsafeMutableRawPointer?, 
+                                instance:UnsafeMutableRawPointer?, 
+                                count:Int32, 
+                                arguments:UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
+                            ) -> godot_variant in 
+                            
+                            \(type).interface.call(
+                                method:    .init(bitPattern: metadata), 
+                                instance:   instance, 
+                                delegate:   delegate, 
+                                arguments: (arguments, .init(count)))
                         }
                         
-                        Unmanaged<Godot.NativeScriptMetadata>.fromOpaque(metadata).release()
-                    }
-                    
-                    #if ENABLE_ARC_SANITIZER
-                    let tracker:Godot.RetainTracker = 
-                        .init(type: \(typename).self, symbols: symbols)
-                    #endif
-                    
-                    for symbol:String in symbols
-                    {
-                        // register type 
-                        #if ENABLE_ARC_SANITIZER
-                        let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
-                            .passRetained(.init(symbol: symbol, tracker: tracker))
-                            .toOpaque()
-                        #else 
-                        let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
-                            .passRetained(.init(symbol: symbol))
-                            .toOpaque()
-                        #endif
-                        
-                        let constructor:godot_instance_create_func = .init(
-                            create_func:    initializer, method_data: metadata, free_func: unregister)
-                        let destructor:godot_instance_destroy_func = .init(
-                            destroy_func: deinitializer, method_data: metadata, free_func: nil)
-                        
-                        api.register(initializer: constructor, deinitializer: destructor, 
-                            for: Self.self, as: symbol)
-                        
-                        // register methods 
-                        for index:Int in Self.interface.methods.indices  
+                        let unregister:Godot.Library.WitnessDeinitializer = 
                         {
-                            let method:godot_instance_method = .init(
-                                method:         dispatch, 
-                                method_data:   .init(bitPattern: index), 
-                                free_func:      nil)
+                            (metadata:UnsafeMutableRawPointer?) in 
                             
-                            api.register(method: method, 
-                                as: (type: symbol, method: Self.interface[method: index].symbol)) 
+                            guard let metadata:UnsafeMutableRawPointer = metadata 
+                            else 
+                            {
+                                fatalError("(swift) \(type).sanitizer received nil metadata pointer")
+                            }
+                            
+                            Unmanaged<Godot.NativeScriptMetadata>.fromOpaque(metadata).release()
+                        }
+                        
+                    #if ENABLE_ARC_SANITIZER
+                        let tracker:Godot.RetainTracker = 
+                            .init(type: \(type).self, symbols: symbols)
+                    #endif
+                        
+                        for symbol:String in symbols
+                        {
+                            // register type 
+                        #if ENABLE_ARC_SANITIZER
+                            let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
+                                .passRetained(.init(symbol: symbol, tracker: tracker))
+                                .toOpaque()
+                        #else 
+                            let metadata:UnsafeMutableRawPointer = Unmanaged<Godot.NativeScriptMetadata>
+                                .passRetained(.init(symbol: symbol))
+                                .toOpaque()
+                        #endif
+                            
+                            let constructor:godot_instance_create_func = .init(
+                                create_func:    initializer, method_data: metadata, free_func: unregister)
+                            let destructor:godot_instance_destroy_func = .init(
+                                destroy_func: deinitializer, method_data: metadata, free_func: nil)
+                            
+                            api.register(initializer: constructor, deinitializer: destructor, 
+                                for: Self.self, as: symbol)
+                            
+                            // register methods 
+                            for index:Int in Self.interface.methods.indices  
+                            {
+                                let method:godot_instance_method = .init(
+                                    method:         dispatch, 
+                                    method_data:   .init(bitPattern: index), 
+                                    free_func:      nil)
+                                
+                                api.register(method: method, 
+                                    as: (type: symbol, method: Self.interface[method: index].symbol)) 
+                            }
+                            
+                            // register signals 
+                            for descriptor:(signal:Godot.AnySignal.Type, symbol:String) 
+                                in Self.interface.signals 
+                            {
+                                api.register(signal: descriptor.signal, 
+                                    as: (type: symbol, signal: descriptor.symbol))
+                            }
                         }
                     }
                 }
-            }
-            """
+                """
+                if !interface.signals.isEmpty
+                {
+                    """
+                    extension \(interface.delegate) 
+                    """
+                    Source.block 
+                    {
+                        for (signal, symbol):(String, String) in interface.signals 
+                        {
+                            """
+                            final 
+                            func emit(signal value:\(signal).Value, as _:\(signal).Type, from _:\(type).Type) 
+                            {
+                                self.emit(signal: ("\(symbol)", value), as: \(signal).self)
+                            }
+                            """
+                        }
+                    }
+                }
             }
         }
     }

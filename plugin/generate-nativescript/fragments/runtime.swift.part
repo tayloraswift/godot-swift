@@ -318,11 +318,23 @@ protocol _GodotNativeLibrary
 protocol _GodotAnyNativeScript
 {
 #if BUILD_STAGE_INERT
+    // must provide interfaces as Strings, using actual metatypes crashes the 
+    // swift compiler 
     static 
-    var __signatures__:[String]
+    var __methods__:[String]
     {
         get 
     }
+    static 
+    var __signals__:[(name:String, symbol:String)]
+    {
+        get 
+    }
+    static 
+    var __delegate__:String
+    {
+        get 
+    } 
 #else 
     static 
     func register(_ symbols:[String], with:Godot.Library)
@@ -348,7 +360,7 @@ extension Godot.NativeScript
     static 
     var interface:Interface 
     {
-        .init(properties: [], methods: [])
+        .init(properties: [], methods: [], signals: [])
     }
 }
 extension Godot 
@@ -456,6 +468,43 @@ extension Godot.Library
         Godot.api.nativescript.1.0.godot_nativescript_register_method(self.handle, 
             symbol.type, symbol.method, mode, method)
     }
+    
+    func register(signal:Godot.AnySignal.Type, as symbol:(type:String, signal:String)) 
+    {
+        Godot.print("registering \(signal) as '\(symbol.type).\(symbol.signal)'")
+        
+        var arguments:[godot_signal_argument] = signal.arguments.map 
+        {
+            .init(
+                name:           .init(packing: $0.label), 
+                type:           .init($0.code.rawValue), 
+                hint:           GODOT_PROPERTY_HINT_NONE, 
+                hint_string:    .init(packing: ""), 
+                usage:          GODOT_PROPERTY_USAGE_DEFAULT, 
+                default_value:  .init())
+        }
+        arguments.withUnsafeMutableBufferPointer 
+        {
+            var signal:godot_signal = .init(name: .init(packing: symbol.signal), 
+                num_args:           .init($0.count), 
+                args:               $0.baseAddress, 
+                num_default_args:   0, 
+                default_args:       nil)
+            
+            withUnsafePointer(to: signal) 
+            {
+                Godot.api.nativescript.1.0.godot_nativescript_register_signal(self.handle, 
+                    symbol.type, $0)
+            }
+            
+            signal.name.deinit()
+        }
+        for i:Int in arguments.indices 
+        {
+            arguments[i].name.deinit()
+            arguments[i].hint_string.deinit()
+        } 
+    }
 }
 extension Godot 
 {
@@ -473,18 +522,22 @@ extension Godot
         #endif 
         }
         
-        typealias Property  = (witness:Witness.Property, symbol:Swift.String)
-        typealias Method    = (witness:Witness.Method,   symbol:Swift.String)
+        typealias Property  = (witness:Witness.Property,    symbol:Swift.String)
+        typealias Method    = (witness:Witness.Method,      symbol:Swift.String)
+        typealias Signal    = (signal:Godot.AnySignal.Type, symbol:Swift.String)
         
         private(set)
         var properties:[Property]
         private(set)
         var methods:[Method]
         
-        init(properties:[Property], methods:[Method])
+        let signals:[Signal]
+        
+        init(properties:[Property], methods:[Method], signals:[Signal])
         {
             self.properties = properties 
             self.methods    = methods
+            self.signals    = signals
         }
         
         subscript(property index:Int) -> Property 
@@ -511,6 +564,58 @@ extension Godot
         }
     }
 }
+
+extension Godot 
+{
+    typealias AnySignal = _GodotAnySignal
+    typealias Signal    = _GodotSignal
+    
+    @resultBuilder
+    struct SignalInterface<T> 
+    {
+        typealias Argument =
+        (
+            witness:(T) -> Godot.Variant.Unmanaged, 
+            label:Swift.String, 
+            code:godot_variant_type
+        )
+        
+        let arguments:[Argument]
+    } 
+}
+protocol _GodotAnySignal 
+{
+    static 
+    var arguments:[(label:String, code:godot_variant_type)]
+    {
+        get
+    } 
+}
+protocol _GodotSignal:Godot.AnySignal  
+{
+    typealias Interface = Godot.SignalInterface<Value>
+    
+    associatedtype Value 
+    
+    static 
+    var interface:Interface
+    {
+        get
+    } 
+    /* static 
+    var name:Swift.String
+    {
+        get
+    }  */
+}
+extension Godot.Signal 
+{
+    static 
+    var arguments:[(label:String, code:godot_variant_type)] 
+    {
+        Self.interface.arguments.map{ ($0.label, $0.code) }
+    } 
+} 
 
 // arc sanitizer 
 extension Godot 

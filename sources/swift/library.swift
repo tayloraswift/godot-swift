@@ -23,30 +23,56 @@ struct TestSemantics:Godot.NativeScript
             print("deinitialized instance of '\(Self.self)'")
         }
     }
+    enum MySignal:Godot.Signal 
+    {
+        @Interface 
+        static 
+        var interface:Interface 
+        {
+            \.foo <- "foo"
+            \.bar <- "bar"
+        }
+        
+        typealias Value = (foo:Int, bar:Double)
+    } 
+    enum MyOtherSignal:Godot.Signal 
+    {
+        @Interface 
+        static 
+        var interface:Interface 
+        {
+            \.self <- "value"
+        }
+        
+        typealias Value = Bool
+    }
     
     @Interface 
     static 
     var interface:Interface 
     {
-        method(delegate:) <- "pass_zero_arguments"
-        method(delegate:a:) <- "pass_one_argument"
-        method(delegate:o:) <- "pass_object_argument"
-        method(delegate:nil:) <- "pass_null_argument"
-        method(delegate:tuple:) <- "pass_tuple_argument"
-        method(delegate:mutatingTuple:) <- "pass_inout_tuple_argument"
+        MySignal.self                       <- "my_signal"
+        MyOtherSignal.self                  <- "my_other_signal"
         
-        method(delegate:mutating:) <- "pass_inout_argument"
+        method(delegate:)                   <- "pass_zero_arguments"
+        method(delegate:a:)                 <- "pass_one_argument"
+        method(delegate:o:)                 <- "pass_object_argument"
+        method(delegate:nil:)               <- "pass_null_argument"
+        method(delegate:tuple:)             <- "pass_tuple_argument"
+        method(delegate:mutatingTuple:)     <- "pass_inout_tuple_argument"
+        
+        method(delegate:mutating:)          <- "pass_inout_argument"
         method(delegate:mutating:mutating:) <- "pass_two_inout_arguments"
         
-        clear(delegate:list:) <- "clear_list_elements"
+        clear(delegate:list:)               <- "clear_list_elements"
         
-        concatenate(delegate:s1:s2:) <- "concatenate_strings"
-        returnString(delegate:) <- "return_string"
-        returnInoutString(delegate:s:) <- "return_inout_string"
-        returnInoutList(delegate:list:) <- "return_inout_list"
-        returnTuple(delegate:) <- "return_tuple"
+        concatenate(delegate:s1:s2:)        <- "concatenate_strings"
+        returnString(delegate:)             <- "return_string"
+        returnInoutString(delegate:s:)      <- "return_inout_string"
+        returnInoutList(delegate:list:)     <- "return_inout_list"
+        returnTuple(delegate:)              <- "return_tuple"
         
-        returnVectors(delegate:) <- "return_vectors" 
+        returnVectors(delegate:)            <- "return_vectors"  
         
         /* method(delegate:a:b:) <- "pass_two_arguments"
         methodTuple(delegate:tuple:) <- "pass_tuple_argument"
@@ -76,6 +102,8 @@ struct TestSemantics:Godot.NativeScript
     func method(delegate:Godot.Unmanaged.MeshInstance) 
     {
         Godot.print("hello from 0-argument method")
+        
+        delegate.emit(signal: (5, 4.20), as: MySignal.self, from: Self.self)
     }
     func method(delegate:Godot.Unmanaged.MeshInstance, nil:Void) 
     {

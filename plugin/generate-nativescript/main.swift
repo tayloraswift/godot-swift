@@ -116,10 +116,10 @@ struct Main:ParsableCommand {
         let dependency:(package:String, product:String, path:AbsolutePath) = 
             Self.product(at: self.packagePath, containing: self.target, toolchain: toolchain)
         
-        let interface:[(typename:String, symbols:[String], signatures:[String])] = 
+        let interfaces:[Inspector.Interface] = 
             try Inspector.inspect(workspace: self.workspace, toolchain: toolchain, dependency: dependency)
         
-        Synthesizer.generate(staged: self.outputStaged, interface: interface)
+        Synthesizer.generate(staged: self.outputStaged, interfaces: interfaces)
         
         // output library configuration file
         Source.generate(file: self.workspace.appending(component: "library.json")) 
@@ -127,7 +127,7 @@ struct Main:ParsableCommand {
             """
             {
                 "product": "\(dependency.product)", 
-                "symbols": \(interface.flatMap(\.symbols))
+                "symbols": \(interfaces.flatMap(\.type.symbols))
             }
             """
         }

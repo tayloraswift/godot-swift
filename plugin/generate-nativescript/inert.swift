@@ -10,33 +10,7 @@ extension Synthesizer
         Source.generate(file: staged)
         {
             """
-            extension Godot 
-            {
-                fileprivate 
-                enum __Synthesized__ 
-                {
-                    // static 
-                    // var variadics:[Any.Type] = []
-                }
-            }
-            
-            extension Godot.AnyNativeScript 
-            {
-                static 
-                var __signatures__:[String] 
-                {
-                    []
-                }
-            }
-            extension Godot.NativeScript 
-            {
-                static 
-                var __signatures__:[String] 
-                {
-                    Self.interface.methods.map{ "\\($0.witness)" }
-                }
-            }
-            
+            // placeholders to make inert library compile 
             func <- <T>(property:Godot.NativeScriptInterface<T>.Witness.Property, symbol:String) 
                 -> Godot.NativeScriptInterface<T>.Member
                 where T:Godot.NativeScript
@@ -47,18 +21,38 @@ extension Synthesizer
                 -> Godot.NativeScriptInterface<T>.Member
                 where T:Godot.NativeScript
             {
-                return .method(witness: Function.self, symbol: symbol)
+                .method(witness: Function.self, symbol: symbol)
             }
             
-            extension Godot.__Synthesized__ 
+            extension Godot.AnyDelegate 
+            {
+                final 
+                func emit<Signal, T>(signal _:Signal.Value, as _:Signal.Type, from _:T.Type)
+                    where Signal:Godot.Signal, T:Godot.NativeScript 
+                {
+                }
+            }
+            
+            // inspection apis 
+            extension Godot.NativeScript 
             {
                 static 
-                func inspect() -> [(typename:String, symbols:[String], signatures:[String])]
+                var __methods__:[String] 
                 {
-                    Godot.Library.interface.types.map 
+                    Self.interface.methods.map{ "\\($0.witness)" }
+                }
+                static 
+                var __signals__:[(name:String, symbol:String)]
+                {
+                    Self.interface.signals.map 
                     {
-                        (.init(reflecting: $0.type), $0.symbols, $0.type.__signatures__)
+                        (String.init(reflecting: $0.signal), $0.symbol)
                     }
+                }
+                static 
+                var __delegate__:String
+                {
+                    .init(reflecting: Delegate.self)
                 }
             }
             
@@ -66,7 +60,19 @@ extension Synthesizer
             public 
             func \(Inspector.entrypoint)() -> UnsafeMutableRawPointer
             {
-                Unmanaged<AnyObject>.passRetained(Godot.__Synthesized__.inspect as AnyObject).toOpaque()
+                let interfaces:[\(Inspector.Interface.self)] = 
+                    Godot.Library.interface.types.map 
+                {
+                    (
+                        type:       (.init(reflecting: $0.type), $0.symbols), 
+                        methods:    $0.type.__methods__,
+                        signals:    $0.type.__signals__,
+                        delegate:   $0.type.__delegate__
+                    )
+                }
+                return Unmanaged<AnyObject>
+                    .passRetained(interfaces as AnyObject)
+                    .toOpaque()
             }
             """
         }
