@@ -453,25 +453,25 @@ extension Godot.Library
         for _:T.Type, as symbol:String) 
         where T:Godot.NativeScript
     {
-        Godot.print("registering \(T.self) as '\(symbol)'")
+        Godot.print("registering \(T.self) as 'Godot::\(symbol)'")
         
         Godot.api.nativescript.1.0.godot_nativescript_register_class(self.handle, 
             symbol, T.Delegate.symbol, initializer, deinitializer)
     }
     
-    func register(method:godot_instance_method, as symbol:(type:String, method:String)) 
+    func register(method:godot_instance_method, in type:String, as symbol:String) 
     {
-        Godot.print("registering (function) as '\(symbol.type).\(symbol.method)'")
+        Godot.print("registering (function) as 'Godot::\(type)::\(symbol)'")
         
         let mode:godot_method_attributes = 
             .init(rpc_type: GODOT_METHOD_RPC_MODE_DISABLED)
         Godot.api.nativescript.1.0.godot_nativescript_register_method(self.handle, 
-            symbol.type, symbol.method, mode, method)
+            type, symbol, mode, method)
     }
     
-    func register(signal:Godot.AnySignal.Type, as symbol:(type:String, signal:String)) 
+    func register(signal:Godot.AnySignal.Type, in type:String) 
     {
-        Godot.print("registering \(signal) as '\(symbol.type).\(symbol.signal)'")
+        Godot.print("registering \(signal) as 'Godot::\(type)::\(signal.name)'")
         
         var arguments:[godot_signal_argument] = signal.arguments.map 
         {
@@ -485,19 +485,19 @@ extension Godot.Library
         }
         arguments.withUnsafeMutableBufferPointer 
         {
-            var signal:godot_signal = .init(name: .init(packing: symbol.signal), 
+            var descriptor:godot_signal = .init(name: .init(packing: signal.name), 
                 num_args:           .init($0.count), 
                 args:               $0.baseAddress, 
                 num_default_args:   0, 
                 default_args:       nil)
             
-            withUnsafePointer(to: signal) 
+            withUnsafePointer(to: descriptor) 
             {
-                Godot.api.nativescript.1.0.godot_nativescript_register_signal(self.handle, 
-                    symbol.type, $0)
+                Godot.api.nativescript.1.0
+                    .godot_nativescript_register_signal(self.handle, type, $0)
             }
             
-            signal.name.deinit()
+            descriptor.name.deinit()
         }
         for i:Int in arguments.indices 
         {
@@ -524,7 +524,7 @@ extension Godot
         
         typealias Property  = (witness:Witness.Property,    symbol:Swift.String)
         typealias Method    = (witness:Witness.Method,      symbol:Swift.String)
-        typealias Signal    = (signal:Godot.AnySignal.Type, symbol:Swift.String)
+        typealias Signal    = Godot.AnySignal.Type
         
         private(set)
         var properties:[Property]
@@ -590,6 +590,11 @@ protocol _GodotAnySignal
     {
         get
     } 
+    static 
+    var name:Swift.String
+    {
+        get
+    } 
 }
 protocol _GodotSignal:Godot.AnySignal  
 {
@@ -602,11 +607,6 @@ protocol _GodotSignal:Godot.AnySignal
     {
         get
     } 
-    /* static 
-    var name:Swift.String
-    {
-        get
-    }  */
 }
 extension Godot.Signal 
 {

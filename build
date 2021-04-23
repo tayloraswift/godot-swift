@@ -109,7 +109,7 @@ def main():
     flags   = (argument for flag in (
         (
             '-DENABLE_ARC_SANITIZER', 
-            '-Xfrontend', '-warn-long-expression-type-checking=500'
+            '-Xfrontend', '-warn-long-expression-type-checking=500', 
         ) if options.configuration == 'debug' else ()) 
         for argument in ('-Xswiftc', '{0}'.format(flag)))
     

@@ -1556,7 +1556,7 @@ enum Vector
     static 
     var swift:String 
     {
-        Source.section(name: "vector.part.swift")
+        Source.section(name: "vector.swift.part")
         {
             Self.code
         }

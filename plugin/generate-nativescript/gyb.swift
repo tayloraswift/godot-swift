@@ -118,6 +118,12 @@ enum Source
     func generate(file:AbsolutePath, filesystem:FileSystem = TSCBasic.localFileSystem, 
         @Code generator:() -> String) -> String
     {
+        if file.extension != "part" 
+        {
+            print(bold: "generating file '\(file.basename)'")
+            print("note: in directory '\(file.parentDirectory)'")
+        }
+        
         let code:String  = generator()
         guard let _:Void = try? filesystem.writeFileContents(file, 
             bytes: .init(encodingAsUTF8: code), 

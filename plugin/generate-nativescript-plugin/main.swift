@@ -1,7 +1,12 @@
 import PackagePlugin
 
-let sources:[Path]  = targetBuildContext.sourceFiles 
-let directory:Path  = targetBuildContext.outputDir
+let tool:TargetBuildContext.Tool = try targetBuildContext.tool(named: "GenerateNativeScript")
+let directory:Path  = targetBuildContext.outputDirectory
+let sources:[Path]  = targetBuildContext.inputFiles.filter
+{
+    $0.type == .source
+}
+.map(\.path)
 
 let output:(common:Path, staged:Path) = 
 (
@@ -9,26 +14,22 @@ let output:(common:Path, staged:Path) =
     directory.appending("registration.swift")
 )
 
-commandConstructor.createCommand(
+commandConstructor.createBuildCommand(
     displayName:
         "Generating files '\(output.common)', '\(output.staged)'",
-    executable:
-        try targetBuildContext.lookupTool(named: "GenerateNativeScript"),
+    executable: tool.path,
     arguments: 
     [
         "--workspace",      "\(directory)", 
         "--output-common",  "\(output.common)", 
         "--output-staged",  "\(output.staged)", 
-        "--target",         targetBuildContext.targetName,
-        "--package-path",   "\(targetBuildContext.packageDir)"
+        "--target",            targetBuildContext.targetName,
+        "--package-path",   "\(targetBuildContext.packageDirectory)"
     ],
-    inputPaths: sources,
-    outputPaths: 
+    inputFiles: sources,
+    outputFiles: 
     [
         output.common,
         output.staged,
     ]
 )
-
-commandConstructor.addGeneratedOutputFile(path: output.common)
-commandConstructor.addGeneratedOutputFile(path: output.staged)

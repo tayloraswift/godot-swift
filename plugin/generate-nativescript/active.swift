@@ -18,6 +18,46 @@ enum Inspector
 import TSCBasic
 import Workspace
 
+final
+class OutputBuffer 
+{
+    private 
+    var buffered:String 
+    
+    init()
+    {
+        self.buffered = ""
+    }
+    
+    func push(utf8:[UInt8]) 
+    {
+        let lines:[Substring] = "\(self.buffered)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+            .split(separator: "\n", omittingEmptySubsequences: false)
+        guard let last:Substring = lines.last 
+        else 
+        {
+            return 
+        }
+        self.buffered = .init(last)
+        for line:Substring in lines.dropLast()
+        {
+            print("(sub-build)".bolded, line)
+        }
+    }
+    
+    func flush()
+    {
+        guard !self.buffered.isEmpty 
+        else 
+        {
+            return 
+        }
+        
+        print("(sub-build)".bolded, self.buffered)
+        
+        self.buffered = ""
+    }
+}
 
 extension Inspector 
 {
@@ -46,14 +86,25 @@ extension Inspector
             "-Xswiftc", "-DBUILD_STAGE_INERT"
         ]
         
-        print("building inert framework with invocation:")
+        print(bold: "starting sub-build with invocation:")
         print(arguments.joined(separator: " "))
         
+        let output:OutputBuffer = .init()
+        
         let process:Process = .init(arguments: arguments, environment: ProcessEnv.vars, 
-            outputRedirection: .none)
+            outputRedirection: .stream
+            {
+                output.push(utf8: $0)
+            }
+            stderr: 
+            {
+                output.push(utf8: $0)
+            })
         try process.launch()
         let result:ProcessResult = try process.waitUntilExit()
-            
+        
+        output.flush()
+        
         guard case .terminated(code: 0) = result.exitStatus
         else 
         {
@@ -73,6 +124,10 @@ extension Inspector
             fatalError("missing symbol '\(Self.entrypoint)'")
         }
         
+        print(bold: "inspecting sub-build product '\(path.product.basename)'")
+        print("note: in directory '\(path.product.parentDirectory)'")
+        print("note: through entrypoint '\(Self.entrypoint)'")
+        
         guard let interfaces:[Interface] = 
             Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
             as? [Interface]
@@ -85,6 +140,20 @@ extension Inspector
         // the swift official tools do: 
         // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
         library.leak()
+        
+        print("found \(interfaces.count) nativescript interface(s):")
+        for (i, interface):(Int, Interface) in interfaces.enumerated()
+        {
+            print(
+                """
+                [\(i)]: \(interface.type.name) <- \
+                (\(interface.type.symbols.map{ "Godot::\($0)" }.joined(separator: ", ")))
+                {
+                    (\(interface.methods.count) methods)
+                    (\(interface.signals.count) signals)
+                }
+                """)
+        }
         
         return interfaces
     }
@@ -415,7 +484,6 @@ extension Synthesizer
     }
 }
 
-
 extension Synthesizer.Form 
 {
     var types:[String] 
@@ -646,14 +714,12 @@ extension Synthesizer.FunctionParameterization
             +
             self.generics.map{ ($0, ":Godot.VariantRepresentable") }
         
-        print("generating variadic template for generic function type '\(signature)'")
-        
         return Source.fragment
         {
             """
             func <- <\(generics.map(\.parameter).joined(separator: ", "))>
                 (method:@escaping \(signature), symbol:String) 
-                -> Godot.NativeScriptInterface<T>.Member
+                -> Godot.NativeScriptInterface<T>.Method
                 where \(generics.map 
                     {
                         "\($0.parameter)\($0.constraint)"
@@ -661,69 +727,74 @@ extension Synthesizer.FunctionParameterization
             """
             Source.block
             {
-                ".method(witness: "
-                Source.block(delimiters: ("{", "}, symbol: symbol)"))
+                Source.block(delimiters: ("(", ")"))
                 {
-                    """
-                    (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
-                        -> Godot.Variant.Unmanaged in
-                    
-                    guard arguments.count == \(self.domain.count) 
-                    else 
+                    "witness: "
+                    Source.block(delimiters: ("{", "}, "))
                     {
-                        Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
-                            function: symbol)
-                        return Godot.Variant.Unmanaged.pass(retaining: ())
-                    }
-                    """
-                    
-                    if let domain:String = 
-                        Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
-                    {
-                        if self.domain.contains(where: \.inout) 
-                        {
-                            """
-                            
-                            var inputs:
-                            \(domain)
-                            
-                            inputs.list.list = arguments
-                            
-                            """
-                        }
+                        """
+                        (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
+                            -> Godot.Variant.Unmanaged in
+                        
+                        guard arguments.count == \(self.domain.count) 
                         else 
                         {
-                            """
-                            
-                            let inputs:
-                            \(domain)
-                            
-                            """
+                            Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
+                                function: symbol)
+                            return Godot.Variant.Unmanaged.pass(retaining: ())
                         }
+                        """
+                        
+                        if let domain:String = 
+                            Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
+                        {
+                            if self.domain.contains(where: \.inout) 
+                            {
+                                """
+                                
+                                var inputs:
+                                \(domain)
+                                
+                                inputs.list.list = arguments
+                                
+                                """
+                            }
+                            else 
+                            {
+                                """
+                                
+                                let inputs:
+                                \(domain)
+                                
+                                """
+                            }
+                        }
+                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                            self.domain.enumerated() 
+                        {
+                            parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
+                                into: ("inputs", ""), at: position, mutable: parameter.inout)
+                        }
+                        
+                        """
+                        
+                        let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
+                        
+                        """
+                        
+                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                            self.domain.enumerated() 
+                            where parameter.inout 
+                        {
+                            parameter.type.update(nodes: "list", in: ("inputs", ""), at: position)
+                        }
+                        """
+                        return \(self.range.structure(nodes: "Godot.List", from: "output"))
+                        """
                     }
-                    for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
-                        self.domain.enumerated() 
-                    {
-                        parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
-                            into: ("inputs", ""), at: position, mutable: parameter.inout)
-                    }
-                    
-                    """
-                    
-                    let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
-                    
-                    """
-                    
-                    for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
-                        self.domain.enumerated() 
-                        where parameter.inout 
-                    {
-                        parameter.type.update(nodes: "list", in: ("inputs", ""), at: position)
-                    }
-                    """
-                    return \(self.range.structure(nodes: "Godot.List", from: "output"))
-                    """
+                    "symbol: symbol"
                 }
+                
             }
         }
     }
@@ -843,29 +914,33 @@ extension Synthesizer
             import GDNative
             
             func <- <T>(property:Godot.NativeScriptInterface<T>.Witness.Property, symbol:String) 
-                -> Godot.NativeScriptInterface<T>.Member
+                -> Godot.NativeScriptInterface<T>.Property
                 where T:Godot.NativeScript
             {
-                .property(witness: property, symbol: symbol)
+                (witness: property, symbol: symbol)
             }
             
             """
             
             // sort by function signatures, to provide some stability in the 
             // generated code. precompute the signatures to prevent O(n log n) 
-            // signature computations
-            for parameterization:FunctionParameterization in (parameterizations
+            // signature computations 
+            let _ = print("synthesizing variadic templates (\(parameterizations.count) signatures)")
+            for (i, parameterization):(Int, FunctionParameterization) in (parameterizations
                 .map{ (function: $0, signature: $0.signature) }
                 .sorted{ $0.signature < $1.signature }
                 .map(\.function))
+                .enumerated()
             {
+                let _ = print("[\(i)]: \(parameterization.signature)")
                 parameterization.generateBindingOperatorOverload()
             }
-            for interface:Inspector.Interface in interfaces 
+            let _ = print("synthesizing Godot.NativeScript conformances (\(interfaces.count) types)")
+            for (i, interface):(Int, Inspector.Interface) in interfaces.enumerated() 
             {
                 let type:String = interface.type.name 
                 
-                let _ = print("generating 'Godot.NativeScript' conformance for type '\(type)'")
+                let _ = print("[\(i)]: \(type)")
                 // if `instance` is a class, this will simply produce the class instance pointer. 
                 // if `instance` is a struct, which does not fit in the protocol-typed object’s
                 // inline storage, the struct will be copied to a new allocation, which is 
@@ -967,40 +1042,19 @@ extension Synthesizer
                                     method_data:   .init(bitPattern: index), 
                                     free_func:      nil)
                                 
-                                api.register(method: method, 
-                                    as: (type: symbol, method: Self.interface[method: index].symbol)) 
+                                api.register(method: method, in: symbol,
+                                    as: Self.interface[method: index].symbol) 
                             }
                             
                             // register signals 
-                            for descriptor:(signal:Godot.AnySignal.Type, symbol:String) 
-                                in Self.interface.signals 
+                            for signal:Godot.AnySignal.Type in Self.interface.signals 
                             {
-                                api.register(signal: descriptor.signal, 
-                                    as: (type: symbol, signal: descriptor.symbol))
+                                api.register(signal: signal, in: symbol)
                             }
                         }
                     }
                 }
                 """
-                if !interface.signals.isEmpty
-                {
-                    """
-                    extension \(interface.delegate) 
-                    """
-                    Source.block 
-                    {
-                        for (signal, symbol):(String, String) in interface.signals 
-                        {
-                            """
-                            final 
-                            func emit(signal value:\(signal).Value, as _:\(signal).Type, from _:\(type).Type) 
-                            {
-                                self.emit(signal: ("\(symbol)", value), as: \(signal).self)
-                            }
-                            """
-                        }
-                    }
-                }
             }
         }
     }

@@ -7,6 +7,23 @@ func <- <T>(_:T.Type, symbol:String) -> Godot.Library.Interface.Binding
     (T.self, symbol)
 }
 
+extension Godot
+{
+    @resultBuilder
+    enum Declarations<T> 
+    {
+        static 
+        func buildExpression(_ declaration:T) -> [T]
+        {
+            [declaration]
+        }
+        static 
+        func buildBlock(_ declarations:[T]...) -> [T]
+        {
+            .init(declarations.joined())
+        }
+    }
+}
 extension Godot.Library.Interface 
 {
     static 
@@ -41,62 +58,75 @@ extension Godot.Library.Interface
     }
 }
 
-func <- <T, Signal>(_:Signal.Type, symbol:String) -> Godot.NativeScriptInterface<T>.Member
-    where T:Godot.AnyNativeScript, Signal:Godot.Signal 
-{
-    .signal(signal: Signal.self, symbol: symbol)
-} 
-
 extension Godot.NativeScriptInterface 
 {
-    enum Member 
+    enum Members 
     {
-        case property(witness:Witness.Property,     symbol:String)
-        case method(  witness:Witness.Method,       symbol:String)
-        case signal(  signal:Godot.AnySignal.Type,  symbol:String)
+        case properties ([Property])
+        case methods    ([Method])
+        case signals    ([Signal])
     }
     
     static 
-    func buildExpression(_ member:Member) -> [Member]
+    func signals(@Godot.Declarations<Signal> _ declarations:() -> [Signal]) -> Members 
     {
-        [member]
+        .signals(declarations())
     }
     static 
-    func buildBlock(_ members:[Member]...) -> [Member]
+    func methods(@Godot.Declarations<Method> _ declarations:() -> [Method]) -> Members 
     {
-        .init(members.joined())
+        .methods(declarations())
+    }
+    static 
+    func properties(@Godot.Declarations<Property> _ declarations:() -> [Property]) -> Members 
+    {
+        .properties(declarations())
     }
     
     static 
-    func buildFinalResult(_ members:[Member]) -> Self 
+    func buildExpression(_ group:Members) -> [Members]
+    {
+        [group]
+    }
+    static 
+    func buildBlock(_ groups:[Members]...) -> [Members]
+    {
+        .init(groups.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ groups:[Members]) -> Self 
     {
         return .init(
-            properties: members.compactMap 
+            properties: groups.flatMap 
             {
-                guard case .property(witness: let witness, symbol: let symbol) = $0 
+                (group:Members) -> [Property] in
+                guard case .properties(let properties) = group 
                 else 
                 {
-                    return nil 
+                    return [] 
                 }
-                return (witness, symbol)
+                return properties
             }, 
-            methods: members.compactMap 
+            methods: groups.flatMap 
             {
-                guard case .method(witness: let witness, symbol: let symbol) = $0 
+                (group:Members) -> [Method] in
+                guard case .methods(let methods) = group 
                 else 
                 {
-                    return nil 
+                    return [] 
                 }
-                return (witness, symbol)
+                return methods
             },
-            signals: members.compactMap 
+            signals: groups.flatMap 
             {
-                guard case .signal(signal: let signal, symbol: let symbol) = $0 
+                (group:Members) -> [Signal] in
+                guard case .signals(let signals) = group 
                 else 
                 {
-                    return nil 
+                    return []
                 }
-                return (signal, symbol)
+                return signals
             })
     }
 }

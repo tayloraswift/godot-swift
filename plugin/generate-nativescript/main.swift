@@ -106,12 +106,10 @@ struct Main:ParsableCommand {
         // locate toolchain. this gives the `swiftc` tool, not the `swift` tool!
         let toolchain:AbsolutePath = Self.toolchain()
         
-        // generate stage-independent code
-        Synthesizer.generate(common: self.outputCommon)
-        
     #if BUILD_STAGE_INERT 
         Synthesizer.generate(staged: self.outputStaged)
     #else  
+        print(bold: "starting two-stage build...")
         // get basic information about the package 
         let dependency:(package:String, product:String, path:AbsolutePath) = 
             Self.product(at: self.packagePath, containing: self.target, toolchain: toolchain)
@@ -133,6 +131,8 @@ struct Main:ParsableCommand {
         }
     
     #endif
+        // generate stage-independent code
+        Synthesizer.generate(common: self.outputCommon)
     }
 }
 

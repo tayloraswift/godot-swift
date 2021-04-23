@@ -2,7 +2,6 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.AbsolutePath
 import var TSCBasic.localFileSystem
 
-//import struct Foundation.Data 
 import class Foundation.JSONDecoder
 
 struct Words:Equatable, CustomStringConvertible
@@ -666,15 +665,15 @@ extension Godot.Class.Node
                         }
                         
                         final 
-                        func emit<Signal>(signal:(name:Swift.String, value:Signal.Value), as _:Signal.Type)
+                        func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
                             where Signal:Godot.Signal 
                         {
                             var variants:[Godot.Variant.Unmanaged] = 
-                                [.pass(retaining: signal.name)]
+                                [.pass(retaining: Signal.name)]
                                 +
                                 Signal.interface.arguments.map
                                 {
-                                    $0.witness(signal.value)
+                                    $0.witness(value)
                                 }
                             defer 
                             {
