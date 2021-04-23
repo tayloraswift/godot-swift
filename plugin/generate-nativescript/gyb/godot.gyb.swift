@@ -614,6 +614,7 @@ extension Godot.Class
         }
     }
 }
+
 extension Godot.Class.Node 
 {
     var definition:String

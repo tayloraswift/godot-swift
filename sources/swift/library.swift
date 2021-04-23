@@ -66,7 +66,6 @@ struct TestSemantics:Godot.NativeScript
             MySignal.self 
             MyOtherSignal.self
         }
-        
         Interface.methods 
         {
             method(delegate:)                   <- "pass_zero_arguments"

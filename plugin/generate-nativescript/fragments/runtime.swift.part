@@ -326,15 +326,10 @@ protocol _GodotAnyNativeScript
         get 
     }
     static 
-    var __signals__:[(name:String, symbol:String)]
+    var __signals__:[String]
     {
         get 
     }
-    static 
-    var __delegate__:String
-    {
-        get 
-    } 
 #else 
     static 
     func register(_ symbols:[String], with:Godot.Library)

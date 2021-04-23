@@ -124,10 +124,17 @@ enum Source
             print("note: in directory '\(file.parentDirectory)'")
         }
         
-        let code:String  = generator()
-        guard let _:Void = try? filesystem.writeFileContents(file, 
-            bytes: .init(encodingAsUTF8: code), 
-            atomically: true)
+        let code:String     = generator()
+        let new:ByteString  = .init(encodingAsUTF8: code)
+        // avoid overwriting the file if it is unchanged 
+        if  let old:ByteString = try? filesystem.readFileContents(file), 
+            old == new 
+        {
+            return code 
+        }
+        
+        guard let _:Void = 
+            try? filesystem.writeFileContents(file, bytes: new, atomically: true)
         else 
         {
             fatalError("failed to write to output file '\(file)'")

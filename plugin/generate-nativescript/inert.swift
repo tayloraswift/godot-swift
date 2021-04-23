@@ -42,17 +42,12 @@ extension Synthesizer
                     Self.interface.methods.map{ "\\($0.witness)" }
                 }
                 static 
-                var __signals__:[(name:String, symbol:String)]
+                var __signals__:[String]
                 {
                     Self.interface.signals.map 
                     {
-                        (String.init(reflecting: $0), $0.name)
+                        String.init(reflecting: $0)
                     }
-                }
-                static 
-                var __delegate__:String
-                {
-                    .init(reflecting: Delegate.self)
                 }
             }
             
@@ -66,8 +61,7 @@ extension Synthesizer
                     (
                         type:       (.init(reflecting: $0.type), $0.symbols), 
                         methods:    $0.type.__methods__,
-                        signals:    $0.type.__signals__,
-                        delegate:   $0.type.__delegate__
+                        signals:    $0.type.__signals__
                     )
                 }
                 return Unmanaged<AnyObject>

@@ -8,8 +8,7 @@ enum Inspector
         // `type.symbols` used for `library.json`
         type:(name:String, symbols:[String]), 
         methods:[String],
-        signals:[(name:String, symbol:String)],
-        delegate:String 
+        signals:[String]
     )
 }
 
@@ -809,9 +808,7 @@ extension Synthesizer
         // diagnose repeated signal types within the same nativescript 
         for interface:Inspector.Interface in interfaces 
         {
-            
-            let multiplicity:[String: [(name:String, symbol:String)]] = 
-                .init(grouping: interface.signals, by: \.name)
+            let multiplicity:[String: [String]] = .init(grouping: interface.signals){ $0 }
             for (signal, count):(String, Int) in multiplicity.mapValues(\.count) 
             {
                 if count != 1 
@@ -821,7 +818,7 @@ extension Synthesizer
                         $0.error 
                         {
                             """
-                            signal type '\($0.signal)' cannot be bound to more than one signal name within the same nativescript type
+                            invalid redeclaration of signal type '\($0.signal)'
                             """
                         }
                         $0.note 
