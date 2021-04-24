@@ -1,5 +1,13 @@
 enum Inspector 
 {
+    enum Error:Swift.Error 
+    {
+        case subBuildFailed
+        case couldNotOpenSubBuildProduct(String)
+        case missingSubBuildProductSymbol(String)
+        case invalidSubBuildInterfaceFormat(Any.Type, expected:Any.Type)
+    }
+    
     static 
     let entrypoint:String = "__inspector_entrypoint_loader__"
     
@@ -107,32 +115,31 @@ extension Inspector
         guard case .terminated(code: 0) = result.exitStatus
         else 
         {
-            fatalError("error: build stage 'inert' failed (\(result))")
+            throw Error.subBuildFailed
         }
         
         guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
         else 
         {
-            fatalError("failed to open incomplete library at '\(path.product)'")
+            throw Error.couldNotOpenSubBuildProduct("\(path.product)")
         }
         
         guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
             dlsym(library, symbol: Self.entrypoint) 
         else 
         {
-            fatalError("missing symbol '\(Self.entrypoint)'")
+            throw Error.missingSubBuildProductSymbol(Self.entrypoint)
         }
         
         print(bold: "inspecting sub-build product '\(path.product.basename)'")
         print("note: in directory '\(path.product.parentDirectory)'")
         print("note: through entrypoint '\(Self.entrypoint)'")
         
-        guard let interfaces:[Interface] = 
-            Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
-            as? [Interface]
+        let description:AnyObject = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
+        guard let interfaces:[Interface] = description as? [Interface]
         else 
         {
-            fatalError("wrong inspector function signature")
+            throw Error.invalidSubBuildInterfaceFormat(type(of: description), expected: [Interface].self)
         }
         
         // dlclose seems to be broken, so we leak the dynamic library, just as 

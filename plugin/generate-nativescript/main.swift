@@ -114,20 +114,43 @@ struct Main:ParsableCommand {
         let dependency:(package:String, product:String, path:AbsolutePath) = 
             Self.product(at: self.packagePath, containing: self.target, toolchain: toolchain)
         
-        let interfaces:[Inspector.Interface] = 
-            try Inspector.inspect(workspace: self.workspace, toolchain: toolchain, dependency: dependency)
-        
-        Synthesizer.generate(staged: self.outputStaged, interfaces: interfaces)
-        
-        // output library configuration file
-        Source.generate(file: self.workspace.appending(component: "library.json")) 
+        do 
         {
-            """
+            let interfaces:[Inspector.Interface] = try Inspector.inspect(workspace: self.workspace, 
+                toolchain: toolchain, dependency: dependency)
+                
+            Synthesizer.generate(staged: self.outputStaged, interfaces: interfaces)
+            
+            // output library configuration file
+            Source.generate(file: self.workspace.appending(component: "library.json")) 
             {
-                "product": "\(dependency.product)", 
-                "symbols": \(interfaces.flatMap(\.type.symbols))
+                """
+                {
+                    "product": "\(dependency.product)", 
+                    "symbols": \(interfaces.flatMap(\.type.symbols))
+                }
+                """
             }
-            """
+        }
+        catch Inspector.Error.subBuildFailed 
+        {
+            print(error: "sub-build failed")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.couldNotOpenSubBuildProduct(let product) 
+        {
+            print(error: "could not open sub-build dynamic library product '\(product)'")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.missingSubBuildProductSymbol(let symbol) 
+        {
+            print(error: "could not find sub-build dynamic library symbol '\(symbol)'")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.invalidSubBuildInterfaceFormat(let type, expected: let expected) 
+        {
+            print(error: "inspector interface description type (\(type)) does not match expected type \(expected)")
+            throw ExitCode.failure
         }
     
     #endif
