@@ -2,11 +2,15 @@
 extension Godot 
 {
     typealias VariantRepresentable  = _GodotVariantRepresentable
-    typealias VariantConvertible    = _GodotVariantConvertible
     typealias Variant               = _GodotVariant
 }
 protocol _GodotVariantRepresentable 
 {
+    static 
+    var variantCode:godot_variant_type
+    {
+        get 
+    }
     // this needs to be a static function, to handle covariant `Self`. 
     // it’s better to not call these methods directly, the preferred form is the  
     // generic methods on `Godot.Variant.Unmanaged`.
@@ -14,99 +18,11 @@ protocol _GodotVariantRepresentable
     func takeUnretained(_:Godot.Variant.Unmanaged) -> Self?
     func passRetained() -> Godot.Variant.Unmanaged 
 }
-protocol _GodotVariantConvertible:Godot.VariantRepresentable 
-{
-    static 
-    var variantCode:godot_variant_type
-    {
-        get 
-    }
-}
-protocol _GodotVariant:Godot.VariantConvertible
+protocol _GodotVariant:Godot.VariantRepresentable
 {
     typealias Unmanaged = _GodotVariantUnmanaged
 }
 
-// objects
-/* extension Godot 
-{    
-    class AnyDelegate
-    {
-        class 
-        var symbol:Swift.String { "Object" }
-        final 
-        let core:UnsafeMutableRawPointer 
-        // non-failable init assumes instance has been type-checked!
-        required
-        init(retained core:UnsafeMutableRawPointer) 
-        {
-            self.core = core
-        }
-        required
-        init(unretained core:UnsafeMutableRawPointer) 
-        {
-            self.core = core
-            //Swift.print("--- bridged object of type \(self._classname())")
-        }
-        
-        // static variables are lazy, which is good because we need to wait for 
-        // the library to be loaded before we can bind methods. also reduces startup overhead
-        private static 
-        var classname:Function = .bind(method: "get_class", from: AnyDelegate.self)
-        
-        final
-        func classname() -> Swift.String 
-        {
-            AnyDelegate.classname(self: self)
-        }
-    }
-    class AnyObject:AnyDelegate              
-    {
-        override class 
-        var symbol:Swift.String { "Reference" }
-        
-        required
-        init(retained core:UnsafeMutableRawPointer) 
-        {
-            super.init(retained: core)
-        }
-        required 
-        init(unretained core:UnsafeMutableRawPointer) 
-        {
-            super.init(unretained: core)
-            guard self.retain()
-            else 
-            {
-                fatalError(
-                    """
-                    could not retain delegate of type \
-                    '\(Swift.String.init(reflecting: Self.self))' at <\(self.core)>
-                    """)
-            }
-        }
-        deinit
-        { 
-            self.release()
-        }
-        
-        private static 
-        var retain:Function  = .bind(method: "reference",   from: AnyObject.self), 
-            release:Function = .bind(method: "unreference", from: AnyObject.self)
-        
-        @discardableResult
-        final
-        func retain() -> Bool 
-        {
-            Self.retain(self: self) 
-        }
-        @discardableResult
-        final
-        func release() -> Bool 
-        {
-            Self.release(self: self) 
-        }
-    }
-} */
 extension Godot.AnyDelegate:Godot.Variant 
 {
     static 
@@ -218,19 +134,19 @@ extension BinaryFloatingPoint
 extension Int64:Godot.Variant               {}
 extension Float64:Godot.Variant             {}
 
-extension Float32:Godot.VariantConvertible{}
-extension Float16:Godot.VariantConvertible{}
+extension Float32:Godot.VariantRepresentable{}
+extension Float16:Godot.VariantRepresentable{}
 
-extension Int32:Godot.VariantConvertible  {}
-extension Int16:Godot.VariantConvertible  {}
-extension Int8:Godot.VariantConvertible   {}
-extension Int:Godot.VariantConvertible    {}
+extension Int32:Godot.VariantRepresentable  {}
+extension Int16:Godot.VariantRepresentable  {}
+extension Int8:Godot.VariantRepresentable   {}
+extension Int:Godot.VariantRepresentable    {}
 
-extension UInt64:Godot.VariantConvertible {}
-extension UInt32:Godot.VariantConvertible {}
-extension UInt16:Godot.VariantConvertible {}
-extension UInt8:Godot.VariantConvertible  {}
-extension UInt:Godot.VariantConvertible   {}
+extension UInt64:Godot.VariantRepresentable {}
+extension UInt32:Godot.VariantRepresentable {}
+extension UInt16:Godot.VariantRepresentable {}
+extension UInt8:Godot.VariantRepresentable  {}
+extension UInt:Godot.VariantRepresentable   {}
 
 extension Godot 
 {
@@ -1112,7 +1028,7 @@ extension MemoryLayout where T:Godot.RawAggregatePrivate
     }
 } 
 
-extension Vector:Godot.VariantConvertible, Godot.VariantRepresentable 
+extension Vector:Godot.VariantRepresentable 
     where Storage:Godot.VectorStorage
 {
     static 
@@ -1162,17 +1078,17 @@ extension Vector.Rectangle:Godot.Variant
     where Storage:Godot.RectangleStorage, T == Float32 
 {
 }
-extension Vector.Rectangle:Godot.VariantConvertible, Godot.VariantRepresentable 
+extension Vector.Rectangle:Godot.VariantRepresentable 
     where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
-extension Vector.ClosedRectangle:Godot.VariantConvertible, Godot.VariantRepresentable  
+extension Vector.ClosedRectangle:Godot.VariantRepresentable  
     where Storage:Godot.RectangleStorage, T:Comparable
 {
 } 
 
 
-extension Quaternion:Godot.VariantConvertible 
+extension Quaternion:Godot.VariantRepresentable 
 {
     static 
     var variantCode:godot_variant_type 
@@ -1189,7 +1105,7 @@ extension Quaternion:Godot.VariantConvertible
         godot_quat.variant(packing: .init(self))
     }
 }
-extension Godot.Plane3:Godot.VariantConvertible 
+extension Godot.Plane3:Godot.VariantRepresentable 
 {
     static 
     var variantCode:godot_variant_type 
@@ -1207,7 +1123,7 @@ extension Godot.Plane3:Godot.VariantConvertible
     }
 }
 
-extension Godot.Transform2.Affine:Godot.VariantConvertible 
+extension Godot.Transform2.Affine:Godot.VariantRepresentable 
 {
     static 
     var variantCode:godot_variant_type 
@@ -1224,7 +1140,7 @@ extension Godot.Transform2.Affine:Godot.VariantConvertible
         godot_transform2d.variant(packing: .init(self))
     }
 }
-extension Godot.Transform3.Affine:Godot.VariantConvertible 
+extension Godot.Transform3.Affine:Godot.VariantRepresentable 
 {
     static 
     var variantCode:godot_variant_type 
@@ -1241,7 +1157,7 @@ extension Godot.Transform3.Affine:Godot.VariantConvertible
         godot_transform.variant(packing: .init(self))
     }
 } 
-extension Godot.Transform3.Linear:Godot.VariantConvertible 
+extension Godot.Transform3.Linear:Godot.VariantRepresentable 
 {
     static 
     var variantCode:godot_variant_type 
@@ -1540,7 +1456,7 @@ extension Godot.String
         self.init(retained: godot_string.init(packing: swift))
     }
 }
-extension String:Godot.VariantConvertible 
+extension String:Godot.VariantRepresentable 
 {
     init(_ godot:Godot.String)
     {
@@ -1574,7 +1490,7 @@ extension Godot.Array
         self.init(retained: Element.convert(array: swift))
     }
 }
-extension Array:Godot.VariantConvertible, Godot.VariantRepresentable 
+extension Array:Godot.VariantRepresentable 
     where Element:Godot.ArrayElement 
 {
     init(_ godot:Godot.Array<Element>) 
@@ -1883,6 +1799,13 @@ extension Godot.Map:ExpressibleByDictionaryLiteral
 
 extension Optional:Godot.VariantRepresentable where Wrapped:Godot.VariantRepresentable 
 {
+    // apparently, `GODOT_VARIANT_TYPE_NIL` means “unknown type” in this context
+    static 
+    var variantCode:godot_variant_type
+    {
+        GODOT_VARIANT_TYPE_NIL 
+    }
+    
     static 
     func takeUnretained(_ value:Godot.Variant.Unmanaged) -> Self?
     {

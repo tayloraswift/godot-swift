@@ -472,7 +472,7 @@ extension Godot.Library
         {
             .init(
                 name:           .init(packing: $0.label), 
-                type:           .init($0.code.rawValue), 
+                type:           .init($0.code.rawValue),  
                 hint:           GODOT_PROPERTY_HINT_NONE, 
                 hint_string:    .init(packing: ""), 
                 usage:          GODOT_PROPERTY_USAGE_DEFAULT, 

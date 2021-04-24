@@ -133,7 +133,7 @@ extension Godot.NativeScriptInterface
 
 func <- <T, U>(accessor:KeyPath<T, U>, label:String) 
     -> Godot.SignalInterface<T>.Argument
-    where U:Godot.VariantConvertible
+    where U:Godot.VariantRepresentable
 {
     (
         witness: 
