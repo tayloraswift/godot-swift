@@ -131,19 +131,76 @@ extension Godot.NativeScriptInterface
     }
 }
 
+func <- <T, Value>(property:KeyPath<T, Value>, symbol:String) 
+    -> Godot.NativeScriptInterface<T>.Property
+    where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+{
+    (
+        symbol:         symbol, 
+        annotations:   .init(type: Value.variantCode), 
+        witness: 
+        (
+            get: 
+            {
+                (instance:T) -> Godot.Variant.Unmanaged in 
+                
+                .pass(retaining: instance[keyPath: property])
+            }, 
+            set: 
+            {
+                (_, _) in 
+                
+                Godot.print(error: "cannot assign to get-only property '\(symbol)'")
+            }
+        )
+    )
+} 
+func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String) 
+    -> Godot.NativeScriptInterface<T>.Property
+    where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+{
+    (
+        symbol:         symbol, 
+        annotations:   .init(type: Value.variantCode), 
+        witness: 
+        (
+            get: 
+            {
+                (instance:T) -> Godot.Variant.Unmanaged in 
+                
+                .pass(retaining: instance[keyPath: property])
+            }, 
+            set: 
+            {
+                (instance:T, variant:Godot.Variant.Unmanaged) in 
+                
+                if let value:Value = variant.take(unretained: Value.self) 
+                {
+                    instance[keyPath: property] = value
+                }
+                else 
+                {
+                    Godot.print(error: .invalidArgument(
+                        variant.take(unretained: Godot.Variant?.self), 
+                        expected: Value.self))
+                }
+            }
+        )
+    )
+} 
+
 func <- <T, U>(accessor:KeyPath<T, U>, label:String) 
     -> Godot.SignalInterface<T>.Argument
     where U:Godot.VariantRepresentable
 {
     (
+        annotations: .init(label: label, type: U.variantCode), 
         witness: 
         {
             (value:T) -> Godot.Variant.Unmanaged in
             
             .pass(retaining: value[keyPath: accessor])
-        }, 
-        label:  label, 
-        code:   U.variantCode
+        } 
     )
 } 
 

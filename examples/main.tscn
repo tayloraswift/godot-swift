@@ -13,6 +13,7 @@ script = ExtResource( 1 )
 mesh = SubResource( 1 )
 material/0 = null
 script = ExtResource( 2 )
+int_value = 2
 
 [node name="Listener" type="Node" parent="."]
 script = ExtResource( 3 )

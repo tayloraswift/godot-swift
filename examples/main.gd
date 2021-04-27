@@ -24,6 +24,12 @@ func _ready():
     
     $SoftBody.pass_zero_arguments()
     
+    print(test.int_value)
+    var x = 6
+    test.int_value = x 
+    print(x)
+    print($SoftBody.int_value)
+    
     test.pass_zero_arguments()
     # test.pass_null_argument() # expected-fail
     if false:

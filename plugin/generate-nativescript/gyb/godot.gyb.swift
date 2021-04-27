@@ -4,250 +4,8 @@ import var TSCBasic.localFileSystem
 
 import class Foundation.JSONDecoder
 
-struct Words:Equatable, CustomStringConvertible
-{
-    private 
-    var components:[String]
-    let original:String
-    
-    static 
-    func split(pascal:String) -> Self 
-    {
-        var words:[String]  = []
-        var word:String     = ""
-        for character:Character in pascal 
-        {
-            if  character.isUppercase, 
-                let last:Character = word.last, last.isLowercase 
-            {
-                words.append(word)
-                word = ""
-            }
-            // remove internal underscores (keep leading underscores)
-            if character == "_", !word.isEmpty
-            {
-                words.append(word)
-                word = ""
-            }
-            else 
-            {
-                // if starting a new word, make sure it starts with an 
-                // uppercase letter (needed for `Tracking_status`)
-                if word.isEmpty, character.isLowercase 
-                {
-                    word.append(character.uppercased())
-                }
-                else 
-                {
-                    word.append(character)
-                }
-            }
-        }
-        
-        if !word.isEmpty 
-        {
-            words.append(word)
-        }
-        return .init(components: words, original: pascal)
-    }
-    
-    static 
-    func split(snake:String) -> Self
-    {
-        let components:[String] = snake.uppercased().split(separator: "_").map
-        { 
-            if let head:Character = $0.first 
-            {
-                return "\(head)\($0.dropFirst().lowercased())"
-            }
-            else 
-            {
-                // should never have empty subsequences 
-                return .init($0)
-            }
-        }
-        // preserve leading underscore if present 
-        if let head:String = components.first, snake.prefix(1) == "_" 
-        {
-            return .init(components: ["_\(head)"] + components.dropFirst(), original: snake)
-        }
-        else 
-        {
-            return .init(components: components, original: snake)
-        }
-    }
-    
-    // expands unswifty abbreviations, and fix some strange spellings 
-    mutating 
-    func normalize() 
-    {
-        for i:Int in self.components.indices.dropLast() 
-        {
-            if self.components[i ..< i + 2] == ["Counter", "Clockwise"] 
-            {
-                self.components[i    ] = "Counterclockwise"
-                self.components[i + 1] = ""
-            }
-        }
-        self.components = self.components.compactMap 
-        {
-            switch $0 
-            {
-            case "":        return  nil
-            case "Func":    return "Function"
-            case "Op":      return "Operator"
-            case "Len":     return "Length"
-            case "Interp":  return "Interpolation"
-            case "Mult":    return "Multiplication"
-            case "Param":   return "Parameter"
-            case "Poly":    return "Polygon"
-            case "Assign":  return "Assignment"
-            case "Ref":     return "Reference"
-            case "Lib":     return "Library"
-            case "Mem":     return "Memory"
-            case "Tex":     return "Texture"
-            case "Subdiv":  return "Subdivision"
-            case "Accel":   return "Acceleration"
-            case "Anim":    return "Animation"
-            case "Expo":    return "Exponential"
-            case let word:  return word
-            }
-        }
-    }
-    // strips meaningless prefixes
-    mutating 
-    func factor(out other:Self) 
-    {
-        // most nested types have the form 
-        // scope:   'Foo' 'Bar' 'Baz' 
-        // nested:        'Bar' 'Baz' 'Qux'
-        // 
-        // we want to reduce it to just 'Qux'
-        for i:Int in (0 ... min(self.components.count - 1, other.components.count)).reversed()
-        {
-            // do not factor if it would result in the identifier 'Type', or 
-            // an identifier that would begin with a numeral 
-            if  self.components.prefix(i)    == other.components.suffix(i), 
-                self.components.dropFirst(i) != ["Type"]
-            {
-                if self.components.dropFirst(i).first?.first?.isNumber ?? true
-                {
-                    continue 
-                }
-                
-                self.components.removeFirst(i)
-                return 
-            }
-        }
-    }
-    
-    static 
-    func greatestCommonPrefix(among group:[Self]) -> Self 
-    {
-        var prefix:[String] = []
-        for i:Int in 0 ..< (group.map(\.components.count).min() ?? 0)
-        {
-            let unique:Set<String> = .init(group.map(\.components[i]))
-            if let first:String = unique.first, unique.count == 1 
-            {
-                prefix.append(first)
-            }
-            else 
-            {
-                break 
-            }
-        }
-        return .init(components: prefix, original: "")
-    }
-    
-    var description:String 
-    {
-        self.components.joined()
-    }
-    var camelcased:String 
-    {
-        if let head:String = self.components.first?.lowercased() 
-        {
-            let normalized:String 
-            if self.components.dropFirst().isEmpty
-            {
-                // escape keywords 
-                switch head 
-                {
-                case    "init":
-                    normalized = "initialize"
-                case    "func":            
-                    normalized = "function"
-                case    "continue", "class", "default", "in", "import", 
-                        "operator", "repeat", "self", "static":  
-                    normalized = "`\(head)`"
-                case let head: 
-                    normalized = head 
-                }
-            }
-            else 
-            {
-                normalized = head 
-            }
-            return "\(normalized)\(self.components.dropFirst().joined())"
-        }
-        else 
-        {
-            return self.description
-        }
-    }
-}
-
 enum Godot 
-{
-    // symbol name mappings 
-    private static 
-    func name(class original:String) -> Words
-    {
-        let reconciled:String 
-        switch original
-        {
-        case "Object":          reconciled = "AnyDelegate"
-        case "Reference":       reconciled = "AnyObject"
-        // fix problematic names 
-        case "NativeScript":    reconciled = "NativeScriptDelegate"
-        case let original:      reconciled = original 
-        }
-        
-        var words:Words = .split(pascal: reconciled)
-        words.normalize()
-        
-        /* if "\(words)" != original 
-        {
-            print("'\(original)' -> '\(words)'")
-        } */
-        
-        return words 
-    }
-    private static 
-    func name(enumeration original:String, scope:Words) -> Words
-    {
-        let reconciled:String
-        switch ("\(scope)", original)
-        {
-        // fix problematic names 
-        case ("VisualShader", "Type"):  reconciled = "Shader"
-        case ("IP", "Type"):            reconciled = "Version"
-        case let (_, original):         reconciled = original
-        }
-        
-        var words:Words = .split(pascal: reconciled)
-        words.normalize()
-        words.factor(out: scope)
-        
-        /* if "\(words)" != original 
-        {
-            print("'\(scope).\(original)' -> '\(scope).\(words)'")
-        } */
-        
-        return words
-    }
-    
+{    
     struct Class:Codable 
     {
         enum API:String, Codable 
@@ -363,22 +121,295 @@ enum Godot
         }
     }
 }
+
+struct Words:Equatable, CustomStringConvertible
+{
+    private 
+    var components:[String]
+    //let original:String
+    
+    // symbol name mappings 
+    static 
+    func name(class original:String) -> Self
+    {
+        let reconciled:String 
+        switch original
+        {
+        case "Object":          reconciled = "AnyDelegate"
+        case "Reference":       reconciled = "AnyObject"
+        // fix problematic names 
+        case "NativeScript":    reconciled = "NativeScriptDelegate"
+        case let original:      reconciled = original 
+        }
+        
+        var words:Self = .split(pascal: reconciled)
+        words.normalize()
+        
+        return words 
+    }
+    static 
+    func name(enumeration original:String, scope:Words) -> Self
+    {
+        let reconciled:String
+        switch ("\(scope)", original)
+        {
+        // fix problematic names 
+        case ("VisualShader", "Type"):  reconciled = "Shader"
+        case ("IP", "Type"):            reconciled = "Version"
+        case let (_, original):         reconciled = original
+        }
+        
+        var words:Self = .split(pascal: reconciled)
+        words.normalize()
+        words.factor(out: scope)
+        
+        return words
+    }
+    static 
+    func name(constant original:String, scope:Words) -> Self
+    {
+        var words:Self = .split(snake: original)
+        words.normalize()
+        words.factor(out: scope)
+        return words
+    }
+    
+    static 
+    func split(pascal:String) -> Self 
+    {
+        var words:[String]  = []
+        var word:String     = ""
+        for character:Character in pascal 
+        {
+            if  character.isUppercase, 
+                let last:Character = word.last, last.isLowercase 
+            {
+                words.append(word)
+                word = ""
+            }
+            // remove internal underscores (keep leading underscores)
+            if character == "_", !word.isEmpty
+            {
+                words.append(word)
+                word = ""
+            }
+            else 
+            {
+                // if starting a new word, make sure it starts with an 
+                // uppercase letter (needed for `Tracking_status`)
+                if word.isEmpty, character.isLowercase 
+                {
+                    word.append(character.uppercased())
+                }
+                else 
+                {
+                    word.append(character)
+                }
+            }
+        }
+        
+        if !word.isEmpty 
+        {
+            words.append(word)
+        }
+        //return .init(components: words, original: pascal)
+        return .init(components: words)
+    }
+    
+    static 
+    func split(snake:String) -> Self
+    {
+        let components:[String] = snake.uppercased().split(separator: "_").map
+        { 
+            if let head:Character = $0.first 
+            {
+                return "\(head)\($0.dropFirst().lowercased())"
+            }
+            else 
+            {
+                // should never have empty subsequences 
+                return .init($0)
+            }
+        }
+        // preserve leading underscore if present 
+        if let head:String = components.first, snake.prefix(1) == "_" 
+        {
+            //return .init(components: ["_\(head)"] + components.dropFirst(), original: snake)
+            return .init(components: ["_\(head)"] + components.dropFirst())
+        }
+        else 
+        {
+            //return .init(components: components, original: snake)
+            return .init(components: components)
+        }
+    }
+    
+    // expands unswifty abbreviations, and fix some strange spellings 
+    mutating 
+    func normalize() 
+    {
+        for i:Int in self.components.indices.dropLast() 
+        {
+            if self.components[i ..< i + 2] == ["Counter", "Clockwise"] 
+            {
+                self.components[i    ] = "Counterclockwise"
+                self.components[i + 1] = ""
+            }
+        }
+        self.components = self.components.compactMap 
+        {
+            switch $0 
+            {
+            case "":        return  nil
+            case "Func":    return "Function"
+            case "Op":      return "Operator"
+            case "Len":     return "Length"
+            case "Interp":  return "Interpolation"
+            case "Mult":    return "Multiplication"
+            case "Param":   return "Parameter"
+            case "Poly":    return "Polygon"
+            case "Assign":  return "Assignment"
+            case "Ref":     return "Reference"
+            case "Lib":     return "Library"
+            case "Mem":     return "Memory"
+            case "Tex":     return "Texture"
+            case "Subdiv":  return "Subdivision"
+            case "Accel":   return "Acceleration"
+            case "Anim":    return "Animation"
+            case "Expo":    return "Exponential"
+            case let word:  return word
+            }
+        }
+    }
+    // strips meaningless prefixes
+    mutating 
+    func factor(out other:Self) 
+    {
+        // most nested types have the form 
+        // scope:   'Foo' 'Bar' 'Baz' 
+        // nested:        'Bar' 'Baz' 'Qux'
+        // 
+        // we want to reduce it to just 'Qux'
+        for i:Int in (0 ... min(self.components.count - 1, other.components.count)).reversed()
+        {
+            // do not factor if it would result in the identifier 'Type', or 
+            // an identifier that would begin with a numeral 
+            if  self.components.prefix(i)    == other.components.suffix(i), 
+                self.components.dropFirst(i) != ["Type"]
+            {
+                if self.components.dropFirst(i).first?.first?.isNumber ?? true
+                {
+                    continue 
+                }
+                
+                self.components.removeFirst(i)
+                return 
+            }
+        }
+    }
+    
+    static 
+    func greatestCommonPrefix(among group:[Self]) -> Self 
+    {
+        var prefix:[String] = []
+        for i:Int in 0 ..< (group.map(\.components.count).min() ?? 0)
+        {
+            let unique:Set<String> = .init(group.map(\.components[i]))
+            if let first:String = unique.first, unique.count == 1 
+            {
+                prefix.append(first)
+            }
+            else 
+            {
+                break 
+            }
+        }
+        //return .init(components: prefix, original: "")
+        return .init(components: prefix)
+    }
+    
+    var description:String 
+    {
+        self.components.joined()
+    }
+    var camelcased:String 
+    {
+        if let head:String = self.components.first?.lowercased() 
+        {
+            let normalized:String 
+            if self.components.dropFirst().isEmpty
+            {
+                // escape keywords 
+                switch head 
+                {
+                case    "init":
+                    normalized = "initialize"
+                case    "func":            
+                    normalized = "function"
+                case    "continue", "class", "default", "in", "import", 
+                        "operator", "repeat", "self", "static":  
+                    normalized = "`\(head)`"
+                case let head: 
+                    normalized = head 
+                }
+            }
+            else 
+            {
+                normalized = head 
+            }
+            return "\(normalized)\(self.components.dropFirst().joined())"
+        }
+        else 
+        {
+            return self.description
+        }
+    }
+}
+
+
 extension Godot.Class 
 {
     final 
     class Node 
     {
-        typealias Flags = 
-        (
-            instantiable:Bool, 
-            singleton:Bool, 
-            managed:Bool
-        )
-        typealias Identifier = 
-        (
-            namespace:Namespace,
-            name:Words
-        )
+        enum KnownType:Hashable 
+        {
+            case void 
+            case bool 
+            case int 
+            case float 
+            case vector2
+            case vector3
+            case vector4
+            
+            case quaternion 
+            case plane3
+            case rectangle2 
+            case rectangle3
+            case affine2 
+            case affine3
+            case linear3
+            case resourceIdentifier
+            
+            case list 
+            case map 
+            case nodePath
+            case string 
+            
+            case uint8Array
+            case int32Array
+            case float32Array
+            case stringArray
+            case vector2Array
+            case vector3Array
+            case vector4Array
+            
+            case object(String)
+            case enumeration(String)
+            
+            case variant
+        }
+        
         enum Namespace:String, CustomStringConvertible
         {
             case root       = "Godot"
@@ -390,946 +421,189 @@ extension Godot.Class
                 self.rawValue
             }
         }
+        
         struct Property 
         {
-            struct Accessor 
+            struct Key:Hashable 
             {
                 let symbol:String 
-                
-                var name:String 
+                var name:Words 
                 {
-                    Words.split(snake: self.symbol).camelcased
+                    .split(snake: self.symbol)
                 }
             }
             
-            let symbol:String
-            let getter:Accessor,
-                setter:Accessor? 
+            struct Accessor 
+            {
+                unowned  
+                let node:Node
+                let index:Dictionary<Method.Key, Method>.Index
+            }
+            
+            let get:Accessor,
+                set:Accessor? 
             let index:Int?
-            let type:Godot.KnownType 
+            let type:KnownType 
             
             var `is`:(final:Bool, override:Bool)
-            
-            var name:String 
-            {
-                Words.split(snake: self.symbol).camelcased
-            }
-            
-            mutating 
-            func virtualize(override:Self) -> Void?
-            {
-                if self.is.final 
-                {
-                    self.is.final = false 
-                    return () // continue 
-                }
-                else 
-                {
-                    return nil // stop recursion
-                }
-            }
         } 
         struct Method 
         {
-            let symbol:String 
-            let parameters:[(label:String, type:Godot.KnownType)]
-            let `return`:Godot.KnownType
+            struct Key:Hashable 
+            {
+                let symbol:String 
+                var name:Words 
+                {
+                    .split(snake: self.symbol)
+                }
+            }
+            
+            var parameters:[(label:String, type:KnownType)]
+            let `return`:KnownType
              
             var `is`:(final:Bool, override:Bool, hidden:Bool)
-            
-            var name:String 
-            {
-                Words.split(snake: self.symbol).camelcased
-            }
-            
-            mutating 
-            func virtualize(override:Self) -> Void?
-            {
-                if self.is.final 
-                {
-                    self.is.final = false 
-                    return () // continue 
-                }
-                else 
-                {
-                    return nil // stop recursion
-                }
-            }
         }
         
-        // gdscript class name, flags
-        let info:(symbol:String, is:Flags)
-        // swift type 
-        let identifier:Identifier 
+        struct Enumeration 
+        {
+            let symbol:String
+            let name:Words 
+            let cases:[(name:Words, rawValue:Int)]
+        }
         
+        let symbol:String 
+        let name:Words, 
+            namespace:Namespace 
+        let `is`:(instantiable:Bool, singleton:Bool, managed:Bool)
+        
+        private(set) weak
+        var parent:Node?
         private(set)
-        var children:[Node],
-            parent:Identifier?
+        var children:[Node]
         
         // members 
-        let enumerations:[(name:Words, cases:[(name:Words, rawValue:Int)])]
+        let enumerations:[Enumeration]
+        let constants:[(name:Words, value:Int)]
         private(set)
-        var properties:[String: Property], // [gdscript symbol: method]
-            methods:[String: Method] // [gdscript symbol: property]
+        var properties:[Property.Key: Property], 
+            methods:[Method.Key: Method] 
         
-        init(class:Godot.Class) 
-        {
-            self.children   = []
+        // member descriptors
+        private 
+        var unresolved:
+        (
+            properties:[Godot.Class.Property],
+            functions:[Godot.Class.Method]
+        )
+        
+        init(descriptor:Godot.Class) 
+        {    
+            self.symbol     = descriptor.name
             self.parent     = nil 
-            if `class`.singleton.isEmpty 
+            self.children   = []
+            
+            let namespace:Namespace, 
+                name:Words 
+            if descriptor.singleton.isEmpty 
             {
-                self.info       = 
+                self.is = 
                 (
-                    `class`.name, 
-                    (
-                        instantiable:  `class`.instantiable,
-                        singleton:      false, 
-                        // https://github.com/godotengine/godot-cpp/issues/432
-                        // api.json bug: 
-                        //      `Godot::Reference` is not tagged as managed, but is actually managed
-                        managed:       `class`.managed || `class`.name == "Reference"
-                    )
+                    instantiable:  descriptor.instantiable,
+                    singleton:      false, 
+                    // https://github.com/godotengine/godot-cpp/issues/432
+                    // api.json bug: 
+                    //      `Godot::Reference` is not tagged as managed, but is actually managed
+                    managed:       descriptor.managed || descriptor.name == "Reference"
                 )
-                self.identifier = 
-                (
-                    namespace:  self.info.is.managed || `class`.name == "Object" ? .root : .unmanaged,
-                    name:       Godot.name(class: `class`.name)
-                )
+                namespace   = self.is.managed || descriptor.name == "Object" ? .root : .unmanaged
+                name        = .name(class: descriptor.name)
             }
             else 
             {
-                self.info       =
+                self.is =
                 (
-                    `class`.name, 
-                    (
-                        instantiable:   false,
-                        singleton:      true,
-                        // https://github.com/godotengine/godot/pull/36506 
-                        // api.json bug: 
-                        //      `Godot::_Marshalls` is tagged as subclass of 
-                        //      `Godot::Reference` (Godot.Object), but is actually a 
-                        //      subclass of `Godot::Object` (Godot.Unmanaged). 
-                        //      
-                        //      however, this only affects singletons, which we import as 
-                        //      unmanaged anyway.
-                        managed:        false
-                    )
+                    instantiable:   false,
+                    singleton:      true,
+                    // https://github.com/godotengine/godot/pull/36506 
+                    // api.json bug: 
+                    //      `Godot::_Marshalls` is tagged as subclass of 
+                    //      `Godot::Reference` (Godot.Object), but is actually a 
+                    //      subclass of `Godot::Object` (Godot.Unmanaged). 
+                    //      
+                    //      however, this only affects singletons, which we import as 
+                    //      unmanaged anyway.
+                    managed:        false
                 ) 
-                self.identifier = (namespace: .singleton, name: Godot.name(class: `class`.singleton))
+                namespace   = .singleton 
+                name        = .name(class: descriptor.singleton)
             }
             
-            let scope:Words = self.identifier.name
-            self.enumerations = `class`.enumerations.map 
+            self.enumerations = descriptor.enumerations.map 
             {
                 (enumeration:Godot.Class.Enumeration) in 
                 
-                var cases:[(name:Words, rawValue:Int)] = 
-                    enumeration.cases.sorted(by: {$0.value < $1.value}).map 
+                var cases:[(name:Words, rawValue:Int)] = enumeration.cases.map 
                 {
                     var name:Words = .split(snake: $0.key)
                     name.normalize()
                     return (name, $0.value)
                 }
-                let scope:Words     = Godot.name(enumeration: enumeration.name, scope: scope)
+                .sorted 
+                {
+                    $0.rawValue < $1.rawValue
+                }
                 let prefix:Words    = .greatestCommonPrefix(among: cases.map(\.name))
                 for i:Int in cases.indices 
                 {
                     cases[i].name.factor(out: prefix)
                 }
-                return (scope, cases)
+                return .init(symbol: enumeration.name, 
+                    name: .name(enumeration: enumeration.name, scope: name), 
+                    cases: cases)
             }
+            self.constants = descriptor.constants.map 
+            {
+                (.name(constant: $0.key, scope: name), $0.value)
+            }
+            .sorted 
+            {
+                $0.name.camelcased < $1.name.camelcased
+            }
+            
+            self.namespace  = namespace 
+            self.name       = name 
             self.properties = [:]
-            self.methods = [:]
-        }
-        
-        func append(child:Node) 
-        {
-            child.parent = self.identifier
-            self.children.append(child)
-        }
-        
-        func attach(property:Property) 
-        {
-            guard self.properties.updateValue(property, forKey: property.symbol) == nil 
-            else 
-            {
-                fatalError("duplicate property 'Godot::\(self.info.symbol).\(property.symbol)'")
-            }
-        }
-        func attach(method:Method) 
-        {
-            guard self.methods.updateValue(method, forKey: method.symbol) == nil 
-            else 
-            {
-                fatalError("duplicate method 'Godot::\(self.info.symbol).\(method.symbol)'")
-            }
-        }
-        
-        func virtualize(override property:Property) -> Void? 
-        {
-            if let _:Dictionary<String, Property>.Index = 
-                self.properties.index(forKey: property.symbol) 
-            {
-                // need to mutate in-place 
-                return self.properties[property.symbol]!.virtualize(override: property)
-            }
-            else 
-            {
-                return () // continue 
-            }
-        }
-        func virtualize(override method:Method) -> Void? 
-        {
-            if let _:Dictionary<String, Method>.Index = 
-                self.methods.index(forKey: method.symbol) 
-            {
-                return self.methods[method.symbol]!.virtualize(override: method)
-            }
-            else 
-            {
-                return () // continue 
-            }
-        }
-        
-        var preorder:[Node] 
-        {
-            [self] + self.children.flatMap(\.preorder)
-        }
-        var leaves:[Node] 
-        {
-            self.children.isEmpty ? [self] : self.children.flatMap(\.leaves)
-        }
-        
-        @Source.Code
-        var description:String 
-        {
-            "\(self.identifier.namespace).\(self.identifier.name)" 
-            Source.fragment(indent: 1)
-            {
-                for child:Node in self.children 
-                {
-                    child.description
-                }
-            }
+            self.methods    = [:]
+            
+            self.unresolved = 
+            (
+                properties: descriptor.properties, 
+                functions:  descriptor.methods
+            )
         }
     }
 }
 extension Godot.Class.Node 
 {
-    var definition:String
+    func append(child:Godot.Class.Node) 
     {
-        // comma-separated `let` statements in a result builder 
-        // currently crashes the compiler
-        let properties:[Property]   = self.properties.values.sorted(by: {$0.name < $1.name})
-        let methods:[Method]        = self.methods.values.sorted(   by: {$0.name < $1.name})
-        return Source.fragment
-        {
-            "extension \(self.identifier.namespace)"
-            Source.block 
-            {
-                if let parent:Identifier = self.parent 
-                {
-                    if self.children.isEmpty 
-                    {
-                    "final" 
-                    }
-                    "class \(self.identifier.name):\(parent.namespace).\(parent.name)"
-                }
-                else 
-                {
-                    "class \(self.identifier.name)"
-                }
-                Source.block 
-                {
-                    """
-                    \(self.parent == nil ? "" : "override ")class 
-                    var symbol:Swift.String { "\(self.info.symbol)" }
-                    """
-                    
-                    if self.identifier == (.root, .split(pascal: "AnyDelegate")) 
-                    {
-                        // Godot.AnyDelegate has special behavior:
-                        """
-                        final 
-                        let core:UnsafeMutableRawPointer 
-                        // non-failable init assumes instance has been type-checked!
-                        required
-                        init(retained core:UnsafeMutableRawPointer) 
-                        {
-                            self.core = core
-                        }
-                        required
-                        init(unretained core:UnsafeMutableRawPointer) 
-                        {
-                            self.core = core
-                        }
-                        
-                        final 
-                        func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
-                            where Signal:Godot.Signal 
-                        {
-                            var variants:[Godot.Variant.Unmanaged] = 
-                                [.pass(retaining: Signal.name)]
-                                +
-                                Signal.interface.arguments.map
-                                {
-                                    $0.witness(value)
-                                }
-                            defer 
-                            {
-                                for i:Int in variants.indices 
-                                {
-                                    variants[i].release()
-                                }
-                            }
-                            
-                            AnyDelegate.emitSignal(delegate: self, variants: variants)
-                        }
-                        """
-                    }
-                    else if self.identifier == (.root, .split(pascal: "AnyObject")) 
-                    {
-                        // Godot.AnyObject has special behavior:
-                        #"""
-                        required
-                        init(retained core:UnsafeMutableRawPointer) 
-                        {
-                            super.init(retained: core)
-                        }
-                        required 
-                        init(unretained core:UnsafeMutableRawPointer) 
-                        {
-                            super.init(unretained: core)
-                            guard self.retain()
-                            else 
-                            {
-                                fatalError(
-                                    """
-                                    could not retain delegate of type \
-                                    '\(Swift.String.init(reflecting: Self.self))' at <\(self.core)>
-                                    """)
-                            }
-                        }
-                        deinit
-                        { 
-                            self.release()
-                        }
-                        
-                        // builtins 
-                        @discardableResult
-                        final
-                        func retain() -> Bool 
-                        {
-                            Self.reference(self: self) 
-                        }
-                        @discardableResult
-                        final
-                        func release() -> Bool 
-                        {
-                            Self.unreference(self: self) 
-                        }
-                        """#
-                    } 
-                    
-                    if !methods.isEmpty
-                    {
-                        """
-                        
-                        private static 
-                        var \(methods.map 
-                        {
-                            """
-                            \($0.name):Godot.Function = 
-                                    Godot.Function.bind(method: "\($0.symbol)", from: \(self.identifier.name).self)
-                            """
-                        }.joined(separator: ",\n    "))
-                        """
-                    }
-                    
-                    for (name, cases):(Words, [(name:Words, rawValue:Int)]) in 
-                        self.enumerations 
-                    {
-                        """
-                        
-                        struct \(name):Hashable  
-                        """
-                        Source.block 
-                        {
-                            """
-                            let value:Int64
-                            
-                            static 
-                            let \(cases.map 
-                            {
-                                "\($0.name.camelcased):Self = .init(value: \($0.rawValue))"
-                            }.joined(separator: ",\n    "))
-                            """
-                        }
-                    }
-                    """
-                    
-                    """
-                    /* for property:Property in properties
-                    {
-                        property.definition(in: "\(self.identifier.name)")
-                    } 
-                    
-                    for method:Method in methods where !method.is.hidden
-                    {
-                        method.definition(in: "\(self.identifier.name)")
-                    }  */
-                }
-            }
-        } 
-    }
-}
-extension Godot.Class.Node.Property 
-{
-    func definition(in scope:String) -> String 
-    {
-        let ((_, parameterization), generics, constraints):
-        (
-            (
-                body:[Godot.SwiftType.Parameterized], 
-                tail:Godot.SwiftType.Parameterized
-            ), 
-            [String], 
-            [String]
-        ) 
-        = 
-        Godot.SwiftType.parameterize(([], self.type.type))
-        {
-            "T\($0)"
-        }
-        
-        let modifiers:[String]      = (self.is.final ? ["final"] : []) + (self.is.override ? ["override"] : [])
-        let expressions:[String]    = ["self: self"] + (self.index.map{ ["\($0)"] } ?? [])
-        let body:(get:String, set:String?) 
-        body.get = Source.block 
-        {
-            """
-            let result:\(parameterization.inner) = 
-                \(scope).\(self.getter.name)\(Source.inline(list: expressions))
-            return \(parameterization.expression(result: "result"))
-            """
-        }
-        body.set = self.setter.map 
-        {
-            (setter:Accessor) -> String in 
-            Source.block 
-            {
-                """
-                \(scope).\(setter.name)\(Source.inline(list: 
-                    expressions + [parameterization.expression(argument: "value")]))
-                """
-            }
-        }
-        if generics.isEmpty 
-        {
-            return Source.fragment 
-            {
-                if !modifiers.isEmpty
-                {
-                    modifiers.joined(separator: " ")
-                }
-                """
-                var \(self.name):\(parameterization.outer)
-                """
-                if let set:String = body.set 
-                {
-                    Source.block 
-                    {
-                        "get" 
-                        body.get 
-                        "set(value)"
-                        set
-                    }
-                }
-                else 
-                {
-                    body.get 
-                }
-            }
-        }
-        else 
-        {
-            return Source.fragment 
-            {
-                if !modifiers.isEmpty
-                {
-                    modifiers.joined(separator: " ")
-                }
-                """
-                var \(self.name):\(self.type.canonical)
-                """
-                if let _:String = body.set 
-                {
-                    Source.block 
-                    {
-                        """
-                        get 
-                        {
-                            self.\(self.name)(as: \(self.type.canonical).self)
-                        }
-                        set(value) 
-                        {
-                            self.set(\(self.name): value)
-                        }
-                        """
-                    }
-                }
-                else 
-                {
-                    Source.block 
-                    {
-                        "self.\(self.name)(as: \(self.type.canonical).self)"
-                    }
-                } 
-                
-                if !modifiers.isEmpty
-                {
-                    modifiers.joined(separator: " ")
-                }
-                """
-                func \(self.name)\(Source.inline(angled: generics))(as _:\(parameterization.outer).Type) \
-                -> \(parameterization.outer) \(Source.constraints(constraints))
-                """
-                body.get
-                if let set:String = body.set
-                {
-                    if !modifiers.isEmpty
-                    {
-                        modifiers.joined(separator: " ")
-                    }
-                    """
-                    func set\(Source.inline(angled: generics))\
-                    (\(self.name != "value" ? "\(self.name) " : "")value:\(parameterization.outer)) \
-                    \(Source.constraints(constraints))
-                    """
-                    set
-                }
-            }
-        }
-        /* let specializations:[Godot.SwiftType.Parameterized] = self.type.specializations
-        
-         */
-    } 
-}
-extension Godot.Class.Node.Method 
-{
-    func definition(in scope:String) -> String 
-    {
-        let (parameterization, generics, constraints):
-        (
-            (
-                body:[Godot.SwiftType.Parameterized], 
-                tail:Godot.SwiftType.Parameterized
-            ), 
-            [String], 
-            [String]
-        ) 
-        = 
-        Godot.SwiftType.parameterize((self.parameters.map(\.type.type), self.return.type))
-        {
-            "T\($0)"
-        }
-        
-        let modifiers:[String] = (self.is.final ? ["final"] : []) + (self.is.override ? ["override"] : [])
-        let arguments:[(label:String, name:String, type:Godot.SwiftType.Parameterized)] = 
-            zip(self.parameters.map(\.label), parameterization.body).enumerated().map
-        {
-            ($0.1.0, "t\($0.0)", $0.1.1)
-        }
-        return Source.fragment 
-        {
-            if !modifiers.isEmpty
-            {
-                modifiers.joined(separator: " ")
-            }
-            """
-            func \(self.name)\(Source.inline(angled: generics, else: ""))\
-            \(Source.inline(list: arguments.map{ "\($0.label) \($0.name):\($0.type.outer)" })) \
-            -> \(parameterization.tail.outer) \(Source.constraints(constraints))
-            """
-            Source.block 
-            {
-                let expressions:[String] = ["self: self"] + arguments.map 
-                {
-                    $0.type.expression(argument: $0.name)
-                }
-                if case .concrete(type: "()") = parameterization.tail 
-                {
-                    "\(scope).\(self.name)\(Source.inline(list: expressions))"
-                }
-                else 
-                {
-                    """
-                    let result:\(parameterization.tail.inner) = 
-                        \(scope).\(self.name)\(Source.inline(list: expressions))
-                    return \(parameterization.tail.expression(result: "result"))
-                    """ 
-                }
-            }
-        }
-        
-    } 
-}
-extension Godot 
-{
-    enum SwiftType 
-    {
-        case concrete   (type:String)
-        case narrowed   (type:String, generic:(String) -> String, constraints:(String) -> String)
-        case generic    (             generic:(String) -> String, constraints:(String) -> String)
-        case enumeration(type:String)
-        case variant 
-        
-        enum Parameterized 
-        {
-            case concrete   (type:String)
-            case narrowed   (type:String, outer:String, constraints:String?)
-            case generic    (type:String,               constraints:String)
-            case enumeration(type:String)
-            case variant 
-        }
-    }
-}
-extension Godot.SwiftType.Parameterized 
-{
-    var outer:String 
-    {
-        switch self 
-        {
-        case    .concrete   (           type: let type),
-                .narrowed   (type: _,  outer: let type, constraints: _),
-                .generic    (           type: let type, constraints: _),
-                .enumeration(           type: let type):
-            return type 
-        case .variant: 
-            return "Godot.Variant?"
-        }
-    }
-    var inner:String 
-    {
-        switch self 
-        {
-        case    .concrete   (type: let type),
-                .narrowed   (type: let type, outer: _,  constraints: _),
-                .generic    (type: let type,            constraints: _):
-            return type 
-        case    .enumeration(type: _):
-            return "Int64" 
-        case .variant: 
-            return "Godot.VariantExistential"
-        }
-    }
-    var constraints:String? 
-    {
-        switch self 
-        {
-        case    .concrete, .enumeration, .variant:
-            return nil
-        case    .narrowed   (type: _, outer: _, constraints: let constraints):
-            return constraints 
-        case    .generic    (type: _,           constraints: let constraints):
-            return constraints 
-        }
-    }
-    func expression(argument:String) -> String 
-    {
-        switch self 
-        {
-        case .concrete, .generic: 
-            return argument 
-        case .narrowed(type: let type, outer: _, constraints: _):
-            return "\(type).init(\(argument))"
-        case .enumeration:
-            return "\(argument).value"
-        case .variant:
-            return "Godot.VariantExistential.init(variant: \(argument))"
-        }
-    }
-    func expression(result:String) -> String 
-    {
-        switch self 
-        {
-        case .concrete, .generic: 
-            return result 
-        case .narrowed      (type: _, outer: let type, constraints: _):
-            return "\(type).init(\(       result))"
-        case .enumeration   (type: let type):
-            return "\(type).init(value: \(result))"
-        case .variant:
-            return "\(result).variant"
-        }
-    }
-}
-extension Godot.SwiftType 
-{
-    static 
-    func parameterize(_ types:(body:[Self], tail:Self), parameter:(Int) -> String) 
-        -> 
-        (
-            parameterized:(body:[Parameterized], tail:Parameterized), 
-            generics:[String],
-            constraints:[String]
-        ) 
-    {
-        var counter:Int = 0
-        var body:[Parameterized] = []
-        for type:Self in types.body 
-        {
-            body.append(type.parameterized(counter: &counter, parameter: parameter))
-        }
-        let tail:Parameterized = types.tail.parameterized(counter: &counter, parameter: parameter)
-        return 
-            (
-                (body, tail), 
-                (0 ..< counter).map(parameter),
-                (body + [tail]).compactMap(\.constraints) 
-            )
+        child.parent = self
+        self.children.append(child)
     }
     
-    private 
-    func parameterized(counter:inout Int, parameter:(Int) -> String) -> Parameterized 
+    var preorder:[Godot.Class.Node] 
     {
-        switch self 
-        {
-        case .concrete(type: let type):
-            return .concrete(type: type)
-        case .narrowed(type: let type, generic: let generic, constraints: let constraints):
-            defer { counter += 1 }
-            return .narrowed(
-                type:           generic(type), 
-                outer:          generic(parameter(counter)), 
-                constraints:    constraints(parameter(counter)))
-        case .generic(generic: let generic, constraints: let constraints):
-            defer { counter += 1 }
-            return .generic(
-                type:           generic(parameter(counter)), 
-                constraints:    constraints(parameter(counter)))
-        case .enumeration(type: let type):
-            return .enumeration(type: type)
-        case .variant:
-            return .variant
-        }
+        [self] + self.children.flatMap(\.preorder)
+    }
+    var leaves:[Godot.Class.Node] 
+    {
+        self.children.isEmpty ? [self] : self.children.flatMap(\.leaves)
     }
 }
-extension Godot.KnownType 
+extension Godot.Class.Node 
 {
-    var type:Godot.SwiftType
+    func resolve() 
     {
-        switch self 
-        {
-        case .void:
-            return .concrete(type: "()")
-        case .bool:
-            return .concrete(type: "Bool")
-        case .int:
-            return .narrowed(type: "Int64"){ $0 } 
-            constraints:    { "\($0):FixedWidthInteger" }
-        case .float:
-            return .narrowed(type: "Float64"){ $0 }
-            constraints:    { "\($0):BinaryFloatingPoint" }
-        case .vector2:
-            return .narrowed(type: "Float32"){ "Vector2<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .vector3:
-            return .narrowed(type: "Float32"){ "Vector3<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .vector4:
-            return .narrowed(type: "Float32"){ "Vector4<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        
-        case .quaternion:
-            return .narrowed(type: "Float32"){ "Quaternion<\($0)>" }
-            constraints:    { "\($0):SIMDScalar & Numerics.Real & BinaryFloatingPoint" }
-        case .plane3:
-            return .narrowed(type: "Float32"){ "Godot.Plane3<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .rectangle2:
-            return .narrowed(type: "Float32"){ "Vector2<\($0)>.Rectangle" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .rectangle3:
-            return .narrowed(type: "Float32"){ "Vector3<\($0)>.Rectangle" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .affine2:
-            return .narrowed(type: "Float32"){ "Godot.Transform2<\($0)>.Affine" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .affine3:
-            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Affine" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .linear3:
-            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Linear" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        case .resourceIdentifier:   
-            return .concrete(type: "Godot.ResourceIdentifier")
-        
-        case .list:
-            return .concrete(type: "Godot.List")
-        case .map:
-            return .concrete(type: "Godot.Map")
-        case .nodePath:
-            return .concrete(type: "Godot.NodePath")
-        case .string:               
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.String.RawValue" }
-        
-        case .uint8Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<UInt8>.RawValue" }
-        case .int32Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Int32>.RawValue" }
-        case .float32Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Float32>.RawValue" }
-        case .stringArray:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<String>.RawValue" }
-        case .vector2Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector2<Float32>>.RawValue" }
-        case .vector3Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector3<Float32>>.RawValue" }
-        case .vector4Array:
-            return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector4<Float32>>.RawValue" }
-        case .object(let type): 
-            return .concrete(type: "\(type)?")
-        case .enumeration(let type):
-            return .enumeration(type: type)
-        case .variant:
-            return .variant
-        }
-    }
-    var canonical:String
-    {
-        switch self 
-        {
-        case .void:                 return "()"
-        case .bool:                 return "Bool"
-        case .int:                  return "Int64"
-        case .float:                return "Float64"
-        case .vector2:              return "Vector2<Float32>"
-        case .vector3:              return "Vector3<Float32>"
-        case .vector4:              return "Vector4<Float32>"
-        case .quaternion:           return "Quaterinion<Float32>"
-        case .plane3:               return "Godot.Plane3<Float32>"
-        case .rectangle2:           return "Vector2<Float32>.Rectangle"
-        case .rectangle3:           return "Vector3<Float32>.Rectangle"
-        case .affine2:              return "Godot.Transform2<Float32>.Affine"
-        case .affine3:              return "Godot.Transform3<Float32>.Affine"
-        case .linear3:              return "Godot.Transform3<Float32>.Linear"
-        case .resourceIdentifier:   return "Godot.ResourceIdentifier"
-        case .list:                 return "Godot.List"
-        case .map:                  return "Godot.Map"
-        case .nodePath:             return "Godot.NodePath"
-        case .string:               return "Godot.String"
-        case .uint8Array:           return "Godot.Array<UInt8>"
-        case .int32Array:           return "Godot.Array<Int32>"
-        case .float32Array:         return "Godot.Array<Float32>"
-        case .stringArray:          return "Godot.Array<Swift.String>"
-        case .vector2Array:         return "Godot.Array<Vector2<Float32>>"
-        case .vector3Array:         return "Godot.Array<Vector3<Float32>>"
-        case .vector4Array:         return "Godot.Array<Vector4<Float32>>"
-        case .object(let type):     return "\(type)?"
-        case .enumeration(let type):return type
-        case .variant:              return "Godot.Variant?"
-        } 
-    } 
-}
-extension Godot
-{
-    enum KnownType:Hashable 
-    {
-        case void 
-        case bool 
-        case int 
-        case float 
-        case vector2
-        case vector3
-        case vector4
-        
-        case quaternion 
-        case plane3
-        case rectangle2 
-        case rectangle3
-        case affine2 
-        case affine3
-        case linear3
-        case resourceIdentifier
-        
-        case list 
-        case map 
-        case nodePath
-        case string 
-        
-        case uint8Array
-        case int32Array
-        case float32Array
-        case stringArray
-        case vector2Array
-        case vector3Array
-        case vector4Array
-        
-        case object(String)
-        case enumeration(String)
-        
-        case variant
-    }
-    
-    static 
-    var tree:Class.Node  
-    {
-        let path:AbsolutePath = AbsolutePath.init(#filePath)
-            .parentDirectory.appending(component: "godot-api.json")
-        
-        guard let file:ByteString = try? TSCBasic.localFileSystem.readFileContents(path)
-        else 
-        {
-            fatalError("could not find or read 'godot-api.json' file")
-        }
-        
-        let classes:[Class]
-        do 
-        {
-            classes = try JSONDecoder.init().decode([Class].self, from: .init(file.contents))
-        }
-        catch let error 
-        {
-            fatalError("could not parse 'godot-api.json' file (\(error))")
-        }
-        
-        // construct symbol mappings. include original parent keys in the dictionary 
-        typealias Descriptor = 
-        (
-            parent:String?, 
-            properties:[String: Class.Property],
-            functions:[String: Class.Method],
-            node:Class.Node
-        )
-        let descriptors:[String: Descriptor] = 
-            .init(uniqueKeysWithValues: classes.map 
-        {
-            (
-                $0.name, 
-                (
-                    parent:     $0.parent.isEmpty ? nil : $0.parent, 
-                    properties: .init(uniqueKeysWithValues: $0.properties.map
-                    { 
-                        ($0.name, $0) 
-                    }), 
-                    functions:  .init(uniqueKeysWithValues: $0.methods.map
-                    { 
-                        ($0.name, $0) 
-                    }),
-                    node:       .init(class: $0)
-                )
-            )
-        })
-        
         // build type database 
         var types:[String: KnownType] = 
         [
@@ -1370,306 +644,472 @@ extension Godot
             //"enum.Error"                :   .unsupported,
         ]
         
-        
-        for (symbol, node):(String, Class.Node) in descriptors.mapValues(\.node)
+        for node:Godot.Class.Node in self.preorder
         {
-            assert(types[symbol] == nil)
-            let scope:String    = "\(node.identifier.namespace).\(node.identifier.name)"
-            types[symbol]       = .object(scope)
-            
-            for enumeration:Words in node.enumerations.map(\.name) 
-            {
-                let key:String = "enum.\(symbol)::\(enumeration.original)"
-                assert(types[key] == nil)
-                types[key] = .enumeration("\(scope).\(enumeration)")
-            }
-        }
-        
-        
-        for (symbol, (parent, properties, functions, node)):(String, Descriptor) in descriptors 
-        {
-            func uptrack<T>(replacing initial:T, if predicate:(Descriptor) -> T?) 
-                -> (replaced:Bool, result:T)
-            {
-                var result:T        = initial
-                var replaced:Bool   = false 
-                // look for methods with the same name in superclasses 
-                var superclass:String?              = parent 
-                while   let key:String              = superclass, 
-                        let descriptor:Descriptor   = descriptors[key]
-                {
-                    if let replacement:T  = predicate(descriptor) 
-                    {
-                        result      = replacement
-                        replaced    = true 
-                    }
-                    superclass = descriptor.parent  
-                }
-                return (replaced, result)
-            } 
-            
-            var methods:[String: (function:Class.Method, hidden:Bool)] = functions.mapValues 
-            {
-                ($0, false)
-            }
-            
-            // hide builtins 
-            if symbol == "Object" 
-            {
-                methods["emit_signal"]?.hidden  = true
-            }
-            if symbol == "Reference" 
-            {
-                methods["reference"]?.hidden    = true
-                methods["unreference"]?.hidden  = true
-            }
-            
-            outer:
-            for property:Class.Property in properties.values
-            {
-                var description:String
-                {
-                    "property 'Godot::\(symbol).\(property.name)'"
-                }
-                // frame properties in Godot::AnimatedTexture seem to be specialized 
-                // by index from 0 ... 255, ignore for now 
-                if property.name.contains("/") 
-                {
-                    continue outer 
-                }
-                
-                let index:Int? = property.index == -1 ? nil : property.index 
-                
-                guard let getter:Class.Method = functions[property.getter]
-                else 
-                {
-                    print("skipping \(description) (could not find getter)")
-                    continue 
-                }
-                // sanity check 
-                if let _:Int = index 
-                {
-                    guard getter.arguments.count == 1, getter.arguments[0].type == "int"
-                    else 
-                    {
-                        fatalError("malformed getter for \(description)")
-                    }
-                }
-                else 
-                {
-                    guard getter.arguments.isEmpty 
-                    else 
-                    {
-                        fatalError("malformed getter for \(description)")
-                    }
-                }
-                
-                guard let type:KnownType = types[getter.return] 
-                else 
-                {
-                    print("skipping \(description) (unknown type: \(getter.return))")
-                    continue outer 
-                }
-                
-                if property.setter.isEmpty
-                {
-                    // hide getter function in methods list. do not remove it, because 
-                    // some properties share getter/setter functions
-                    methods[property.getter]?.hidden = true
-                }
-                else if let setter:Class.Method = functions[property.setter]
-                {
-                    // some setters seem to have return values, skip them for now 
-                    guard case .void? = types[setter.return] 
-                    else 
-                    {
-                        print("skipping \(description) (unsupported setter return type: \(setter.return))")
-                        continue outer 
-                    }
-                    // sanity check 
-                    if let _:Int = index 
-                    {
-                        guard setter.arguments.count == 2, setter.arguments[0].type == "int"
-                        else 
-                        {
-                            fatalError("malformed setter for \(description)")
-                        }
-                    }
-                    else 
-                    {
-                        guard setter.arguments.count == 1
-                        else 
-                        {
-                            fatalError("malformed setter for \(description)")
-                        }
-                    }
-                    let parameter:String        = setter.arguments[index == nil ? 0 : 1].type
-                    guard let other:KnownType   = types[parameter]
-                    else 
-                    {
-                        print("skipping \(description) (unknown type: \(parameter))")
-                        continue outer 
-                    }
-                    switch (type, other)
-                    {
-                    case (.enumeration, .int): 
-                        break // okay 
-                    case (let get, let set):
-                        guard get == set 
-                        else 
-                        {
-                            fatalError("getter type (\(get)) for \(description) does not match setter type (\(set))")
-                        }
-                    }
-                    
-                    // hide getter/setter functions in methods list 
-                    methods[property.getter]?.hidden = true
-                    methods[property.setter]?.hidden = true
-                }
-                else 
-                {
-                    fatalError("could not find setter for \(description)")
-                }
-                
-                let override:Bool = uptrack(replacing: ())
-                {
-                    $0.properties[property.name].map{ _ in () }
-                }.replaced
-                
-                // mark all properties as `final` to begin with, properties with 
-                // overrides will have this modifier removed later
-                let property:Class.Node.Property = .init(
-                    symbol:  property.name, 
-                    getter:                                  .init(symbol: property.getter), 
-                    setter:  property.setter.isEmpty ? nil : .init(symbol: property.setter), 
-                    index:   index,
-                    type:    type, 
-                    is:     (final: true, override: override))
-                node.attach(property: property)
-            }  
-            outer:
-            for (method, hidden):(Class.Method, Bool) in methods.values 
-            {
-                // checks if a method is an override, and returns argument labels of 
-                // overridden method 
-                let (override, labels):(Bool, [String]) = 
-                    uptrack(replacing: method.arguments.map(\.name))
-                {
-                    // ignore `.virtual` annotation in api json, it rarely 
-                    // seems to be correct.
-                    // replace labels, since swift requires all overriding 
-                    // methods to have the same argument labels
-                    $0.functions[method.name]?.arguments.map(\.name)
-                }
-                
-                // sanity check 
-                guard labels.count == method.arguments.count 
-                else 
-                {
-                    print("skipping method 'Godot::\(symbol).\(method.name)' (mismatched overridden parameter count)")
-                    continue outer 
-                }
-                
-                var parameters:[(label:String, type:KnownType)] = []
-                for (label, argument):(String, Class.Argument) in zip(labels, method.arguments)
-                {
-                    guard let type:KnownType = types[argument.type]
-                    else 
-                    {
-                        //print("skipping method 'Godot::\(symbol).\(method.name)' (unknown parameter type: \(argument.type))")
-                        continue outer 
-                    }
-                    
-                    // fix problematic labels 
-                    let normalized:String 
-                    if label.prefix(3) == "arg", label.dropFirst(3).allSatisfy(\.isNumber)
-                    {
-                        normalized = "_"
-                    }
-                    else 
-                    {
-                        normalized = Words.split(snake: label).camelcased 
-                    }
-                    parameters.append((normalized, type))
-                }
-                guard let `return`:KnownType = types[method.return] 
-                else 
-                {
-                    //print("skipping method 'Godot::\(symbol).\(method.name)' (unknown return type: \(method.return))")
-                    continue outer 
-                }
-                
-                // mark all methods as `final` to begin with, methods with 
-                // overrides will have this modifier removed later
-                let method:Class.Node.Method = .init(symbol: method.name, 
-                    parameters: parameters, 
-                    return:     `return`, 
-                    is:         (final: true, override: override, hidden: hidden))
-                node.attach(method: method)
-            }
-        }
-        
-        // construct tree. sort to provide some stability in generated code
-        for (parent, _, _, child):Descriptor in 
-            descriptors.values.sorted(by: { "\($0.node.identifier.name)" < "\($1.node.identifier.name)" }) 
-        {
-            guard   let key:String                      = parent, 
-                    let (parent, _, _, node):Descriptor = descriptors[key]
+            let symbol:String   = node.symbol, 
+                type:KnownType  = .object("\(node.namespace).\(node.name)")
+            guard types.updateValue(type, forKey: symbol) == nil 
             else 
             {
-                continue 
+                fatalError("duplicate class 'Godot::\(symbol)'")
             }
             
-            node.append(child: child)
-            
-            // erases `final` modifiers from properties in superclasses
-            for property:Class.Node.Property in child.properties.values 
+            for enumeration:Enumeration in node.enumerations
             {
-                var current:(parent:String?, node:Class.Node) = (parent, node)
-                while let _:Void = current.node.virtualize(override: property)
+                let symbol:String = "enum.\(symbol)::\(enumeration.symbol)", 
+                    type:KnownType = .enumeration(
+                        "\(node.namespace).\(node.name).\(enumeration.name)")
+                guard types.updateValue(type, forKey: symbol) == nil
+                else 
                 {
-                    guard   let key:String                      = current.parent, 
-                            let (parent, _, _, node):Descriptor = descriptors[key]
-                    else 
-                    {
-                        break 
-                    }
-                    current = (parent, node) 
-                }
-            } 
-            // erases `final` modifiers from methods in superclasses
-            for method:Class.Node.Method in child.methods.values 
-            {
-                // stops when reaching a method that is already marked virtual, 
-                // since that means superclass methods have also already been 
-                // marked virtual 
-                var current:(parent:String?, node:Class.Node) = (parent, node)
-                while let _:Void = current.node.virtualize(override: method)
-                {
-                    guard   let key:String                      = current.parent, 
-                            let (parent, _, _, node):Descriptor = descriptors[key]
-                    else 
-                    {
-                        break 
-                    }
-                    current = (parent, node) 
+                    fatalError("duplicate enum '\(symbol)'")
                 }
             }
         }
         
-        guard let root:Class.Node = descriptors["Object"]?.node
+        self.resolve(types: types)
+    }
+    private 
+    func resolve(types:[String: KnownType]) 
+    {
+        outer:
+        for method:Godot.Class.Method in self.unresolved.functions
+        {
+            var description:String 
+            {
+                "Godot::\(self.symbol)::\(method.name)"
+            }
+            
+            var parameters:[(label:String, type:KnownType)] = []
+            for argument:Godot.Class.Argument in method.arguments
+            {
+                guard let type:KnownType = types[argument.type]
+                else 
+                {
+                    print("skipping method '\(description)' (unknown parameter type: \(argument.type))")
+                    continue outer 
+                }
+                
+                // fix problematic labels 
+                let label:String 
+                if  argument.name.prefix(3) == "arg", 
+                    argument.name.dropFirst(3).allSatisfy(\.isNumber)
+                {
+                    label = "_"
+                }
+                else 
+                {
+                    label = Words.split(snake: argument.name).camelcased 
+                }
+                parameters.append((label, type))
+            }
+            guard let `return`:KnownType = types[method.return] 
+            else 
+            {
+                print("skipping method '\(description)' (unknown return type: \(method.return))")
+                continue outer 
+            }
+            
+            var method:(key:Method.Key, value:Method) = 
+            (
+                .init(symbol: method.name), 
+                .init(parameters: parameters, return: `return`, 
+                    is: (final: true, override: false, hidden: false))
+            )
+            // look for overridden methods 
+            var current:Godot.Class.Node = self 
+            while let superclass:Godot.Class.Node = current.parent 
+            {
+                if let overridden:Dictionary<Method.Key, Method>.Index = 
+                    superclass.methods.index(forKey: method.key)
+                {
+                    // sanity check 
+                    guard                            method.value.parameters.map(\.type) == 
+                            superclass.methods.values[overridden].parameters.map(\.type),
+                                                     method.value.return == 
+                            superclass.methods.values[overridden].return
+                    else 
+                    {
+                        print("skipping method '\(description)' (mismatched signatures)")
+                        continue outer 
+                    }
+                    
+                    // replace labels, since swift requires all overriding 
+                    // methods to have the same argument labels
+                    method.value.is.override  = true 
+                    method.value.parameters   = superclass.methods.values[overridden].parameters 
+                    
+                    superclass.methods.values[overridden].is.final = false 
+                    break 
+                }
+                current = superclass 
+            }
+            
+            guard self.methods.updateValue(method.value, forKey: method.key) == nil 
+            else 
+            {
+                fatalError("duplicate method '\(description)'")
+            }
+        }
+        
+        // frame properties in Godot::AnimatedTexture seem to be specialized 
+        // by index from 0 ... 255, ignore for now 
+        outer:
+        for property:Godot.Class.Property in self.unresolved.properties
+            where !property.name.contains("/") 
+        {
+            var description:String
+            {
+                "property 'Godot::\(self.symbol)::\(property.name)'"
+            }
+            
+            let index:Int? = property.index == -1 ? nil : property.index 
+            let accessor:(get:Property.Accessor, set:Property.Accessor?)
+            let getter:Method, 
+                setter:Method?
+            
+            // find getter 
+            if let get:Property.Accessor = self.lookup(method: .init(symbol: property.getter))
+            {
+                accessor.get    = get 
+                getter          = get.node.methods.values[get.index]
+                
+                get.node.methods.values[get.index].is.hidden = true 
+            }
+            else 
+            {
+                print("skipping \(description) (could not find getter)")
+                continue outer
+            }
+            // find setter 
+            if property.setter.isEmpty 
+            {
+                accessor.set    = nil 
+                setter          = nil 
+            }
+            else if let set:Property.Accessor = self.lookup(method: .init(symbol: property.setter))
+            {
+                accessor.set    = set 
+                setter          = set.node.methods.values[set.index]
+                
+                set.node.methods.values[set.index].is.hidden = true 
+            }
+            else 
+            {
+                print("skipping \(description) (could not find setter)")
+                continue outer
+            }
+            
+            // sanity check 
+            if let _:Int = index 
+            {
+                guard   case .int? = getter.parameters.first?.type, 
+                        getter.parameters.count == 1
+                else 
+                {
+                    fatalError("malformed getter for \(description)")
+                }
+            }
+            else 
+            {
+                guard   getter.parameters.isEmpty 
+                else 
+                {
+                    fatalError("malformed getter for \(description)")
+                }
+            }
+            if let setter:Method = setter
+            {
+                guard let other:KnownType = setter.parameters.last?.type
+                else 
+                {
+                    fatalError("malformed setter for \(description)")
+                }
+                if let _:Int = index 
+                {
+                    guard   case .int? = setter.parameters.first?.type,
+                            setter.parameters.count == 2
+                    else 
+                    {
+                        fatalError("malformed setter for \(description)")
+                    }
+                }
+                else 
+                {
+                    guard   setter.parameters.count == 1
+                    else 
+                    {
+                        fatalError("malformed setter for \(description)")
+                    }
+                }
+                // some setters seem to have return values, skip them for now 
+                guard case .void = setter.return
+                else 
+                {
+                    print("skipping \(description) (unsupported setter return type: \(setter.return))")
+                    continue outer 
+                }
+                
+                switch (getter.return, other)
+                {
+                case (.enumeration, .int): 
+                    break // okay 
+                case (let get, let set):
+                    guard get == set 
+                    else 
+                    {
+                        fatalError("getter type (\(get)) for \(description) does not match setter type (\(set))")
+                    }
+                }
+            }
+            
+            var property:(key:Property.Key, value:Property) = 
+            (
+                .init(symbol: property.name), 
+                .init(get: accessor.get, set: accessor.set, index: index, 
+                    type: getter.return, is: (final: true, override: false))
+            )
+            // look for overridden properties 
+            var current:Godot.Class.Node = self 
+            while let superclass:Godot.Class.Node = current.parent 
+            {
+                if let overridden:Dictionary<Property.Key, Property>.Index = 
+                    superclass.properties.index(forKey: property.key)
+                {
+                    // sanity check 
+                    guard property.value.type == superclass.properties.values[overridden].type
+                    else 
+                    {
+                        print("skipping property '\(description)' (mismatched override signature)")
+                        continue outer 
+                    }
+                    
+                    property.value.is.override                          = true 
+                    superclass.properties.values[overridden].is.final   = false 
+                    break 
+                }
+                current = superclass 
+            }
+            
+            guard self.properties.updateValue(property.value, forKey: property.key) == nil 
+            else 
+            {
+                fatalError("duplicate property '\(description)'")
+            }
+        } 
+        
+        // hide builtins 
+        for symbol:(class:String, function:String) in 
+        [
+            ("Object",      "emit_signal"),
+            ("Reference",   "unreference"),
+            ("Reference",   "reference"),
+        ]
+            where symbol.class == self.symbol 
+        {
+            guard let index:Dictionary<Method.Key, Method>.Index = 
+                self.methods.index(forKey: .init(symbol: symbol.function))
+            else 
+            {
+                fatalError("could not find builtin symbol 'Godot::\(symbol.class)::\(symbol.function)'")
+            }
+            
+            self.methods.values[index].is.hidden = true 
+        }
+        
+        // recurse over children 
+        for child:Godot.Class.Node in self.children 
+        {
+            child.resolve(types: types)
+        }
+    }
+    private 
+    func lookup(method key:Method.Key) -> Property.Accessor?
+    {
+        var current:Godot.Class.Node = self
+        while true 
+        {
+            if let index:Dictionary<Method.Key, Method>.Index = 
+                current.methods.index(forKey: key)
+            {
+                return .init(node: current, index: index)
+            }
+            if let next:Godot.Class.Node = current.parent 
+            {
+                current = next
+            }
+            else 
+            {
+                return nil 
+            }
+        }
+    } 
+}
+extension Godot
+{
+    private static 
+    func loadAPIDescription() -> [String: Class]
+    {
+        let path:AbsolutePath = AbsolutePath.init(#filePath)
+            .parentDirectory.appending(component: "godot-api.json")
+        
+        guard let file:ByteString = try? TSCBasic.localFileSystem.readFileContents(path)
         else 
         {
-            fatalError("missing 'Godot.AnyDelegate' root class")
+            fatalError("could not find or read 'godot-api.json' file")
         }
+        
+        do 
+        {
+            let classes:[Class] = try JSONDecoder.init()
+                .decode([Class].self, from: .init(file.contents))
+            return .init(uniqueKeysWithValues: classes.map 
+            {
+                ($0.name, $0)
+            })
+        }
+        catch let error 
+        {
+            fatalError("could not parse 'godot-api.json' file (\(error))")
+        }
+    }
+    private static 
+    func tree(descriptors:[String: Class]) -> Class.Node  
+    {
+        // construct inheritance tree. 
+        let nodes:[String: (node:Class.Node, parent:String?)] = descriptors.mapValues 
+        {
+            (.init(descriptor: $0), parent: $0.parent.isEmpty ? nil : $0.parent)
+        }
+        // sort to provide stability in generated code 
+        for (node, parent):(Class.Node, String?) in nodes.values
+            .sorted(by: { "\($0.node.name)" < "\($1.node.name)" }) 
+        {
+            if let parent:String = parent
+            {
+                guard let parent:Class.Node = nodes[parent]?.node
+                else 
+                {
+                    fatalError("missing class descriptor for class 'Godot::\(parent)'")
+                }
+                
+                parent.append(child: node)
+            }
+        }
+        
+        guard let root:Class.Node = nodes["Object"]?.node
+        else 
+        {
+            fatalError("missing class descriptor for class 'Godot::Object'")
+        }
+        
+        root.resolve()
+        
         return root
+    }
+    private static 
+    func constants(descriptors:[String: Class]) -> String
+    {
+        guard let constants:[String: Int] = descriptors["GlobalConstants"]?.constants 
+        else 
+        {
+            fatalError("missing class descriptor for class 'Godot::GlobalConstants'")
+        }
+        
+        let errors:[(name:Words, code:Int)] = constants.compactMap 
+        {
+            // ignore "printer on fire", it seems to be an april fools joke
+            if $0.key.prefix(4) == "ERR_", $0.key != "ERR_PRINTER_ON_FIRE"
+            {
+                return (.split(snake: .init($0.key.dropFirst(4))), $0.value)
+            }
+            else 
+            {
+                return nil 
+            }
+        }
+        .sorted 
+        {
+            $0.code < $1.code
+        }
+        
+        return Source.fragment 
+        {
+            "extension Godot"
+            Source.block 
+            {
+                "enum Error:Swift.Error"
+                Source.block 
+                {
+                    """
+                    case unknown(code:Int)
+                    
+                    """
+                    for error:(name:Words, code:Int) in errors 
+                    {
+                        "case \(error.name.camelcased)"
+                    }
+                }
+            }
+            "extension Godot.Error"
+            Source.block 
+            {
+                "init(code:Int)"
+                Source.block 
+                {
+                    """
+                    switch code
+                    {
+                    """
+                    for (name, code):(Words, Int) in errors 
+                    {
+                        """
+                        case \(code): self = .\(name.camelcased)
+                        """
+                    }
+                    """
+                    case let unknown: self = .unknown(code: unknown)
+                    }
+                    """
+                }
+            }
+        }
     }
     
     @Source.Code 
     static 
     var swift:String
     {
-        let root:Class.Node = Self.tree
+        let descriptors:[String: Class] = Self.loadAPIDescription()
+        let root:Class.Node             = Self.tree(descriptors: descriptors)
+        // `withExtendedLifetime` is important because properties hold `unowned`
+        //  references to upstream nodes 
+        let classes:[(node:Class.Node, definition:String)] = withExtendedLifetime(root)
+        {
+            root.preorder.compactMap
+            {
+                switch $0.name 
+                {
+                case    .split(pascal: "AnyDelegate"),
+                        .split(pascal: "AnyObject"  ),
+                        .split(pascal: "Resource"   ),
+                        .split(pascal: "Node"),
+                        .split(pascal: "Spatial"),
+                        .split(pascal: "VisualInstance"),
+                        .split(pascal: "GeometryInstance"),
+                        .split(pascal: "MeshInstance"):
+                    return ($0, $0.definition)
+                default:
+                    return nil 
+                }
+            }
+        }
+        
+        Source.section(name: "global.swift.part")
+        {
+            Self.constants(descriptors: descriptors)
+        }
+        
         Source.section(name: "raw.swift.part")
         {
             for (name, unpacked):(String, String) in 
@@ -2312,19 +1752,19 @@ extension Godot
                 """
                 Source.block(delimiters: ("[", "]"))
                 {
-                    for node:Class.Node in root.preorder where Self._include(node.identifier)
+                    for node:Class.Node in classes.map(\.node)
                     {
-                        "\(node.identifier.namespace).\(node.identifier.name).self,"
+                        "\(node.namespace).\(node.name).self,"
                     }
                 }
             }
         }
         
-        for node:Class.Node in root.preorder where Self._include(node.identifier)
+        for (node, definition):(Class.Node, String) in classes
         {
-            Source.section(name: "\(node.identifier.name).swift.part")
+            Source.section(name: "\(node.name).swift.part")
             {
-                node.definition 
+                definition 
             }
         }
     }
@@ -2421,23 +1861,663 @@ extension Godot
             }
         }
     }
-    
-    private static 
-    func _include(_ identifier:Class.Node.Identifier) -> Bool 
+}
+
+extension Godot.Class.Node 
+{
+    var definition:String
     {
-        switch identifier 
+        // comma-separated `let` statements in a result builder 
+        // currently crashes the compiler
+        let properties:[(key:Property.Key, value:Property)]   = self.properties
+        .sorted 
         {
-        case    (.root,         .split(pascal: "AnyDelegate")), 
-                (.root,         .split(pascal: "AnyObject"  )),
-                (.root,         .split(pascal: "Resource"   )),
-                (.unmanaged,    .split(pascal: "Node")),
-                (.unmanaged,    .split(pascal: "Spatial")),
-                (.unmanaged,    .split(pascal: "VisualInstance")),
-                (.unmanaged,    .split(pascal: "GeometryInstance")),
-                (.unmanaged,    .split(pascal: "MeshInstance")):
-            return true 
-        default:
-            return false
+            $0.key.name.camelcased < $1.key.name.camelcased
+        }
+        let methods:[(key:Method.Key, value:Method)]          = self.methods
+        .sorted 
+        {
+            $0.key.name.camelcased < $1.key.name.camelcased
+        }
+        
+        return Source.fragment
+        {
+            "extension \(self.namespace)"
+            Source.block 
+            {
+                if let parent:Godot.Class.Node = self.parent 
+                {
+                    if self.children.isEmpty 
+                    {
+                    "final" 
+                    }
+                    "class \(self.name):\(parent.namespace).\(parent.name)"
+                }
+                else 
+                {
+                    "class \(self.name)"
+                }
+                Source.block 
+                {
+                    """
+                    \(self.parent == nil ? "" : "override ")class 
+                    var symbol:Swift.String { "\(self.symbol)" }
+                    """
+                    
+                    if      self.namespace  == .root, 
+                            self.name       == .split(pascal: "AnyDelegate")
+                    {
+                        // Godot.AnyDelegate has special behavior:
+                        """
+                        final 
+                        let core:UnsafeMutableRawPointer 
+                        // non-failable init assumes instance has been type-checked!
+                        required
+                        init(retained core:UnsafeMutableRawPointer) 
+                        {
+                            self.core = core
+                        }
+                        required
+                        init(unretained core:UnsafeMutableRawPointer) 
+                        {
+                            self.core = core
+                        }
+                        
+                        final 
+                        func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
+                            where Signal:Godot.Signal 
+                        {
+                            var variants:[Godot.Variant.Unmanaged] = 
+                                [.pass(retaining: Signal.name)]
+                                +
+                                Signal.interface.arguments.map
+                                {
+                                    $0.witness(value)
+                                }
+                            defer 
+                            {
+                                for i:Int in variants.indices 
+                                {
+                                    variants[i].release()
+                                }
+                            }
+                            
+                            AnyDelegate.emitSignal(delegate: self, variants: variants)
+                        }
+                        """
+                    }
+                    else if self.namespace  == .root, 
+                            self.name       == .split(pascal: "AnyObject")
+                    {
+                        // Godot.AnyObject has special behavior:
+                        #"""
+                        required
+                        init(retained core:UnsafeMutableRawPointer) 
+                        {
+                            super.init(retained: core)
+                        }
+                        required 
+                        init(unretained core:UnsafeMutableRawPointer) 
+                        {
+                            super.init(unretained: core)
+                            guard self.retain()
+                            else 
+                            {
+                                fatalError(
+                                    """
+                                    could not retain delegate of type \
+                                    '\(Swift.String.init(reflecting: Self.self))' at <\(self.core)>
+                                    """)
+                            }
+                        }
+                        deinit
+                        { 
+                            self.release()
+                        }
+                        
+                        // builtins 
+                        @discardableResult
+                        final
+                        func retain() -> Bool 
+                        {
+                            Self.reference(self: self) 
+                        }
+                        @discardableResult
+                        final
+                        func release() -> Bool 
+                        {
+                            Self.unreference(self: self) 
+                        }
+                        """#
+                    } 
+                    
+                    if !methods.isEmpty
+                    {
+                        """
+                        
+                        private static 
+                        var \(methods.map 
+                        {
+                            """
+                            \($0.key.name.camelcased):Godot.Function = 
+                                    Godot.Function.bind(method: "\($0.key.symbol)", from: \(self.name).self)
+                            """
+                        }.joined(separator: ",\n    "))
+                        """
+                    }
+                    if !self.constants.isEmpty 
+                    {
+                        """
+                        
+                        private static 
+                        let \(self.constants.map 
+                        {
+                            "\($0.name.camelcased):Int = \($0.value)"
+                        }.joined(separator: ",\n    "))
+                        """
+                    }
+                    
+                    for enumeration:Enumeration in self.enumerations 
+                    {
+                        """
+                        
+                        struct \(enumeration.name):Hashable  
+                        """
+                        Source.block 
+                        {
+                            """
+                            let value:Int64
+                            
+                            static 
+                            let \(enumeration.cases.map 
+                            {
+                                "\($0.name.camelcased):Self = .init(value: \($0.rawValue))"
+                            }.joined(separator: ",\n    "))
+                            """
+                        }
+                    }
+                    """
+                    
+                    """
+                    /* for (key, property):(Property.Key, Property) in properties
+                    {
+                        property.define(as: key.name.camelcased)
+                    } 
+                    
+                    for (key, method):(Method.Key, Method) in methods 
+                        where !method.is.hidden
+                    {
+                        method.define(as: key.name.camelcased, in: self.name)
+                    }  */
+                }
+            }
+        } 
+    }
+}
+extension Godot.Class.Node.Property 
+{
+    func define(as name:String) -> String 
+    {
+        let ((_, parameterization), generics, constraints):
+        (
+            (
+                body:[Godot.SwiftType.Parameterized], 
+                tail:Godot.SwiftType.Parameterized
+            ), 
+            [String], 
+            [String]
+        ) 
+        = 
+        Godot.SwiftType.parameterize(([], self.type.type))
+        {
+            "T\($0)"
+        }
+        
+        let getter:String = 
+            """
+            \(self.get.node.namespace).\
+            \(self.get.node.name).\
+            \(self.get.node.methods[self.get.index].key.name)
+            """
+        let setter:String? = self.set.map 
+        {
+            """
+            \($0.node.namespace).\
+            \($0.node.name).\
+            \($0.node.methods[$0.index].key.name)
+            """
+        }
+        
+        let modifiers:[String]      = (self.is.final ? ["final"] : []) + (self.is.override ? ["override"] : [])
+        let expressions:[String]    = ["self: self"] + (self.index.map{ ["\($0)"] } ?? [])
+        let body:(get:String, set:String?) 
+        body.get = Source.block 
+        {
+            """
+            let result:\(parameterization.inner) = \(getter)\(Source.inline(list: expressions))
+            return \(parameterization.expression(result: "result"))
+            """
+        }
+        body.set = setter.map 
+        {
+            (setter:String) -> String in 
+            Source.block 
+            {
+                """
+                \(setter)\(Source.inline(list: 
+                    expressions + [parameterization.expression(argument: "value")]))
+                """
+            }
+        }
+        if generics.isEmpty 
+        {
+            return Source.fragment 
+            {
+                if !modifiers.isEmpty
+                {
+                    modifiers.joined(separator: " ")
+                }
+                """
+                var \(name):\(parameterization.outer)
+                """
+                if let set:String = body.set 
+                {
+                    Source.block 
+                    {
+                        "get" 
+                        body.get 
+                        "set(value)"
+                        set
+                    }
+                }
+                else 
+                {
+                    body.get 
+                }
+            }
+        }
+        else 
+        {
+            return Source.fragment 
+            {
+                if !modifiers.isEmpty
+                {
+                    modifiers.joined(separator: " ")
+                }
+                """
+                var \(name):\(self.type.canonical)
+                """
+                if let _:String = body.set 
+                {
+                    Source.block 
+                    {
+                        """
+                        get 
+                        {
+                            self.\(name)(as: \(self.type.canonical).self)
+                        }
+                        set(value) 
+                        {
+                            self.set(\(name): value)
+                        }
+                        """
+                    }
+                }
+                else 
+                {
+                    Source.block 
+                    {
+                        "self.\(name)(as: \(self.type.canonical).self)"
+                    }
+                } 
+                
+                if !modifiers.isEmpty
+                {
+                    modifiers.joined(separator: " ")
+                }
+                """
+                func \(name)\(Source.inline(angled: generics))(as _:\(parameterization.outer).Type) \
+                -> \(parameterization.outer) \(Source.constraints(constraints))
+                """
+                body.get
+                if let set:String = body.set
+                {
+                    if !modifiers.isEmpty
+                    {
+                        modifiers.joined(separator: " ")
+                    }
+                    """
+                    func set\(Source.inline(angled: generics))\
+                    (\(name != "value" ? "\(name) " : "")value:\(parameterization.outer)) \
+                    \(Source.constraints(constraints))
+                    """
+                    set
+                }
+            }
+        }
+    } 
+}
+extension Godot.Class.Node.Method 
+{
+    func define(as name:String, in host:Words) -> String 
+    {
+        let (parameterization, generics, constraints):
+        (
+            (
+                body:[Godot.SwiftType.Parameterized], 
+                tail:Godot.SwiftType.Parameterized
+            ), 
+            [String], 
+            [String]
+        ) 
+        = 
+        Godot.SwiftType.parameterize((self.parameters.map(\.type.type), self.return.type))
+        {
+            "T\($0)"
+        }
+        
+        let modifiers:[String] = (self.is.final ? ["final"] : []) + (self.is.override ? ["override"] : [])
+        let arguments:[(label:String, name:String, type:Godot.SwiftType.Parameterized)] = 
+            zip(self.parameters.map(\.label), parameterization.body).enumerated().map
+        {
+            ($0.1.0, "t\($0.0)", $0.1.1)
+        }
+        return Source.fragment 
+        {
+            if !modifiers.isEmpty
+            {
+                modifiers.joined(separator: " ")
+            }
+            """
+            func \(name)\(Source.inline(angled: generics, else: ""))\
+            \(Source.inline(list: arguments.map{ "\($0.label) \($0.name):\($0.type.outer)" })) \
+            -> \(parameterization.tail.outer) \(Source.constraints(constraints))
+            """
+            Source.block 
+            {
+                let expressions:[String] = ["self: self"] + arguments.map 
+                {
+                    $0.type.expression(argument: $0.name)
+                }
+                if case .concrete(type: "()") = parameterization.tail 
+                {
+                    "\(host).\(name)\(Source.inline(list: expressions))"
+                }
+                else 
+                {
+                    """
+                    let result:\(parameterization.tail.inner) = 
+                        \(host).\(name)\(Source.inline(list: expressions))
+                    return \(parameterization.tail.expression(result: "result"))
+                    """ 
+                }
+            }
+        }
+    } 
+}
+extension Godot 
+{
+    enum SwiftType 
+    {
+        case concrete   (type:String)
+        case narrowed   (type:String, generic:(String) -> String, constraints:(String) -> String)
+        case generic    (             generic:(String) -> String, constraints:(String) -> String)
+        case enumeration(type:String)
+        case variant 
+        
+        enum Parameterized 
+        {
+            case concrete   (type:String)
+            case narrowed   (type:String, outer:String, constraints:String?)
+            case generic    (type:String,               constraints:String)
+            case enumeration(type:String)
+            case variant 
         }
     }
+}
+extension Godot.SwiftType.Parameterized 
+{
+    var outer:String 
+    {
+        switch self 
+        {
+        case    .concrete   (           type: let type),
+                .narrowed   (type: _,  outer: let type, constraints: _),
+                .generic    (           type: let type, constraints: _),
+                .enumeration(           type: let type):
+            return type 
+        case .variant: 
+            return "Godot.Variant?"
+        }
+    }
+    var inner:String 
+    {
+        switch self 
+        {
+        case    .concrete   (type: let type),
+                .narrowed   (type: let type, outer: _,  constraints: _),
+                .generic    (type: let type,            constraints: _):
+            return type 
+        case    .enumeration(type: _):
+            return "Int64" 
+        case .variant: 
+            return "Godot.VariantExistential"
+        }
+    }
+    var constraints:String? 
+    {
+        switch self 
+        {
+        case    .concrete, .enumeration, .variant:
+            return nil
+        case    .narrowed   (type: _, outer: _, constraints: let constraints):
+            return constraints 
+        case    .generic    (type: _,           constraints: let constraints):
+            return constraints 
+        }
+    }
+    func expression(argument:String) -> String 
+    {
+        switch self 
+        {
+        case .concrete, .generic: 
+            return argument 
+        case .narrowed(type: let type, outer: _, constraints: _):
+            return "\(type).init(\(argument))"
+        case .enumeration:
+            return "\(argument).value"
+        case .variant:
+            return "Godot.VariantExistential.init(variant: \(argument))"
+        }
+    }
+    func expression(result:String) -> String 
+    {
+        switch self 
+        {
+        case .concrete, .generic: 
+            return result 
+        case .narrowed      (type: _, outer: let type, constraints: _):
+            return "\(type).init(\(       result))"
+        case .enumeration   (type: let type):
+            return "\(type).init(value: \(result))"
+        case .variant:
+            return "\(result).variant"
+        }
+    }
+}
+extension Godot.SwiftType 
+{
+    static 
+    func parameterize(_ types:(body:[Self], tail:Self), parameter:(Int) -> String) 
+        -> 
+        (
+            parameterized:(body:[Parameterized], tail:Parameterized), 
+            generics:[String],
+            constraints:[String]
+        ) 
+    {
+        var counter:Int = 0
+        var body:[Parameterized] = []
+        for type:Self in types.body 
+        {
+            body.append(type.parameterized(counter: &counter, parameter: parameter))
+        }
+        let tail:Parameterized = types.tail.parameterized(counter: &counter, parameter: parameter)
+        return 
+            (
+                (body, tail), 
+                (0 ..< counter).map(parameter),
+                (body + [tail]).compactMap(\.constraints) 
+            )
+    }
+    
+    private 
+    func parameterized(counter:inout Int, parameter:(Int) -> String) -> Parameterized 
+    {
+        switch self 
+        {
+        case .concrete(type: let type):
+            return .concrete(type: type)
+        case .narrowed(type: let type, generic: let generic, constraints: let constraints):
+            defer { counter += 1 }
+            return .narrowed(
+                type:           generic(type), 
+                outer:          generic(parameter(counter)), 
+                constraints:    constraints(parameter(counter)))
+        case .generic(generic: let generic, constraints: let constraints):
+            defer { counter += 1 }
+            return .generic(
+                type:           generic(parameter(counter)), 
+                constraints:    constraints(parameter(counter)))
+        case .enumeration(type: let type):
+            return .enumeration(type: type)
+        case .variant:
+            return .variant
+        }
+    }
+}
+extension Godot.Class.Node.KnownType 
+{
+    var type:Godot.SwiftType
+    {
+        switch self 
+        {
+        case .void:
+            return .concrete(type: "()")
+        case .bool:
+            return .concrete(type: "Bool")
+        case .int:
+            return .narrowed(type: "Int64"){ $0 } 
+            constraints:    { "\($0):FixedWidthInteger" }
+        case .float:
+            return .narrowed(type: "Float64"){ $0 }
+            constraints:    { "\($0):BinaryFloatingPoint" }
+        case .vector2:
+            return .narrowed(type: "Float32"){ "Vector2<\($0)>" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .vector3:
+            return .narrowed(type: "Float32"){ "Vector3<\($0)>" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .vector4:
+            return .narrowed(type: "Float32"){ "Vector4<\($0)>" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        
+        case .quaternion:
+            return .narrowed(type: "Float32"){ "Quaternion<\($0)>" }
+            constraints:    { "\($0):SIMDScalar & Numerics.Real & BinaryFloatingPoint" }
+        case .plane3:
+            return .narrowed(type: "Float32"){ "Godot.Plane3<\($0)>" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .rectangle2:
+            return .narrowed(type: "Float32"){ "Vector2<\($0)>.Rectangle" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .rectangle3:
+            return .narrowed(type: "Float32"){ "Vector3<\($0)>.Rectangle" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .affine2:
+            return .narrowed(type: "Float32"){ "Godot.Transform2<\($0)>.Affine" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .affine3:
+            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Affine" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .linear3:
+            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Linear" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+        case .resourceIdentifier:   
+            return .concrete(type: "Godot.ResourceIdentifier")
+        
+        case .list:
+            return .concrete(type: "Godot.List")
+        case .map:
+            return .concrete(type: "Godot.Map")
+        case .nodePath:
+            return .concrete(type: "Godot.NodePath")
+        case .string:               
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.String.RawValue" }
+        
+        case .uint8Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<UInt8>.RawValue" }
+        case .int32Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Int32>.RawValue" }
+        case .float32Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Float32>.RawValue" }
+        case .stringArray:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<String>.RawValue" }
+        case .vector2Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector2<Float32>>.RawValue" }
+        case .vector3Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector3<Float32>>.RawValue" }
+        case .vector4Array:
+            return .generic { $0 }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector4<Float32>>.RawValue" }
+        case .object(let type): 
+            return .concrete(type: "\(type)?")
+        case .enumeration(let type):
+            return .enumeration(type: type)
+        case .variant:
+            return .variant
+        }
+    }
+    var canonical:String
+    {
+        switch self 
+        {
+        case .void:                 return "()"
+        case .bool:                 return "Bool"
+        case .int:                  return "Int64"
+        case .float:                return "Float64"
+        case .vector2:              return "Vector2<Float32>"
+        case .vector3:              return "Vector3<Float32>"
+        case .vector4:              return "Vector4<Float32>"
+        case .quaternion:           return "Quaterinion<Float32>"
+        case .plane3:               return "Godot.Plane3<Float32>"
+        case .rectangle2:           return "Vector2<Float32>.Rectangle"
+        case .rectangle3:           return "Vector3<Float32>.Rectangle"
+        case .affine2:              return "Godot.Transform2<Float32>.Affine"
+        case .affine3:              return "Godot.Transform3<Float32>.Affine"
+        case .linear3:              return "Godot.Transform3<Float32>.Linear"
+        case .resourceIdentifier:   return "Godot.ResourceIdentifier"
+        case .list:                 return "Godot.List"
+        case .map:                  return "Godot.Map"
+        case .nodePath:             return "Godot.NodePath"
+        case .string:               return "Godot.String"
+        case .uint8Array:           return "Godot.Array<UInt8>"
+        case .int32Array:           return "Godot.Array<Int32>"
+        case .float32Array:         return "Godot.Array<Float32>"
+        case .stringArray:          return "Godot.Array<Swift.String>"
+        case .vector2Array:         return "Godot.Array<Vector2<Float32>>"
+        case .vector3Array:         return "Godot.Array<Vector3<Float32>>"
+        case .vector4Array:         return "Godot.Array<Vector4<Float32>>"
+        case .object(let type):     return "\(type)?"
+        case .enumeration(let type):return type
+        case .variant:              return "Godot.Variant?"
+        } 
+    } 
 }

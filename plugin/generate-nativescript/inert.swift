@@ -11,17 +11,11 @@ extension Synthesizer
         {
             """
             // placeholders to make inert library compile 
-            func <- <T>(property:Godot.NativeScriptInterface<T>.Witness.Property, symbol:String) 
-                -> Godot.NativeScriptInterface<T>.Property
-                where T:Godot.NativeScript
-            {
-                (witness: property, symbol: symbol)
-            }
             func <- <T, Function>(method:@escaping (T) -> Function, symbol:String) 
                 -> Godot.NativeScriptInterface<T>.Method
                 where T:Godot.NativeScript
             {
-                (witness: Function.self, symbol: symbol)
+                Function.self
             }
             
             extension Godot.AnyDelegate 
@@ -39,7 +33,7 @@ extension Synthesizer
                 static 
                 var __methods__:[String] 
                 {
-                    Self.interface.methods.map{ "\\($0.witness)" }
+                    Self.interface.methods.map{ "\\($0)" }
                 }
                 static 
                 var __signals__:[String]

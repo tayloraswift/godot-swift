@@ -9,7 +9,8 @@ extension Godot.Library
     }
 } 
 
-struct TestSemantics:Godot.NativeScript 
+final 
+class TestSemantics:Godot.NativeScript 
 {
     final 
     class ARCManaged:Godot.NativeScript 
@@ -57,6 +58,8 @@ struct TestSemantics:Godot.NativeScript
         }
     }
     
+    var value:Int = 5
+    
     @Interface 
     static 
     var interface:Interface 
@@ -65,6 +68,10 @@ struct TestSemantics:Godot.NativeScript
         {
             MySignal.self 
             MyOtherSignal.self
+        }
+        Interface.properties 
+        {
+            \.value <- "int_value"
         }
         Interface.methods 
         {

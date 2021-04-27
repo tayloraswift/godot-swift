@@ -1204,6 +1204,11 @@ struct _GodotVariantUnmanaged
     var data:godot_variant 
     
     fileprivate 
+    init(unsafeData:godot_variant) 
+    {
+        self.data = unsafeData
+    }
+    fileprivate 
     var unsafeData:godot_variant 
     {
         self.data 

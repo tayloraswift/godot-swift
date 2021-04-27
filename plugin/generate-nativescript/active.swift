@@ -505,6 +505,19 @@ extension Synthesizer.Form
         }
     }
     
+    var variantCode:String 
+    {
+        switch self 
+        {
+        case .scalar(type: let type):
+            return "\(type).variantCode"
+        case .void: 
+            return "GODOT_VARIANT_TYPE_NIL"
+        case .tuple:
+            return "GODOT_VARIANT_TYPE_ARRAY"
+        }
+    }
+    
     static 
     func tree(_ root:Self) -> String 
     {
@@ -515,7 +528,7 @@ extension Synthesizer.Form
         case .void: 
             return "Void"
         case .tuple(let elements):
-            return "(\(elements.map(Self.tree(_:)).joined(separator: ", ")))"
+            return Source.inline(list: elements.map(Self.tree(_:)))
         }
     }
     
@@ -583,7 +596,7 @@ extension Synthesizer.Form
                 }
                 else 
                 {
-                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: Void.self), 
+                    Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: Void.self), 
                         function: symbol)
                     return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
@@ -599,7 +612,7 @@ extension Synthesizer.Form
                 }
                 else 
                 {
-                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
+                    Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
                         function: symbol)
                     return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
@@ -613,6 +626,14 @@ extension Synthesizer.Form
                 """
                 Source.block
                 {
+                    """
+                    guard \(list.root).count == \(elements.count)
+                    else 
+                    {
+                        Godot.print(error: .invalidArgumentTuple(\(list.root).count, expected: \(Self.tree(self)).self))
+                        return Godot.Variant.Unmanaged.pass(retaining: ())
+                    }
+                    """
                     if mutable 
                     {
                         "\(variable.base).\(list.label)\(variable.path).\(position).\(list.label) = \(list.root)"
@@ -627,7 +648,7 @@ extension Synthesizer.Form
                 """
                 else 
                 {
-                    Godot.print(error: Godot.Error.invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
+                    Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
                         function: symbol)
                     return Godot.Variant.Unmanaged.pass(retaining: ())
                 }
@@ -735,8 +756,21 @@ extension Synthesizer.FunctionParameterization
             {
                 Source.block(delimiters: ("(", ")"))
                 {
+                    """
+                    symbol:         symbol, 
+                    annotations: 
+                    """
+                    Source.block(delimiters: ("[", "], "))
+                    {
+                        for type:Synthesizer.Form in self.domain.map(\.type)
+                        {
+                            """
+                            Godot.Annotations.Argument.init(label: "", type: \(type.variantCode)), 
+                            """
+                        }
+                    }
                     "witness: "
-                    Source.block(delimiters: ("{", "}, "))
+                    Source.block
                     {
                         """
                         (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
@@ -745,7 +779,7 @@ extension Synthesizer.FunctionParameterization
                         guard arguments.count == \(self.domain.count) 
                         else 
                         {
-                            Godot.print(error: Godot.Error.invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
+                            Godot.print(error: .invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
                                 function: symbol)
                             return Godot.Variant.Unmanaged.pass(retaining: ())
                         }
@@ -798,7 +832,6 @@ extension Synthesizer.FunctionParameterization
                         return \(self.range.structure(nodes: "Godot.List", from: "output"))
                         """
                     }
-                    "symbol: symbol"
                 }
                 
             }
@@ -917,13 +950,6 @@ extension Synthesizer
             """
             import GDNative
             
-            func <- <T>(property:Godot.NativeScriptInterface<T>.Witness.Property, symbol:String) 
-                -> Godot.NativeScriptInterface<T>.Property
-                where T:Godot.NativeScript
-            {
-                (witness: property, symbol: symbol)
-            }
-            
             """
             
             // sort by function signatures, to provide some stability in the 
@@ -998,6 +1024,32 @@ extension Synthesizer
                                 delegate:   delegate, 
                                 arguments: (arguments, .init(count)))
                         }
+                        let getter:Godot.Library.Getter = 
+                        {
+                            (
+                                delegate:UnsafeMutableRawPointer?, 
+                                metadata:UnsafeMutableRawPointer?, 
+                                instance:UnsafeMutableRawPointer? 
+                            ) -> godot_variant in 
+                            
+                            \(type).interface.get(
+                                property:  .init(bitPattern: metadata), 
+                                instance:   instance) 
+                        } 
+                        let setter:Godot.Library.Setter = 
+                        {
+                            (
+                                delegate:UnsafeMutableRawPointer?, 
+                                metadata:UnsafeMutableRawPointer?, 
+                                instance:UnsafeMutableRawPointer?, 
+                                value:UnsafeMutablePointer<godot_variant>?
+                            ) in 
+                            
+                            \(type).interface.set(
+                                property:  .init(bitPattern: metadata), 
+                                instance:   instance, 
+                                value:      value?.pointee)
+                        } 
                         
                         let unregister:Godot.Library.WitnessDeinitializer = 
                         {
@@ -1047,8 +1099,26 @@ extension Synthesizer
                                     free_func:      nil)
                                 
                                 api.register(method: method, in: symbol,
-                                    as: Self.interface[method: index].symbol) 
+                                    as:             Self.interface[method: index].symbol, 
+                                    annotations:    Self.interface[method: index].annotations) 
                             }
+                            
+                            // register properties 
+                            for index:Int in Self.interface.properties.indices 
+                            {
+                                let get:godot_property_get_func = .init(
+                                    get_func:       getter, 
+                                    method_data:    .init(bitPattern: index), 
+                                    free_func:      nil)
+                                let set:godot_property_set_func = .init(
+                                    set_func:       setter, 
+                                    method_data:    .init(bitPattern: index), 
+                                    free_func:      nil)
+                                
+                                api.register(property: (get, set), in: symbol, 
+                                    as:             Self.interface[property: index].symbol, 
+                                    annotations:    Self.interface[property: index].annotations) 
+                            } 
                             
                             // register signals 
                             for signal:Godot.AnySignal.Type in Self.interface.signals 
