@@ -484,6 +484,45 @@ extension Godot.Library
         MemoryLayout<godot_basis>.assert() 
         
         MemoryLayout<godot_rid>.assert() 
+        
+        // assert variant type enum matches c headers 
+        for (swift, c):(Godot.VariantType, godot_variant_type) in 
+        [
+            (.void,                 GODOT_VARIANT_TYPE_NIL),
+        	(.bool,                 GODOT_VARIANT_TYPE_BOOL),
+        	(.int,                  GODOT_VARIANT_TYPE_INT),
+        	(.float,                GODOT_VARIANT_TYPE_REAL),
+        	(.string,               GODOT_VARIANT_TYPE_STRING),
+        	(.vector2,              GODOT_VARIANT_TYPE_VECTOR2),
+            (.vector3,              GODOT_VARIANT_TYPE_VECTOR3),
+            (.vector4,              GODOT_VARIANT_TYPE_COLOR),
+        	(.rectangle2,           GODOT_VARIANT_TYPE_RECT2),
+            (.rectangle3,           GODOT_VARIANT_TYPE_AABB),
+        	(.affine2,              GODOT_VARIANT_TYPE_TRANSFORM2D),
+            (.affine3,              GODOT_VARIANT_TYPE_TRANSFORM),
+            (.linear3,              GODOT_VARIANT_TYPE_BASIS),
+        	(.plane3,               GODOT_VARIANT_TYPE_PLANE),
+        	(.quaternion,           GODOT_VARIANT_TYPE_QUAT),
+        	(.nodePath,             GODOT_VARIANT_TYPE_NODE_PATH),
+        	(.resourceIdentifier,   GODOT_VARIANT_TYPE_RID),
+        	(.delegate,             GODOT_VARIANT_TYPE_OBJECT),
+        	(.map,                  GODOT_VARIANT_TYPE_DICTIONARY),
+        	(.list,                 GODOT_VARIANT_TYPE_ARRAY),
+        	(.uint8Array,           GODOT_VARIANT_TYPE_POOL_BYTE_ARRAY),
+        	(.int32Array,           GODOT_VARIANT_TYPE_POOL_INT_ARRAY),
+        	(.float32Array,         GODOT_VARIANT_TYPE_POOL_REAL_ARRAY),
+        	(.stringArray,          GODOT_VARIANT_TYPE_POOL_STRING_ARRAY),
+        	(.vector2Array,         GODOT_VARIANT_TYPE_POOL_VECTOR2_ARRAY),
+        	(.vector3Array,         GODOT_VARIANT_TYPE_POOL_VECTOR3_ARRAY),
+        	(.vector4Array,         GODOT_VARIANT_TYPE_POOL_COLOR_ARRAY),
+        ]
+        {
+            guard swift.value == c.rawValue
+            else 
+            {
+                fatalError("Godot.VariantType enum raw value for '\(swift)' does not match definition in c headers. check version compatibility!")
+            }
+        }
     }
     fileprivate 
     func deinitialize() 
@@ -520,7 +559,7 @@ extension Godot.Library
         
         var attributes:godot_property_attributes = .init(
             rset_type:          GODOT_METHOD_RPC_MODE_DISABLED, 
-            type:              .init(annotations.type.rawValue),
+            type:              .init(annotations.type.value), 
             hint:               GODOT_PROPERTY_HINT_NONE,
             hint_string:       .init(packing: ""), 
             usage:              GODOT_PROPERTY_USAGE_DEFAULT, 
@@ -540,7 +579,7 @@ extension Godot.Library
         {
             .init(
                 name:          .init(packing: $0.label), 
-                type:          .init($0.type.rawValue),  
+                type:          .init($0.type.value), 
                 hint:           GODOT_PROPERTY_HINT_NONE, 
                 hint_string:   .init(packing: ""), 
                 usage:          GODOT_PROPERTY_USAGE_DEFAULT, 
@@ -576,11 +615,11 @@ extension Godot
         struct Argument 
         {
             let label:Swift.String 
-            let type:godot_variant_type
+            let type:Godot.VariantType
         }
         struct Property 
         {
-            let type:godot_variant_type
+            let type:Godot.VariantType
         }
     }
     

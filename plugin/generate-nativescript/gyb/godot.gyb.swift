@@ -212,7 +212,6 @@ struct Words:Equatable, CustomStringConvertible
         {
             words.append(word)
         }
-        //return .init(components: words, original: pascal)
         return .init(components: words)
     }
     
@@ -234,12 +233,10 @@ struct Words:Equatable, CustomStringConvertible
         // preserve leading underscore if present 
         if let head:String = components.first, snake.prefix(1) == "_" 
         {
-            //return .init(components: ["_\(head)"] + components.dropFirst(), original: snake)
             return .init(components: ["_\(head)"] + components.dropFirst())
         }
         else 
         {
-            //return .init(components: components, original: snake)
             return .init(components: components)
         }
     }
@@ -324,7 +321,6 @@ struct Words:Equatable, CustomStringConvertible
                 break 
             }
         }
-        //return .init(components: prefix, original: "")
         return .init(components: prefix)
     }
     
@@ -457,9 +453,14 @@ extension Godot.Class
                     .split(snake: self.symbol)
                 }
             }
+            enum Result:Equatable 
+            {
+                case returned(KnownType)
+                case thrown
+            }
             
             var parameters:[(label:String, type:KnownType)]
-            let `return`:KnownType
+            let result:Result
              
             var `is`:(final:Bool, override:Bool, hidden:Bool)
         }
@@ -508,12 +509,9 @@ extension Godot.Class
             {
                 self.is = 
                 (
-                    instantiable:  descriptor.instantiable,
+                    instantiable:   descriptor.instantiable,
                     singleton:      false, 
-                    // https://github.com/godotengine/godot-cpp/issues/432
-                    // api.json bug: 
-                    //      `Godot::Reference` is not tagged as managed, but is actually managed
-                    managed:       descriptor.managed || descriptor.name == "Reference"
+                    managed:        descriptor.managed 
                 )
                 namespace   = self.is.managed || descriptor.name == "Object" ? .root : .unmanaged
                 name        = .name(class: descriptor.name)
@@ -524,14 +522,6 @@ extension Godot.Class
                 (
                     instantiable:   false,
                     singleton:      true,
-                    // https://github.com/godotengine/godot/pull/36506 
-                    // api.json bug: 
-                    //      `Godot::_Marshalls` is tagged as subclass of 
-                    //      `Godot::Reference` (Godot.Object), but is actually a 
-                    //      subclass of `Godot::Object` (Godot.Unmanaged). 
-                    //      
-                    //      however, this only affects singletons, which we import as 
-                    //      unmanaged anyway.
                     managed:        false
                 ) 
                 namespace   = .singleton 
@@ -638,10 +628,7 @@ extension Godot.Class.Node
             "PoolColorArray"    :   .vector4Array,
             
             "Variant"           :   .variant,
-            // hacks
-            //"enum.Variant::Type"        :   .unsupported,
-            //"enum.Variant::Operator"    :   .unsupported,
-            //"enum.Error"                :   .unsupported,
+            "enum.Variant::Type":   .enumeration("Godot.VariantType"),
         ]
         
         for node:Godot.Class.Node in self.preorder
@@ -703,7 +690,16 @@ extension Godot.Class.Node
                 }
                 parameters.append((label, type))
             }
-            guard let `return`:KnownType = types[method.return] 
+            
+            let result:Method.Result 
+            if  method.return == "enum.Error"
+            {
+                result = .thrown
+            }
+            else if let type:KnownType = types[method.return] 
+            {
+                result = .returned(type)
+            }
             else 
             {
                 print("skipping method '\(description)' (unknown return type: \(method.return))")
@@ -713,7 +709,7 @@ extension Godot.Class.Node
             var method:(key:Method.Key, value:Method) = 
             (
                 .init(symbol: method.name), 
-                .init(parameters: parameters, return: `return`, 
+                .init(parameters: parameters, result: result, 
                     is: (final: true, override: false, hidden: false))
             )
             // look for overridden methods 
@@ -723,16 +719,14 @@ extension Godot.Class.Node
                 if let overridden:Dictionary<Method.Key, Method>.Index = 
                     superclass.methods.index(forKey: method.key)
                 {
-                    // sanity check 
-                    guard                            method.value.parameters.map(\.type) == 
-                            superclass.methods.values[overridden].parameters.map(\.type),
-                                                     method.value.return == 
-                            superclass.methods.values[overridden].return
-                    else 
-                    {
-                        print("skipping method '\(description)' (mismatched signatures)")
-                        continue outer 
-                    }
+                    // note: 
+                    // -    the *return* type of an overriding method must be a 
+                    //      *subclass* of the overridden return type.
+                    // -    a *parameter* type of an overriding method must be a 
+                    //      *superclass* of the overridden parameter type.
+                    // we don’t have a good way of checking this right now, but 
+                    // the swift compiler will enforce these rules when compiling 
+                    // the generated code.
                     
                     // replace labels, since swift requires all overriding 
                     // methods to have the same argument labels
@@ -782,7 +776,17 @@ extension Godot.Class.Node
                 continue outer
             }
             // find setter 
-            if property.setter.isEmpty 
+            if  property.setter.isEmpty 
+                
+            {
+                accessor.set    = nil 
+                setter          = nil 
+            }
+            // quirk: Godot::StreamTexture::load_path uses the 
+            // Godot::StreamTexture::load(path:) method as its setter. this 
+            // isn’t a good model of its semantics, so we leave it as a get-only 
+            // property.
+            else if property.name == "load_path", self.symbol == "StreamTexture"
             {
                 accessor.set    = nil 
                 setter          = nil 
@@ -797,6 +801,13 @@ extension Godot.Class.Node
             else 
             {
                 print("skipping \(description) (could not find setter)")
+                continue outer
+            }
+            
+            guard case .returned(let type) = getter.result 
+            else 
+            {
+                print("skipping \(description) (getter is throwing method)")
                 continue outer
             }
             
@@ -843,14 +854,14 @@ extension Godot.Class.Node
                     }
                 }
                 // some setters seem to have return values, skip them for now 
-                guard case .void = setter.return
+                guard case .returned(.void) = setter.result
                 else 
                 {
-                    print("skipping \(description) (unsupported setter return type: \(setter.return))")
+                    print("skipping \(description) (unsupported setter result type: \(setter.result))")
                     continue outer 
                 }
                 
-                switch (getter.return, other)
+                switch (type, other)
                 {
                 case (.enumeration, .int): 
                     break // okay 
@@ -867,7 +878,7 @@ extension Godot.Class.Node
             (
                 .init(symbol: property.name), 
                 .init(get: accessor.get, set: accessor.set, index: index, 
-                    type: getter.return, is: (final: true, override: false))
+                    type: type, is: (final: true, override: false))
             )
             // look for overridden properties 
             var current:Godot.Class.Node = self 
@@ -948,10 +959,11 @@ extension Godot.Class.Node
 extension Godot
 {
     private static 
-    func loadAPIDescription() -> [String: Class]
+    func loadAPIDescription(version:(major:Int, minor:Int, patch:Int)) -> [String: Class]
     {
         let path:AbsolutePath = AbsolutePath.init(#filePath)
-            .parentDirectory.appending(component: "godot-api.json")
+            .parentDirectory
+            .appending(component: "api@\(version.major).\(version.minor).\(version.patch).json")
         
         guard let file:ByteString = try? TSCBasic.localFileSystem.readFileContents(path)
         else 
@@ -1032,12 +1044,65 @@ extension Godot
         {
             $0.code < $1.code
         }
+        let variants:[(name:String, code:Int)] = constants.compactMap 
+        {
+            let name:String
+            switch $0.key 
+            {
+            case "TYPE_NIL":            name = "void"
+            case "TYPE_BOOL":           name = "bool"
+            case "TYPE_INT":            name = "int"
+            case "TYPE_REAL":           name = "float"
+            case "TYPE_VECTOR2":        name = "vector2"
+            case "TYPE_VECTOR3":        name = "vector3"
+            case "TYPE_COLOR":          name = "vector4"
+            case "TYPE_QUAT":           name = "quaternion"
+            case "TYPE_PLANE":          name = "plane3"
+            case "TYPE_RECT2":          name = "rectangle2"
+            case "TYPE_AABB":           name = "rectangle3"
+            case "TYPE_TRANSFORM2D":    name = "affine2"
+            case "TYPE_TRANSFORM":      name = "affine3"
+            case "TYPE_BASIS":          name = "linear3"
+            case "TYPE_STRING":         name = "string"
+            case "TYPE_RID":            name = "resourceIdentifier"
+            case "TYPE_NODE_PATH":      name = "nodePath"
+    		case "TYPE_ARRAY":          name = "list"
+    		case "TYPE_DICTIONARY":     name = "map"
+            case "TYPE_OBJECT":         name = "delegate"
+            case "TYPE_RAW_ARRAY":      name = "uint8Array"
+    		case "TYPE_INT_ARRAY":      name = "int32Array"
+            case "TYPE_REAL_ARRAY":     name = "float32Array"
+            case "TYPE_VECTOR2_ARRAY":  name = "vector2Array"
+            case "TYPE_VECTOR3_ARRAY":  name = "vector3Array"
+            case "TYPE_COLOR_ARRAY":    name = "vector4Array"
+    		case "TYPE_STRING_ARRAY":   name = "stringArray"
+            default: return nil
+            }
+            return (name, $0.value)
+        }
+        .sorted 
+        {
+            $0.code < $1.code
+        }
         
         return Source.fragment 
         {
             "extension Godot"
             Source.block 
             {
+                "struct VariantType:Hashable"
+                Source.block 
+                {
+                    """
+                    let value:Int
+                    
+                    static 
+                    let \(variants.map 
+                    {
+                        "\($0.name):Self = .init(value: \($0.code))"
+                    }.joined(separator: ",\n    "))
+                    """
+                }
                 "enum Error:Swift.Error"
                 Source.block 
                 {
@@ -1054,11 +1119,11 @@ extension Godot
             "extension Godot.Error"
             Source.block 
             {
-                "init(code:Int)"
+                "init(value:Int)"
                 Source.block 
                 {
                     """
-                    switch code
+                    switch value
                     {
                     """
                     for (name, code):(Words, Int) in errors 
@@ -1072,6 +1137,25 @@ extension Godot
                     }
                     """
                 }
+                
+                "var value:Int"
+                Source.block 
+                {
+                    """
+                    switch self 
+                    {
+                    """
+                    for (name, code):(Words, Int) in errors 
+                    {
+                        """
+                        case .\(name.camelcased): return \(code)
+                        """
+                    }
+                    """
+                    case .unknown(code: let code): return code
+                    }
+                    """
+                }
             }
         }
     }
@@ -1080,7 +1164,7 @@ extension Godot
     static 
     var swift:String
     {
-        let descriptors:[String: Class] = Self.loadAPIDescription()
+        let descriptors:[String: Class] = Self.loadAPIDescription(version: (3, 3, 0))
         let root:Class.Node             = Self.tree(descriptors: descriptors)
         // `withExtendedLifetime` is important because properties hold `unowned`
         //  references to upstream nodes 
@@ -1112,33 +1196,33 @@ extension Godot
         
         Source.section(name: "raw.swift.part")
         {
-            for (name, unpacked):(String, String) in 
+            for (name, type, unpacked):(String, String, String) in 
             [
-                ("vector2",         "Vector2<Float32>"), 
-                ("vector3",         "Vector3<Float32>"), 
-                ("color",           "Vector4<Float32>"), 
-                ("quat",            "Quaternion<Float32>"), 
-                ("plane",           "Godot.Plane3<Float32>"), 
-                ("rect2",           "Vector2<Float32>.Rectangle"), 
-                ("aabb",            "Vector3<Float32>.Rectangle"), 
-                ("transform2d",     "Godot.Transform2<Float32>.Affine"), 
-                ("transform",       "Godot.Transform3<Float32>.Affine"), 
-                ("basis",           "Godot.Transform3<Float32>.Linear"), 
-                ("rid",             "Godot.ResourceIdentifier"), 
+                ("vector2",         "vector2",              "Vector2<Float32>"), 
+                ("vector3",         "vector3",              "Vector3<Float32>"), 
+                ("color",           "vector4",              "Vector4<Float32>"), 
+                ("quat",            "quaternion",           "Quaternion<Float32>"), 
+                ("plane",           "plane3",               "Godot.Plane3<Float32>"), 
+                ("rect2",           "rectangle2",           "Vector2<Float32>.Rectangle"), 
+                ("aabb",            "rectangle3",           "Vector3<Float32>.Rectangle"), 
+                ("transform2d",     "affine2",              "Godot.Transform2<Float32>.Affine"), 
+                ("transform",       "affine3",              "Godot.Transform3<Float32>.Affine"), 
+                ("basis",           "linear3",              "Godot.Transform3<Float32>.Linear"), 
+                ("rid",             "resourceIdentifier",   "Godot.ResourceIdentifier"), 
             ]
             {
                 """
                 extension godot_\(name):Godot.RawValue 
                 {
                     static 
-                    var variantCode:godot_variant_type 
+                    var variantType:Godot.VariantType 
                     {
-                        GODOT_VARIANT_TYPE_\(name.uppercased())
+                        .\(type)
                     }
                     static 
                     func unpacked(variant:Godot.Variant.Unmanaged) -> \(unpacked)? 
                     {
-                        variant.load(where: Self.variantCode)
+                        variant.load(where: Self.variantType)
                         {
                             Godot.api.1.0.godot_variant_as_\(name)($0).unpacked
                         } 
@@ -1154,16 +1238,19 @@ extension Godot
                 }
                 """
             }
-            for name:String in 
+            for (name, type):(String, String) in 
             [
-                "node_path", "string", "array", "dictionary", 
-                "pool_byte_array", 
-                "pool_int_array",
-                "pool_real_array",
-                "pool_string_array",
-                "pool_vector2_array",
-                "pool_vector3_array",
-                "pool_color_array",
+                ("node_path",           "nodePath"), 
+                ("string",              "string"), 
+                ("array",               "list"), 
+                ("dictionary",          "map"), 
+                ("pool_byte_array",     "uint8Array"), 
+                ("pool_int_array",      "int32Array"),
+                ("pool_real_array",     "float32Array"),
+                ("pool_string_array",   "stringArray"),
+                ("pool_vector2_array",  "vector2Array"),
+                ("pool_vector3_array",  "vector3Array"),
+                ("pool_color_array",    "vector4Array"),
             ]
             {
                 """
@@ -1176,9 +1263,9 @@ extension Godot
                     }
                     
                     static 
-                    var variantCode:godot_variant_type 
+                    var variantType:Godot.VariantType 
                     {
-                        GODOT_VARIANT_TYPE_\(name.uppercased())
+                        .\(type)
                     }
                 }
                 """
@@ -1213,7 +1300,7 @@ extension Godot
                     static 
                     func downcast(array value:Godot.Variant.Unmanaged) -> RawArrayReference?
                     {
-                        value.load(where: RawArrayReference.variantCode, 
+                        value.load(where: RawArrayReference.variantType, 
                             Godot.api.1.0.godot_variant_as_\(array))
                     }
                     static 
@@ -2026,7 +2113,7 @@ extension Godot.Class.Node
                         Source.block 
                         {
                             """
-                            let value:Int64
+                            let value:Int
                             
                             static 
                             let \(enumeration.cases.map 
@@ -2058,20 +2145,12 @@ extension Godot.Class.Node.Property
 {
     func define(as name:String) -> String 
     {
-        let ((_, parameterization), generics, constraints):
+        let (parameterization, generics, constraints):
         (
-            (
-                body:[Godot.SwiftType.Parameterized], 
-                tail:Godot.SwiftType.Parameterized
-            ), 
-            [String], 
-            [String]
+            Godot.SwiftType.Parameterized, [String], [String]
         ) 
         = 
-        Godot.SwiftType.parameterize(([], self.type.type))
-        {
-            "T\($0)"
-        }
+        self.type.swift.parameterized(as: "T")
         
         let getter:String = 
             """
@@ -2201,56 +2280,92 @@ extension Godot.Class.Node.Method
 {
     func define(as name:String, in host:Words) -> String 
     {
-        let (parameterization, generics, constraints):
+        let modifiers:[String] = 
+        (self.is.final    ? ["final"]    : []) 
+        + 
+        (self.is.override ? ["override"] : [])
+        
+        let types:[Godot.Class.Node.KnownType]
+        switch self.result 
+        {
+        case .thrown:
+            types = self.parameters.map(\.type) 
+        case .returned(let type):
+            types = self.parameters.map(\.type) + [type]
+        }
+        
+        let (parameterized, generics, constraints):
         (
-            (
-                body:[Godot.SwiftType.Parameterized], 
-                tail:Godot.SwiftType.Parameterized
-            ), 
-            [String], 
-            [String]
-        ) 
+            [Godot.SwiftType.Parameterized], [String], [String]
+        )
         = 
-        Godot.SwiftType.parameterize((self.parameters.map(\.type.type), self.return.type))
+        Godot.SwiftType.parameterize(types.map(\.swift))
         {
             "T\($0)"
         }
         
-        let modifiers:[String] = (self.is.final ? ["final"] : []) + (self.is.override ? ["override"] : [])
         let arguments:[(label:String, name:String, type:Godot.SwiftType.Parameterized)] = 
-            zip(self.parameters.map(\.label), parameterization.body).enumerated().map
+            zip(self.parameters.map(\.label), parameterized)
+            .enumerated()
+            .map
+            {
+                ($0.1.0, "t\($0.0)", $0.1.1)
+            }
+        
+        let expressions:[String] = ["self: self"] + arguments.map 
         {
-            ($0.1.0, "t\($0.0)", $0.1.1)
+            $0.type.expression(argument: $0.name)
         }
+        let signature:(generics:String, domain:String) = 
+        (
+            Source.inline(angled: generics, else: ""), 
+            Source.inline(list: arguments.map{ "\($0.label) \($0.name):\($0.type.outer)" })
+        )
         return Source.fragment 
         {
             if !modifiers.isEmpty
             {
                 modifiers.joined(separator: " ")
             }
-            """
-            func \(name)\(Source.inline(angled: generics, else: ""))\
-            \(Source.inline(list: arguments.map{ "\($0.label) \($0.name):\($0.type.outer)" })) \
-            -> \(parameterization.tail.outer) \(Source.constraints(constraints))
-            """
-            Source.block 
+            if      case .thrown = self.result 
             {
-                let expressions:[String] = ["self: self"] + arguments.map 
+                """
+                func \(name)\(signature.generics)\(signature.domain) throws \
+                \(Source.constraints(constraints))
                 {
-                    $0.type.expression(argument: $0.name)
+                    let status:Int64 = \(host).\(name)\(Source.inline(list: expressions))
+                    guard status == 0 
+                    else 
+                    {
+                        throw Godot.Error.init(code: Int.init(status))
+                    }
                 }
-                if case .concrete(type: "()") = parameterization.tail 
+                """
+            }
+            else if case .concrete(type: "()")?             = parameterized.last 
+            {
+                """
+                func \(name)\(signature.generics)\(signature.domain) \
+                \(Source.constraints(constraints))
                 {
-                    "\(host).\(name)\(Source.inline(list: expressions))"
+                    \(host).\(name)\(Source.inline(list: expressions))
                 }
-                else 
+                """
+            }
+            else if let tail:Godot.SwiftType.Parameterized  = parameterized.last
+            {
+                """
+                func \(name)\(signature.generics)\(signature.domain) -> \(tail.outer) \
+                \(Source.constraints(constraints))
                 {
-                    """
-                    let result:\(parameterization.tail.inner) = 
-                        \(host).\(name)\(Source.inline(list: expressions))
-                    return \(parameterization.tail.expression(result: "result"))
-                    """ 
+                    let result:\(tail.inner) = \(host).\(name)\(Source.inline(list: expressions))
+                    return \(tail.expression(result: "result"))
                 }
+                """
+            }
+            else 
+            {
+                let _ = fatalError("unreachable")
             }
         }
     } 
@@ -2325,7 +2440,7 @@ extension Godot.SwiftType.Parameterized
         case .narrowed(type: let type, outer: _, constraints: _):
             return "\(type).init(\(argument))"
         case .enumeration:
-            return "\(argument).value"
+            return "Int64.init(\(argument).value)"
         case .variant:
             return "Godot.VariantExistential.init(variant: \(argument))"
         }
@@ -2339,7 +2454,7 @@ extension Godot.SwiftType.Parameterized
         case .narrowed      (type: _, outer: let type, constraints: _):
             return "\(type).init(\(       result))"
         case .enumeration   (type: let type):
-            return "\(type).init(value: \(result))"
+            return "\(type).init(value: Int.init(\(result)))"
         case .variant:
             return "\(result).variant"
         }
@@ -2348,27 +2463,37 @@ extension Godot.SwiftType.Parameterized
 extension Godot.SwiftType 
 {
     static 
-    func parameterize(_ types:(body:[Self], tail:Self), parameter:(Int) -> String) 
+    func parameterize(_ types:[Self], parameter:(Int) -> String) 
         -> 
         (
-            parameterized:(body:[Parameterized], tail:Parameterized), 
+            types:[Parameterized], 
             generics:[String],
             constraints:[String]
         ) 
     {
         var counter:Int = 0
-        var body:[Parameterized] = []
-        for type:Self in types.body 
+        var parameterized:[Parameterized] = []
+        for type:Self in types 
         {
-            body.append(type.parameterized(counter: &counter, parameter: parameter))
+            parameterized.append(type.parameterized(counter: &counter, parameter: parameter))
         }
-        let tail:Parameterized = types.tail.parameterized(counter: &counter, parameter: parameter)
-        return 
-            (
-                (body, tail), 
-                (0 ..< counter).map(parameter),
-                (body + [tail]).compactMap(\.constraints) 
-            )
+        return (parameterized, (0 ..< counter).map(parameter), parameterized.compactMap(\.constraints))
+    }
+    
+    func parameterized(as parameter:String) 
+        -> 
+        (
+            type:Parameterized, 
+            generics:[String],
+            constraints:[String]
+        ) 
+    {
+        var counter:Int = 0
+        let parameterized:Parameterized = self.parameterized(counter: &counter)
+        {
+            _ in parameter
+        }
+        return (parameterized, counter == 0 ? [] : [parameter], parameterized.constraints.map{ [$0] } ?? [])
     }
     
     private 
@@ -2398,7 +2523,7 @@ extension Godot.SwiftType
 }
 extension Godot.Class.Node.KnownType 
 {
-    var type:Godot.SwiftType
+    var swift:Godot.SwiftType
     {
         switch self 
         {

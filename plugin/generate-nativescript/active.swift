@@ -505,16 +505,16 @@ extension Synthesizer.Form
         }
     }
     
-    var variantCode:String 
+    var variantType:String 
     {
         switch self 
         {
         case .scalar(type: let type):
-            return "\(type).variantCode"
+            return "\(type).variantType"
         case .void: 
-            return "GODOT_VARIANT_TYPE_NIL"
+            return ".void"
         case .tuple:
-            return "GODOT_VARIANT_TYPE_ARRAY"
+            return ".list"
         }
     }
     
@@ -765,7 +765,7 @@ extension Synthesizer.FunctionParameterization
                         for type:Synthesizer.Form in self.domain.map(\.type)
                         {
                             """
-                            Godot.Annotations.Argument.init(label: "", type: \(type.variantCode)), 
+                            Godot.Annotations.Argument.init(label: "", type: \(type.variantType)), 
                             """
                         }
                     }

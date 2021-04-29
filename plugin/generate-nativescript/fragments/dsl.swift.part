@@ -137,7 +137,7 @@ func <- <T, Value>(property:KeyPath<T, Value>, symbol:String)
 {
     (
         symbol:         symbol, 
-        annotations:   .init(type: Value.variantCode), 
+        annotations:   .init(type: Value.variantType), 
         witness: 
         (
             get: 
@@ -161,7 +161,7 @@ func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String)
 {
     (
         symbol:         symbol, 
-        annotations:   .init(type: Value.variantCode), 
+        annotations:   .init(type: Value.variantType), 
         witness: 
         (
             get: 
@@ -194,7 +194,7 @@ func <- <T, U>(accessor:KeyPath<T, U>, label:String)
     where U:Godot.VariantRepresentable
 {
     (
-        annotations: .init(label: label, type: U.variantCode), 
+        annotations: .init(label: label, type: U.variantType), 
         witness: 
         {
             (value:T) -> Godot.Variant.Unmanaged in

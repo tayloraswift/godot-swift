@@ -30,7 +30,8 @@ let package = Package(
             [
                 "fragments/",
                 "gyb/.sections/",
-                "gyb/godot-api.json",
+                "gyb/api@3.2.3.json",
+                "gyb/api@3.3.0.json",
             ]),
 
         .target(name: "GDNativeHeaders", dependencies: [],
