@@ -29,7 +29,7 @@ let package = Package(
             exclude: 
             [
                 "fragments/",
-                "gyb/.sections/",
+                ".gyb/",
                 "gyb/api@3.2.3.json",
                 "gyb/api@3.3.0.json",
             ]),

@@ -122,11 +122,100 @@ enum Godot
     }
 }
 
-struct Words:Equatable, CustomStringConvertible
+struct Words:Comparable, CustomStringConvertible
 {
+    enum Normalization 
+    {
+        typealias Patterns = [String: (tail:[String], normalized:[String])] 
+        
+        static 
+        let general:Patterns = 
+        [
+            "Anti"      : (["Aliasing"],    ["Antialiasing"]),
+            "Counter"   : (["Clockwise"],   ["Counterclockwise"]),
+            "Ycbcr"     : (["Sep"],         ["Ycbcr", "Separate"]),
+            "Hi"        : (["Limit"],       ["High", "Limit"]),
+            "Lo"        : (["Limit"],       ["Low", "Limit"]),
+            "Get"       : (["Var"],         ["Get", "Variant"]),
+            "Put"       : (["Var"],         ["Put", "Variant"]),
+            "Local"     : (["Var"],         ["Local", "Variable"]),
+            "Var"       : (["Name"],        ["Variable", "Name"]),
+            
+            "Accel"     : ([], ["Acceleration"]),
+            "Anim"      : ([], ["Animation"]),
+            "Arg"       : ([], ["Argument"]),
+            "Assign"    : ([], ["Assignment"]),
+            "Brothers"  : ([], ["Siblings"]),
+            "Char"      : ([], ["Character"]),
+            "Coord"     : ([], ["Coordinate"]),
+            "Coords"    : ([], ["Coordinates"]),
+            "Dest"      : ([], ["Destination"]),
+            "Dir"       : ([], ["Directory"]),
+            "Dirs"      : ([], ["Directories"]),
+            "Elem"      : ([], ["Element"]),
+            "Env"       : ([], ["Environment"]),
+            "Expo"      : ([], ["Exponential"]),
+            "Fract"     : ([], ["Fractional"]),
+            "Func"      : ([], ["Function"]),
+            "Funcv"     : ([], ["Functionv"]),
+            "Idx"       : ([], ["Index"]),
+            "Interp"    : ([], ["Interpolation"]),
+            "Jpg"       : ([], ["Jpeg"]),
+            "Len"       : ([], ["Length"]),
+            "Lib"       : ([], ["Library"]),
+            //"Mult"      : ([], ["Multiply"]),
+            "Maximum"   : ([], ["Max"]),
+            "Minimum"   : ([], ["Min"]),
+            "Mem"       : ([], ["Memory"]),
+            "Mul"       : ([], ["Multiply"]),
+            "Op"        : ([], ["Operator"]),
+            "Param"     : ([], ["Parameter"]),
+            "Poly"      : ([], ["Polygon"]),
+            "Pos"       : ([], ["Position"]),
+            "Premult"   : ([], ["Premultiply"]),
+            "Rect"      : ([], ["Rectangle"]),
+            "Ref"       : ([], ["Reference"]),
+            "Regen"     : ([], ["Regenerate"]),
+            "Subdiv"    : ([], ["Subdivision"]),
+            //"Sub"       : ([], ["Subtract"]),
+            "Tex"       : ([], ["Texture"]),
+            "Vec"       : ([], ["Vector"]),
+            "Verts"     : ([], ["Vertices"]),
+            
+            "Areaangular"   : ([], ["Area", "Angular"]),
+            "Fadein"        : ([], ["Fade", "In"]),
+            "Fadeout"       : ([], ["Fade", "Out"]),
+            "Minsize"       : ([], ["Min", "Size"]),
+            "Maxsize"       : ([], ["Max", "Size"]),
+            "Navpoly"       : ([], ["Navigation", "Polygon"]),
+            "Rid"           : ([], ["Resource", "Identifier"]),
+            "Texid"         : ([], ["Texture", "Id"]),
+        ]
+        static 
+        let constants:Patterns = 
+        [
+            "Kp"        : ([], ["Keypad"]),
+            "Xbutton1"  : ([], ["Back"]),
+            "Xbutton2"  : ([], ["Forward"]),
+            "Exp"       : ([], ["Exponential"]),
+            "Enum"      : ([], ["Enumeration"]),
+            "Accel"     : ([], ["Acceleration"]),
+            "Dir"       : ([], ["Directory"]),
+            "Concat"    : ([], ["Concatenation"]),
+            "Intl"      : ([], ["Internationalized"]),
+            "Noeditor"  : ([], ["No", "Editor"]),
+            "Noscript"  : ([], ["No", "Script"]),
+        ]
+    }
+    
     private 
     var components:[String]
-    //let original:String
+    
+    static 
+    func < (lhs:Self, rhs:Self) -> Bool 
+    {
+        "\(lhs)" < "\(rhs)"
+    }
     
     // symbol name mappings 
     static 
@@ -142,10 +231,8 @@ struct Words:Equatable, CustomStringConvertible
         case let original:      reconciled = original 
         }
         
-        var words:Self = .split(pascal: reconciled)
-        words.normalize()
-        
-        return words 
+        return Self.split(pascal: reconciled)
+            .normalized(patterns: Normalization.general) 
     }
     static 
     func name(enumeration original:String, scope:Words) -> Self
@@ -159,19 +246,9 @@ struct Words:Equatable, CustomStringConvertible
         case let (_, original):         reconciled = original
         }
         
-        var words:Self = .split(pascal: reconciled)
-        words.normalize()
-        words.factor(out: scope)
-        
-        return words
-    }
-    static 
-    func name(constant original:String, scope:Words) -> Self
-    {
-        var words:Self = .split(snake: original)
-        words.normalize()
-        words.factor(out: scope)
-        return words
+        return Self.split(pascal: reconciled)
+            .normalized(patterns: Normalization.general)
+            .factoring(out: scope, forbidding: [[], ["Type"]])
     }
     
     static 
@@ -190,7 +267,14 @@ struct Words:Equatable, CustomStringConvertible
             // remove internal underscores (keep leading underscores)
             if character == "_", !word.isEmpty
             {
-                words.append(word)
+                if word.isEmpty 
+                {
+                    words.append("_")
+                }
+                else 
+                {
+                    words.append(word)
+                }
                 word = ""
             }
             else 
@@ -231,9 +315,9 @@ struct Words:Equatable, CustomStringConvertible
             }
         }
         // preserve leading underscore if present 
-        if let head:String = components.first, snake.prefix(1) == "_" 
+        if snake.prefix(1) == "_" 
         {
-            return .init(components: ["_\(head)"] + components.dropFirst())
+            return .init(components: ["_"] + components)
         }
         else 
         {
@@ -242,67 +326,57 @@ struct Words:Equatable, CustomStringConvertible
     }
     
     // expands unswifty abbreviations, and fix some strange spellings 
-    mutating 
-    func normalize() 
+    func normalized(patterns:Normalization.Patterns) -> Self
     {
-        for i:Int in self.components.indices.dropLast() 
+        var components:[String] = []
+        var i:Int               = self.components.startIndex 
+        while i < self.components.endIndex 
         {
-            if self.components[i ..< i + 2] == ["Counter", "Clockwise"] 
+            let original:String = self.components[i]
+            
+            i += 1
+            
+            if  let pattern:(tail:[String], normalized:[String]) = patterns[original], 
+                self.components.dropFirst(i).prefix(pattern.tail.count) == pattern.tail[...]
             {
-                self.components[i    ] = "Counterclockwise"
-                self.components[i + 1] = ""
+                components.append(contentsOf: pattern.normalized)
+                i += pattern.tail.count
+            }
+            else 
+            {
+                components.append(original)
             }
         }
-        self.components = self.components.compactMap 
-        {
-            switch $0 
-            {
-            case "":        return  nil
-            case "Func":    return "Function"
-            case "Op":      return "Operator"
-            case "Len":     return "Length"
-            case "Interp":  return "Interpolation"
-            case "Mult":    return "Multiplication"
-            case "Param":   return "Parameter"
-            case "Poly":    return "Polygon"
-            case "Assign":  return "Assignment"
-            case "Ref":     return "Reference"
-            case "Lib":     return "Library"
-            case "Mem":     return "Memory"
-            case "Tex":     return "Texture"
-            case "Subdiv":  return "Subdivision"
-            case "Accel":   return "Acceleration"
-            case "Anim":    return "Animation"
-            case "Expo":    return "Exponential"
-            case let word:  return word
-            }
-        }
+        
+        return .init(components: components)
     }
     // strips meaningless prefixes
-    mutating 
-    func factor(out other:Self) 
+    func factoring(out other:Self, forbidding forbidden:[[String]] = [[]]) 
+        -> Self
     {
         // most nested types have the form 
         // scope:   'Foo' 'Bar' 'Baz' 
         // nested:        'Bar' 'Baz' 'Qux'
         // 
         // we want to reduce it to just 'Qux'
-        for i:Int in (0 ... min(self.components.count - 1, other.components.count)).reversed()
+        outer:
+        for i:Int in (0 ... min(self.components.count, other.components.count)).reversed()
+            where other.components.suffix(i) == self.components.prefix(i)
         {
-            // do not factor if it would result in the identifier 'Type', or 
-            // an identifier that would begin with a numeral 
-            if  self.components.prefix(i)    == other.components.suffix(i), 
-                self.components.dropFirst(i) != ["Type"]
+            let candidate:[String] = .init(self.components.dropFirst(i))
+            // do not factor if it would result in an identifier beginning with a numeral 
+            if let first:Character = candidate.first?.first, first.isNumber
             {
-                if self.components.dropFirst(i).first?.first?.isNumber ?? true
-                {
-                    continue 
-                }
-                
-                self.components.removeFirst(i)
-                return 
+                continue outer 
             }
+            for forbidden:[String] in forbidden where candidate == forbidden
+            {
+                continue outer 
+            }
+            
+            return .init(components: candidate.isEmpty ? ["_"] : candidate)
         }
+        return self
     }
     
     static 
@@ -343,7 +417,7 @@ struct Words:Equatable, CustomStringConvertible
                 case    "func":            
                     normalized = "function"
                 case    "continue", "class", "default", "in", "import", 
-                        "operator", "repeat", "self", "static":  
+                        "operator", "repeat", "self", "static", "var":  
                     normalized = "`\(head)`"
                 case let head: 
                     normalized = head 
@@ -353,7 +427,16 @@ struct Words:Equatable, CustomStringConvertible
             {
                 normalized = head 
             }
-            return "\(normalized)\(self.components.dropFirst().joined())"
+            // if first component is underscore, lowercase the second component too
+            if  normalized == "_", 
+                let second:String = self.components.dropFirst().first?.lowercased()
+            {
+                return "\(normalized)\(second)\(self.components.dropFirst(2).joined())"
+            }
+            else 
+            {
+                return "\(normalized)\(self.components.dropFirst().joined())"
+            }
         }
         else 
         {
@@ -418,6 +501,16 @@ extension Godot.Class
             }
         }
         
+        struct Constant 
+        {
+            struct Key:Hashable 
+            {
+                let symbol:String 
+            }
+            
+            let name:Words 
+            let value:Int
+        }
         struct Property 
         {
             struct Key:Hashable 
@@ -425,7 +518,8 @@ extension Godot.Class
                 let symbol:String 
                 var name:Words 
                 {
-                    .split(snake: self.symbol)
+                    Words.split(snake: self.symbol)
+                        .normalized(patterns: Words.Normalization.general) 
                 }
             }
             
@@ -450,7 +544,8 @@ extension Godot.Class
                 let symbol:String 
                 var name:Words 
                 {
-                    .split(snake: self.symbol)
+                    Words.split(snake: self.symbol)
+                        .normalized(patterns: Words.Normalization.general) 
                 }
             }
             enum Result:Equatable 
@@ -484,15 +579,16 @@ extension Godot.Class
         
         // members 
         let enumerations:[Enumeration]
-        let constants:[(name:Words, value:Int)]
         private(set)
-        var properties:[Property.Key: Property], 
-            methods:[Method.Key: Method] 
+        var constants:[Constant.Key: Constant], 
+            properties:[Property.Key: Property], 
+            methods:[Method.Key: Method]
         
         // member descriptors
         private 
         var unresolved:
         (
+            constants:[String: Int],
             properties:[Godot.Class.Property],
             functions:[Godot.Class.Method]
         )
@@ -532,41 +628,39 @@ extension Godot.Class
             {
                 (enumeration:Godot.Class.Enumeration) in 
                 
-                var cases:[(name:Words, rawValue:Int)] = enumeration.cases.map 
+                let unfactored:[(name:Words, rawValue:Int)] = enumeration.cases.map 
                 {
-                    var name:Words = .split(snake: $0.key)
-                    name.normalize()
-                    return (name, $0.value)
+                    (
+                        Words.split(snake: $0.key)
+                            .normalized(patterns: Words.Normalization.general), 
+                        $0.value
+                    )
+                }
+                let prefix:Words = .greatestCommonPrefix(among: unfactored.map(\.name))
+                let cases:[(name:Words, rawValue:Int)] = unfactored.map 
+                {
+                    ($0.name.factoring(out: prefix), $0.rawValue)
                 }
                 .sorted 
                 {
-                    $0.rawValue < $1.rawValue
+                    // it is not enough to sort by raw value, since there are 
+                    // multipel cases with the same raw value 
+                    $0 < $1
                 }
-                let prefix:Words    = .greatestCommonPrefix(among: cases.map(\.name))
-                for i:Int in cases.indices 
-                {
-                    cases[i].name.factor(out: prefix)
-                }
+                
                 return .init(symbol: enumeration.name, 
                     name: .name(enumeration: enumeration.name, scope: name), 
                     cases: cases)
             }
-            self.constants = descriptor.constants.map 
-            {
-                (.name(constant: $0.key, scope: name), $0.value)
-            }
-            .sorted 
-            {
-                $0.name.camelcased < $1.name.camelcased
-            }
             
             self.namespace  = namespace 
             self.name       = name 
+            self.constants  = [:]
             self.properties = [:]
             self.methods    = [:]
-            
             self.unresolved = 
             (
+                constants:  descriptor.constants,
                 properties: descriptor.properties, 
                 functions:  descriptor.methods
             )
@@ -628,7 +722,10 @@ extension Godot.Class.Node
             "PoolColorArray"    :   .vector4Array,
             
             "Variant"           :   .variant,
-            "enum.Variant::Type":   .enumeration("Godot.VariantType"),
+            
+            "enum.Error"                :   .enumeration("Godot.Error"),
+            "enum.Variant::Type"        :   .enumeration("Godot.VariantType"),
+            "enum.Variant::Operator"    :   .enumeration("Godot.VariantOperator"),
         ]
         
         for node:Godot.Class.Node in self.preorder
@@ -664,8 +761,10 @@ extension Godot.Class.Node
         {
             var description:String 
             {
-                "Godot::\(self.symbol)::\(method.name)"
+                "method 'Godot::\(self.symbol)::\(method.name)'"
             }
+            
+            let key:Method.Key = .init(symbol: method.name)
             
             var parameters:[(label:String, type:KnownType)] = []
             for argument:Godot.Class.Argument in method.arguments
@@ -673,7 +772,7 @@ extension Godot.Class.Node
                 guard let type:KnownType = types[argument.type]
                 else 
                 {
-                    print("skipping method '\(description)' (unknown parameter type: \(argument.type))")
+                    print("skipping \(description) (unknown parameter type: \(argument.type))")
                     continue outer 
                 }
                 
@@ -686,13 +785,19 @@ extension Godot.Class.Node
                 }
                 else 
                 {
-                    label = Words.split(snake: argument.name).camelcased 
+                    // allow empty labels
+                    label = Words.split(snake: argument.name)
+                        .normalized(patterns: Words.Normalization.general)
+                        .factoring(out: key.name, forbidding: [])
+                        .camelcased 
                 }
                 parameters.append((label, type))
             }
             
             let result:Method.Result 
-            if  method.return == "enum.Error"
+            if  method.return == "enum.Error", 
+                method.name   != "get_error",
+                method.name   != "set_error"
             {
                 result = .thrown
             }
@@ -702,13 +807,13 @@ extension Godot.Class.Node
             }
             else 
             {
-                print("skipping method '\(description)' (unknown return type: \(method.return))")
+                print("skipping \(description) (unknown return type: \(method.return))")
                 continue outer 
             }
             
             var method:(key:Method.Key, value:Method) = 
             (
-                .init(symbol: method.name), 
+                key, 
                 .init(parameters: parameters, result: result, 
                     is: (final: true, override: false, hidden: false))
             )
@@ -717,7 +822,8 @@ extension Godot.Class.Node
             while let superclass:Godot.Class.Node = current.parent 
             {
                 if let overridden:Dictionary<Method.Key, Method>.Index = 
-                    superclass.methods.index(forKey: method.key)
+                    superclass.methods.index(forKey: method.key), 
+                    !superclass.methods.values[overridden].is.hidden 
                 {
                     // note: 
                     // -    the *return* type of an overriding method must be a 
@@ -742,7 +848,7 @@ extension Godot.Class.Node
             guard self.methods.updateValue(method.value, forKey: method.key) == nil 
             else 
             {
-                fatalError("duplicate method '\(description)'")
+                fatalError("duplicate \(description)")
             }
         }
         
@@ -891,7 +997,7 @@ extension Godot.Class.Node
                     guard property.value.type == superclass.properties.values[overridden].type
                     else 
                     {
-                        print("skipping property '\(description)' (mismatched override signature)")
+                        print("skipping \(description) (mismatched override signature)")
                         continue outer 
                     }
                     
@@ -905,7 +1011,52 @@ extension Godot.Class.Node
             guard self.properties.updateValue(property.value, forKey: property.key) == nil 
             else 
             {
-                fatalError("duplicate property '\(description)'")
+                fatalError("duplicate \(description)")
+            }
+        } 
+        
+        // only include constants that do not override superclass constants 
+        outer:
+        for (symbol, value):(String, Int) in self.unresolved.constants
+        {
+            var description:String 
+            {
+                "constant 'Godot::\(self.symbol)::\(symbol)'"
+            }
+            
+            // ignore `FLAG_MAX` constants, they are useless, and cause name collisions 
+            switch symbol 
+            {
+            case "FLAG_MAX":    continue outer 
+            default:            break 
+            }
+            
+            let key:Constant.Key = .init(symbol: symbol)
+            
+            var current:Godot.Class.Node = self 
+            while let superclass:Godot.Class.Node = current.parent  
+            {
+                if let overridden:Int = superclass.constants[key]?.value 
+                {
+                    guard overridden == value 
+                    else 
+                    {
+                        fatalError("\(description) overrides superclass constant with different value")
+                    }
+                    
+                    continue outer 
+                }
+                
+                current = superclass
+            }
+            
+            let name:Words = Words.split(snake: symbol)
+                .normalized(patterns: Words.Normalization.general)
+                .factoring(out: self.name)
+            guard self.constants.updateValue(.init(name: name, value: value), forKey: key) == nil 
+            else 
+            {
+                fatalError("duplicate \(description)")
             }
         } 
         
@@ -995,8 +1146,16 @@ extension Godot
         }
         // sort to provide stability in generated code 
         for (node, parent):(Class.Node, String?) in nodes.values
-            .sorted(by: { "\($0.node.name)" < "\($1.node.name)" }) 
+            .sorted(by: { $0.node.name < $1.node.name }) 
         {
+            // ignore disabled classes 
+            // see: https://github.com/godotengine/godot-headers/issues/90
+            switch node.symbol 
+            {
+            case "RootMotionView":      continue 
+            default:                    break
+            } 
+            
             if let parent:String = parent
             {
                 guard let parent:Class.Node = nodes[parent]?.node
@@ -1019,32 +1178,135 @@ extension Godot
         
         return root
     }
+    
     private static 
     func constants(descriptors:[String: Class]) -> String
     {
-        guard let constants:[String: Int] = descriptors["GlobalConstants"]?.constants 
+        guard var constants:[String: Int] = descriptors["GlobalConstants"]?.constants 
         else 
         {
             fatalError("missing class descriptor for class 'Godot::GlobalConstants'")
         }
         
-        let errors:[(name:Words, code:Int)] = constants.compactMap 
+        let enumerations:
+        [
+            (name:String, prefix:String?, include:[(constant:String, as:String)])
+        ] 
+        =
+        [
+            ("Margin",              "MARGIN",           []),
+            ("Corner",              "CORNER",           []),
+            ("Orientation",         nil,                
+            [
+                ("VERTICAL",            "VERTICAL"), 
+                ("HORIZONTAL",          "HORIZONTAL")
+            ]),
+            ("HorizontalAlignment", "HALIGN",           []),
+            ("VerticalAlignment",   "VALIGN",           []),
+            // KEY_MASK is a colliding prefix, so it must come first
+            ("KeyMask",             "KEY_MASK",         
+            [
+                ("KEY_CODE_MASK",       "CODE_MASK"), 
+                ("KEY_MODIFIER_MASK",   "MODIFIER_MASK")
+            ]),
+            ("Key",                 "KEY",              []),
+            ("Mouse",               "BUTTON",           []),
+            ("Joystick",            "JOY",              []),
+            ("MidiMessage",         "MIDI_MESSAGE",     []),
+            ("PropertyHint",        "PROPERTY_HINT",    []),
+            ("PropertyUsage",       "PROPERTY_USAGE",   []),
+            ("MethodFlags",         "METHOD_FLAG",      
+            [
+                ("METHOD_FLAGS_DEFAULT", "DEFAULT")
+            ]),
+            
+            ("VariantOperator",     "OP",               []),
+            ("Error",               "ERR",              []),
+        ]
+        
+        // remove some constants we want to ignore 
+        constants["ERR_PRINTER_ON_FIRE"]    = nil
+        constants["TYPE_MAX"]               = nil
+        constants["OP_MAX"]                 = nil
+        constants["SPKEY"]                  = nil
+        
+        var groups:[String: [(name:Words, value:Int)]] = [:]
+        for (name, prefix, include):
+            (
+                String, 
+                String?, 
+                [(constant:String, as:String)]
+            ) 
+            in enumerations
         {
-            // ignore "printer on fire", it seems to be an april fools joke
-            if $0.key.prefix(4) == "ERR_", $0.key != "ERR_PRINTER_ON_FIRE"
+            var group:[(name:String, value:Int)] = []
+            for include:(constant:String, as:String) in include 
             {
-                return (.split(snake: .init($0.key.dropFirst(4))), $0.value)
+                guard let value:Int = constants.removeValue(forKey: include.constant)
+                else 
+                {
+                    fatalError("missing constant '\(include.constant)'")
+                }
+                group.append((include.as, value))
             }
-            else 
+            if let prefix:String = (prefix.map{ "\($0)_" }) 
             {
-                return nil 
+                for (constant, value):(String, Int) in constants 
+                {
+                    guard constant.starts(with: prefix) 
+                    else 
+                    {
+                        continue 
+                    }
+                    
+                    let name:String 
+                    switch String.init(constant.dropFirst(prefix.count))
+                    {
+                    case "0": name = "ZERO"
+                    case "1": name = "ONE"
+                    case "2": name = "TWO"
+                    case "3": name = "THREE"
+                    case "4": name = "FOUR"
+                    case "5": name = "FIVE"
+                    case "6": name = "SIX"
+                    case "7": name = "SEVEN"
+                    case "8": name = "EIGHT"
+                    case "9": name = "NINE"
+                    case let suffix: name = suffix
+                    }
+                    group.append((name, value))
+                    // remove the constant from the dictionary, so it won’t 
+                    // get picked up again
+                    constants[constant] = nil 
+                }
+            }
+            groups[name] = group
+            .map 
+            {
+                (
+                    Words.split(snake: $0.name)
+                        .normalized(patterns: Words.Normalization.constants), 
+                    $0.value
+                )
+            }
+            .sorted 
+            {
+                $0.name < $1.name
             }
         }
+        
+        // can use `!` because keys "Error", "VariantOperator" are written in `enumerations`
+        let errors:[(name:Words, value:Int)]        = groups.removeValue(forKey: "Error")!
         .sorted 
         {
-            $0.code < $1.code
+            $0 < $1
         }
-        let variants:[(name:String, code:Int)] = constants.compactMap 
+        let operators:[(name:String, value:Int)]    = groups.removeValue(forKey: "VariantOperator")!
+        .map 
+        {
+            ($0.name.camelcased, $0.value)
+        }
+        let variants:[(name:String, value:Int)]     = constants.compactMap 
         {
             let name:String
             switch $0.key 
@@ -1082,7 +1344,7 @@ extension Godot
         }
         .sorted 
         {
-            $0.code < $1.code
+            $0.value < $1.value
         }
         
         return Source.fragment 
@@ -1090,19 +1352,43 @@ extension Godot
             "extension Godot"
             Source.block 
             {
-                "struct VariantType:Hashable"
-                Source.block 
+                for (name, constants):(String, [(name:String, value:Int)]) in 
+                [
+                    ("VariantType",     variants),
+                    ("VariantOperator", operators),
+                ]
                 {
-                    """
-                    let value:Int
-                    
-                    static 
-                    let \(variants.map 
+                    "struct \(name):Hashable"
+                    Source.block 
                     {
-                        "\($0.name):Self = .init(value: \($0.code))"
-                    }.joined(separator: ",\n    "))
-                    """
+                        """
+                        let value:Int
+                        
+                        static 
+                        let \(constants.map 
+                        {
+                            "\($0.name):Self = .init(value: \($0.value))"
+                        }.joined(separator: ",\n    "))
+                        """
+                    }
                 }
+                
+                for (name, constants):(String, [(name:Words, value:Int)]) in 
+                    (groups.sorted{ $0.key < $1.key })
+                {
+                    "enum \(name)"
+                    Source.block 
+                    {
+                        """
+                        static 
+                        let \(constants.map 
+                        {
+                            "\($0.name.camelcased):Int = \($0.value)"
+                        }.joined(separator: ",\n    "))
+                        """
+                    }
+                }
+                
                 "enum Error:Swift.Error"
                 Source.block 
                 {
@@ -1110,9 +1396,9 @@ extension Godot
                     case unknown(code:Int)
                     
                     """
-                    for error:(name:Words, code:Int) in errors 
+                    for name:Words in errors.map(\.name)
                     {
-                        "case \(error.name.camelcased)"
+                        "case \(name.camelcased)"
                     }
                 }
             }
@@ -1168,11 +1454,13 @@ extension Godot
         let root:Class.Node             = Self.tree(descriptors: descriptors)
         // `withExtendedLifetime` is important because properties hold `unowned`
         //  references to upstream nodes 
-        let classes:[(node:Class.Node, definition:String)] = withExtendedLifetime(root)
+        let classes:[(node:Class.Node, functions:String?, definition:String)] = 
+            withExtendedLifetime(root)
         {
             root.preorder.compactMap
             {
-                switch $0.name 
+                ($0, $0.functions, $0.definition)
+                /* switch $0.name 
                 {
                 case    .split(pascal: "AnyDelegate"),
                         .split(pascal: "AnyObject"  ),
@@ -1185,7 +1473,12 @@ extension Godot
                     return ($0, $0.definition)
                 default:
                     return nil 
-                }
+                } */
+            }
+            .sorted 
+            {
+                // keeps the generated code stable
+                $0.node.name < $1.node.name
             }
         }
         
@@ -1847,9 +2140,41 @@ extension Godot
             }
         }
         
-        for (node, definition):(Class.Node, String) in classes
+        Source.section(name: "functions.swift.part")
         {
-            Source.section(name: "\(node.name).swift.part")
+            // cannot override static properties, so we need to store the 
+            // method bindings out-of-line
+            """
+            extension Godot
+            {
+                fileprivate 
+                enum Functions 
+                {
+                }
+            }
+            extension Godot.Functions
+            """
+            Source.block 
+            {
+                for (node, functions, _):(Class.Node, String?, String) in classes
+                {
+                    if let functions:String = functions 
+                    {
+                        """
+                        enum \(node.name)
+                        """
+                        Source.block 
+                        {
+                            functions
+                        }
+                    }
+                }
+            }
+        }
+        
+        for (node, _, definition):(Class.Node, String?, String) in classes
+        {
+            Source.section(name: "classes", "\(node.name).swift.part")
             {
                 definition 
             }
@@ -1952,19 +2277,50 @@ extension Godot
 
 extension Godot.Class.Node 
 {
+    var functions:String?
+    {
+        guard !self.methods.isEmpty
+        else 
+        {
+            return nil 
+        }
+        // sort to keep the generated code stable
+        let methods:[(key:Method.Key, value:Method)] = self.methods
+        .sorted 
+        {
+            $0.key.name < $1.key.name
+        }
+        return 
+            """
+            static 
+            let \(methods.map 
+            {
+                """
+                \($0.key.name.camelcased):Godot.Function = 
+                        Godot.Function.bind(method: "\($0.key.symbol)", from: \(self.namespace).\(self.name).self)
+                """
+            }.joined(separator: ",\n    "))
+            """
+    }
     var definition:String
     {
         // comma-separated `let` statements in a result builder 
-        // currently crashes the compiler
-        let properties:[(key:Property.Key, value:Property)]   = self.properties
+        // currently crashes the compiler. 
+        // sort to keep the generated code stable
+        let constants:[Constant] = self.constants.values
         .sorted 
         {
-            $0.key.name.camelcased < $1.key.name.camelcased
+            $0.name < $1.name
         }
-        let methods:[(key:Method.Key, value:Method)]          = self.methods
+        let properties:[(key:Property.Key, value:Property)] = self.properties
         .sorted 
         {
-            $0.key.name.camelcased < $1.key.name.camelcased
+            $0.key.name < $1.key.name
+        }
+        let methods:[(key:Method.Key, value:Method)]        = self.methods
+        .sorted 
+        {
+            $0.key.name < $1.key.name
         }
         
         return Source.fragment
@@ -2029,7 +2385,7 @@ extension Godot.Class.Node
                                 }
                             }
                             
-                            AnyDelegate.emitSignal(delegate: self, variants: variants)
+                            Godot.Functions.AnyDelegate.emitSignal(delegate: self, variants: variants)
                         }
                         """
                     }
@@ -2067,37 +2423,23 @@ extension Godot.Class.Node
                         final
                         func retain() -> Bool 
                         {
-                            Self.reference(self: self) 
+                            Godot.Functions.AnyObject.reference(self: self) 
                         }
                         @discardableResult
                         final
                         func release() -> Bool 
                         {
-                            Self.unreference(self: self) 
+                            Godot.Functions.AnyObject.unreference(self: self) 
                         }
                         """#
                     } 
                     
-                    if !methods.isEmpty
+                    if !constants.isEmpty 
                     {
                         """
                         
-                        private static 
-                        var \(methods.map 
-                        {
-                            """
-                            \($0.key.name.camelcased):Godot.Function = 
-                                    Godot.Function.bind(method: "\($0.key.symbol)", from: \(self.name).self)
-                            """
-                        }.joined(separator: ",\n    "))
-                        """
-                    }
-                    if !self.constants.isEmpty 
-                    {
-                        """
-                        
-                        private static 
-                        let \(self.constants.map 
+                        static 
+                        let \(constants.map 
                         {
                             "\($0.name.camelcased):Int = \($0.value)"
                         }.joined(separator: ",\n    "))
@@ -2126,7 +2468,7 @@ extension Godot.Class.Node
                     """
                     
                     """
-                    /* for (key, property):(Property.Key, Property) in properties
+                    for (key, property):(Property.Key, Property) in properties
                     {
                         property.define(as: key.name.camelcased)
                     } 
@@ -2135,7 +2477,7 @@ extension Godot.Class.Node
                         where !method.is.hidden
                     {
                         method.define(as: key.name.camelcased, in: self.name)
-                    }  */
+                    } 
                 }
             }
         } 
@@ -2154,16 +2496,14 @@ extension Godot.Class.Node.Property
         
         let getter:String = 
             """
-            \(self.get.node.namespace).\
-            \(self.get.node.name).\
-            \(self.get.node.methods[self.get.index].key.name)
+            Godot.Functions.\(self.get.node.name).\
+            \(self.get.node.methods[self.get.index].key.name.camelcased)
             """
         let setter:String? = self.set.map 
         {
             """
-            \($0.node.namespace).\
-            \($0.node.name).\
-            \($0.node.methods[$0.index].key.name)
+            Godot.Functions.\($0.node.name).\
+            \($0.node.methods[$0.index].key.name.camelcased)
             """
         }
         
@@ -2333,11 +2673,11 @@ extension Godot.Class.Node.Method
                 func \(name)\(signature.generics)\(signature.domain) throws \
                 \(Source.constraints(constraints))
                 {
-                    let status:Int64 = \(host).\(name)\(Source.inline(list: expressions))
+                    let status:Int64 = Godot.Functions.\(host).\(name)\(Source.inline(list: expressions))
                     guard status == 0 
                     else 
                     {
-                        throw Godot.Error.init(code: Int.init(status))
+                        throw Godot.Error.init(value: Int.init(status))
                     }
                 }
                 """
@@ -2348,7 +2688,7 @@ extension Godot.Class.Node.Method
                 func \(name)\(signature.generics)\(signature.domain) \
                 \(Source.constraints(constraints))
                 {
-                    \(host).\(name)\(Source.inline(list: expressions))
+                    Godot.Functions.\(host).\(name)\(Source.inline(list: expressions))
                 }
                 """
             }
@@ -2358,7 +2698,7 @@ extension Godot.Class.Node.Method
                 func \(name)\(signature.generics)\(signature.domain) -> \(tail.outer) \
                 \(Source.constraints(constraints))
                 {
-                    let result:\(tail.inner) = \(host).\(name)\(Source.inline(list: expressions))
+                    let result:\(tail.inner) = Godot.Functions.\(host).\(name)\(Source.inline(list: expressions))
                     return \(tail.expression(result: "result"))
                 }
                 """

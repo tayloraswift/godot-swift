@@ -132,8 +132,8 @@ extension Inspector
         }
         
         print(bold: "inspecting sub-build product '\(path.product.basename)'")
-        print("note: in directory '\(path.product.parentDirectory)'")
-        print("note: through entrypoint '\(Self.entrypoint)'")
+        print(note: "in directory '\(path.product.parentDirectory)'")
+        print(note: "through entrypoint '\(Self.entrypoint)'")
         
         let description:AnyObject = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
         guard let interfaces:[Interface] = description as? [Interface]

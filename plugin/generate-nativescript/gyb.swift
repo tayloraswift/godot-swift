@@ -98,11 +98,17 @@ enum Source
     }
     
     static 
-    func section(name:String, relativeTo caller:String = #filePath, 
-        @Code generator:() -> String) 
-        -> String 
+    func section(name:String..., @Code generator:() -> String) -> String 
     {
-        let directory:AbsolutePath  = .init(caller).parentDirectory.appending(component: ".sections") 
+        guard let file:String = name.last 
+        else 
+        {
+            fatalError("empty section name")
+        }
+        
+        let directory:AbsolutePath  = .init(#filePath).parentDirectory
+            .appending(component: ".gyb") 
+            .appending(components: name.dropLast())
         guard let _:Void            = try? TSCBasic.localFileSystem
             .createDirectory(directory, recursive: true)
         else 
@@ -110,7 +116,7 @@ enum Source
             fatalError("could not create directory '\(directory)'")
         }
         
-        return Self.generate(file: directory.appending(component: name), generator: generator)
+        return Self.generate(file: directory.appending(component: file), generator: generator)
     }
     
     @discardableResult
@@ -121,7 +127,7 @@ enum Source
         if file.extension != "part" 
         {
             print(bold: "generating file '\(file.basename)'")
-            print("note: in directory '\(file.parentDirectory)'")
+            print(note: "in directory '\(file.parentDirectory)'")
         }
         
         let code:String     = generator()
@@ -131,6 +137,10 @@ enum Source
             old == new 
         {
             return code 
+        }
+        else 
+        {
+            print(note: "file '\(file.basename)' changed, recompiling")
         }
         
         guard let _:Void = 
