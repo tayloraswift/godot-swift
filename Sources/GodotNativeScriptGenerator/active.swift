@@ -948,7 +948,7 @@ extension Synthesizer
             """
             diagnostics.plant()
             """
-            import GDNative
+            import GodotNative
             
             """
             

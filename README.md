@@ -1,7 +1,7 @@
 <p align="center">
     <img src="logo.svg" width="128px"/>
     <br/>
-    <strong><em>Swift for Godot</em></strong> <br/> 0.1.0
+    <strong><em>Swift for Godot</em></strong> <br/> `0.1.0`
 </p>
 
 *Godot Swift* is a [Swift Package Manager](https://swift.org/package-manager/) plugin that builds and packages Swift projects as [Godot Native](https://docs.godotengine.org/en/latest/tutorials/scripting/gdnative/what_is_gdnative.html) libraries.
