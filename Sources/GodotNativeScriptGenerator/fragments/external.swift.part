@@ -1,4 +1,4 @@
-import GDNative
+import GodotNative
 
 @_cdecl("godot_gdnative_init")
 public 

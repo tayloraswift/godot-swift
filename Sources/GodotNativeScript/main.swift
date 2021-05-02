@@ -1,6 +1,6 @@
 import PackagePlugin
 
-let tool:TargetBuildContext.Tool = try targetBuildContext.tool(named: "GenerateNativeScript")
+let tool:TargetBuildContext.Tool = try targetBuildContext.tool(named: "GodotNativeScriptGenerator")
 let directory:Path  = targetBuildContext.outputDirectory
 let sources:[Path]  = targetBuildContext.inputFiles.filter
 {

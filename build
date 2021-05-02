@@ -1,14 +1,5 @@
 #!/usr/bin/python3
 import os, shutil, subprocess, argparse, json
-
-# def relink(source, destination):
-#     pivot = '{0}.link'.format(source)
-#     try:
-#         os.remove(pivot)
-#     except FileNotFoundError:
-#         pass 
-#     os.symlink(source, pivot)
-#     os.rename(pivot, destination)
         
 def shell(arguments, silent = False, environment = {}):
     print(' '.join(arguments))
@@ -132,7 +123,7 @@ def main():
     library = {}
     for path in filter_files('json', 
         directory   = os.path.join('.build', 'plugins', 'outputs'), 
-        root        = 'GenerateNativeScriptPlugin', 
+        root        = 'GodotNativeScript', 
         basename    = 'library'):
         with open(path, 'r') as file:
             product = json.load(file)

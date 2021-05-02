@@ -35,7 +35,7 @@ struct Main:ParsableCommand {
     {
         guard let manifest:Manifest = (try? tsc_await 
         { 
-            ManifestLoader.loadManifest(at: path, kind: .local, 
+            ManifestLoader.loadRootManifest(at: path, 
                 swiftCompiler:      toolchain, 
                 swiftCompilerFlags: [], 
                 identityResolver:   DefaultIdentityResolver.init(), 
@@ -47,13 +47,13 @@ struct Main:ParsableCommand {
             fatalError("could not parse manifest")
         }
         
-        print("searching for dynamic library products containing the target '\(target)'")
+        print(note: "searching for dynamic library products containing the target '\(target)'")
         let candidates:[String] = manifest.products.compactMap
         {
             (product:ProductDescription) -> String? in 
             if case .library(.dynamic) = product.type, product.targets.contains(target)
             {
-                print("found product: '\(product.name)'")
+                print(note: "found product '\(product.name)'")
                 return product.name 
             }
             else 
@@ -65,15 +65,16 @@ struct Main:ParsableCommand {
         guard let product:String = candidates.first 
         else 
         {
-            fatalError("no dynamic library products containing the target '\(target)' were found")
+            print(error: "no dynamic library products containing the target '\(target)' were found")
+            fatalError("aborted")
         }
         if candidates.count > 1 
         {
-            print("warning: multiple candidate products found, using '\(product)'")
+            print(warning: "multiple candidate products found, using '\(product)'")
         }
         else 
         {
-            print("using product: '\(product)'")
+            print(note: "using product '\(product)'")
         }
         
         return (manifest.name, product, path)

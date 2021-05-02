@@ -3,10 +3,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "godot-example-package",
+    name: "Godot",
     products: 
     [
-        .library(name: "swift-library", type: .dynamic, targets: ["GodotExample"]),
+        .plugin(name: "GodotNativeScript", targets: ["GodotNativeScript"]),
+        // examples 
+        .library(name: "godot-swift-basic", type: .dynamic, targets: ["Basic"]),
     ],
     dependencies: 
     [
@@ -17,43 +19,39 @@ let package = Package(
     ],
     targets: 
     [
-        .plugin(name: "GenerateNativeScriptPlugin", capability: .buildTool(),
-            dependencies: ["GenerateNativeScript"]),
-        .executableTarget(name: "GenerateNativeScript",
+        .target(name: "GodotNative", dependencies: 
+            [
+                .target(name: "GodotNativeHeaders"),
+                .product(name: "Atomics", package: "swift-atomics"),
+                .product(name: "Numerics", package: "swift-numerics"),
+            ]),
+        .target(name: "GodotNativeHeaders",
+            exclude: 
+            [
+                "include/README.md", "include/LICENSE.md"
+            ]),
+        .executableTarget(name: "GodotNativeScriptGenerator",
             dependencies: 
             [
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
                 .product(name: "SwiftPM",           package: "swift-package-manager"), 
             ],
-            path: "plugin/generate-nativescript", 
             exclude: 
             [
-                "fragments/",
-                ".gyb/",
-                "gyb/api@3.2.3.json",
-                "gyb/api@3.3.0.json",
+                "fragments/", "api/", ".gyb/",
             ]),
-
-        .target(name: "GDNativeHeaders", dependencies: [],
-            path: "sources/godot-native/c", 
-            exclude: 
+        .plugin(name: "GodotNativeScript", capability: .buildTool(),
+            dependencies: 
             [
-                "include/README.md", 
-                "include/LICENSE.md"
+                "GodotNativeScriptGenerator"
             ]),
-        .target(name: "GDNative", dependencies: 
-            [
-                .target(name: "GDNativeHeaders"),
-                .product(name: "Atomics", package: "swift-atomics"),
-                .product(name: "Numerics", package: "swift-numerics"),
-            ],
-            path: "sources/godot-native/swift"), 
         
-        .target(name: "GodotExample", dependencies: 
+        // examples 
+        .target(name: "Basic", dependencies: 
             [
-                "GDNative", 
+                "GodotNative", 
             ], 
-            path: "sources/swift", 
-            plugins: ["GenerateNativeScriptPlugin"])
+            path: "Examples/basic/swift", 
+            plugins: ["GodotNativeScript"])
     ]
 )

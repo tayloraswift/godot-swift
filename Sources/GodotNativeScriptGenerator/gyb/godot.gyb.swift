@@ -1114,7 +1114,8 @@ extension Godot
     {
         let path:AbsolutePath = AbsolutePath.init(#filePath)
             .parentDirectory
-            .appending(component: "api@\(version.major).\(version.minor).\(version.patch).json")
+            .parentDirectory
+            .appending(components: "api", "\(version.major).\(version.minor).\(version.patch).json")
         
         guard let file:ByteString = try? TSCBasic.localFileSystem.readFileContents(path)
         else 

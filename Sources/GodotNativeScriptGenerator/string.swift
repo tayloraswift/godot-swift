@@ -6,6 +6,10 @@ func print(note values:Any..., separator: String = " ", terminator: String = "\n
 {
     print("\("note: ".bolded)\(values.map{ "\($0)" }.joined(separator: separator))", terminator: terminator)
 }
+func print(warning values:Any..., separator: String = " ", terminator: String = "\n")
+{
+    print("\(String.color("warning: ", fg: (1.0, 0.2, 1.0)))\(values.map{ "\($0)" }.joined(separator: separator))".bolded, terminator: terminator)
+}
 func print(error values:Any..., separator: String = " ", terminator: String = "\n")
 {
     print("\(String.color("error: ", fg: (1.0, 0.2, 0.2)))\(values.map{ "\($0)" }.joined(separator: separator))".bolded, terminator: terminator)
