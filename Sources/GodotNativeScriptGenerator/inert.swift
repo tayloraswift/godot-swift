@@ -31,6 +31,11 @@ extension Synthesizer
             extension Godot.NativeScript 
             {
                 static 
+                var __properties__:Int 
+                {
+                    Self.interface.properties.count
+                }
+                static 
                 var __methods__:[String] 
                 {
                     Self.interface.methods.map{ "\\($0)" }
@@ -54,6 +59,7 @@ extension Synthesizer
                 {
                     (
                         type:       (.init(reflecting: $0.type), $0.symbols), 
+                        properties: $0.type.__properties__,
                         methods:    $0.type.__methods__,
                         signals:    $0.type.__signals__
                     )

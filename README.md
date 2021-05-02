@@ -1,7 +1,7 @@
 <p align="center">
     <img src="logo.svg" width="128px"/>
     <br/>
-    <strong><em>Swift for Godot</em></strong> <br/> `0.1.0`
+    <strong><em>Swift for Godot</em></strong> <br/> <code>0.1.0</code>
 </p>
 
 *Godot Swift* is a [Swift Package Manager](https://swift.org/package-manager/) plugin that builds and packages Swift projects as [Godot Native](https://docs.godotengine.org/en/latest/tutorials/scripting/gdnative/what_is_gdnative.html) libraries.
@@ -19,3 +19,7 @@
 *Godot Swift* builds native libraries for [**Godot 3.3.0**](https://downloads.tuxfamily.org/godotengine/). 
 
 > **Warning:** Although *Godot Swift* libraries should be compatible with later Godot versions, we *strongly recommend* using Godot 3.3.0 to avoid unrecognized-symbol errors at runtime.
+
+### [tutorials and example programs](Examples/)
+
+1. [basic usage](Examples/README.md#basic-usage) ([sources](Examples/basic/))

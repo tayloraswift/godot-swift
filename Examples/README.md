@@ -141,6 +141,7 @@ inspecting sub-build product 'libgodot-swift-basic.so'
 found 1 nativescript interface(s):
 [0]: Basic.MySwiftClass <- (Godot::MyExportedSwiftClass)
 {
+    (0 properties)
     (0 methods)
     (0 signals)
 }
@@ -189,3 +190,100 @@ extension MySwiftClass
 ```
 
 > **Note:** The `bar(delegate:x:)` expression on the left hand side of the `<-` operator in the method list is a [curried function](https://en.wikipedia.org/wiki/Currying) of type `(MySwiftClass) -> (Godot.Unmanaged.Spatial, Int) -> Int`.
+
+If we recompile, we can observe that *Godot Swift* is now picking up one property and one method: 
+
+```text 
+found 1 nativescript interface(s):
+[0]: Basic.MySwiftClass <- (Godot::MyExportedSwiftClass)
+{
+    (1 property)
+    (1 method)
+    (0 signals)
+}
+```
+
+The next step is to install our binary library products in our Godot game project. You can do this manually, as you would when using a framework like [`godot-cpp`](https://github.com/godotengine/godot-cpp), or you can use the [`build`](../build) python script (available in the repository root), which will compile the library and generate the necessary `.gdnlib` and `.gdns` resource files for you.
+
+> **Note:** The `build` script currently only works on Linux. You can help port it to MacOS! (This should only require changing a few paths and file extensions.)
+
+To use the `build` script, pass it an installation path, which should be a directory in your Godot project. 
+
+```bash 
+./build -c debug --install game/libraries
+```
+```text 
+installing to 'res://libraries/' in project 'game'
+```
+
+On script termination, you should now see the Swift library files installed in the `game` project at the specified path: 
+
+```text 
+.
+└── game/
+    ├── project.godot 
+    └── libraries/
+        ├── godot-swift-basic/ 
+        │   ├── library.gdnlib 
+        │   └── MyExportedSwiftClass.gdns
+        ├── libgodot-swift-basic.so
+        └── libSwiftPM.so
+```
+
+Now, let’s open up the Godot editor, and create a simple scene `main.tscn`, and a script `main.gd`.
+
+```text 
+.
+└── game/
+    ├── main.tscn 
+    ├── main.gd 
+    ├── project.godot 
+    └── libraries/
+        ├── godot-swift-basic/ 
+        │   ├── library.gdnlib 
+        │   └── MyExportedSwiftClass.gdns
+        ├── libgodot-swift-basic.so
+        └── libSwiftPM.so
+```
+
+In the `main.tscn` scene, create two nodes: a root node `root`, and a child node `root/delegate`, of type `Godot::Spatial`:
+
+```text 
+○ root:Node 
+└── ○ delegate:Spatial 
+```
+
+Attach the `MyExportedSwiftClass.gdns` nativescript to the `root/delegate` node, and attach the `main.gd` script to the `root` node. 
+
+```text 
+○ root:Node             (main.gd)
+└── ○ delegate:Spatial  (MyExportedSwiftClass.gdns)
+```
+
+In the `main.gd` script, add the following code, which interacts with its `delegate` child: 
+
+```gdscript 
+extends Node
+
+func _ready():
+    print($delegate.foo)
+    
+    print($delegate.bar(2))
+    
+    $delegate.foo += 1
+    
+    print($delegate.foo)
+    print($delegate.bar(3))
+```
+
+If we run the game, we can now see the Swift library working as expected.
+
+```text 
+(swift) registering MySwiftClass as nativescript 'Godot::MyExportedSwiftClass'
+(swift) registering (function) as method 'Godot::MyExportedSwiftClass::bar'
+(swift) registering (function) as property 'Godot::MyExportedSwiftClass::foo'
+5
+10
+6
+18
+```

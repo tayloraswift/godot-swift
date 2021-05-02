@@ -8,3 +8,4 @@ DerivedData/
 /Examples/_test
 /Examples/*/libraries
 /Sources/GodotNativeScriptGenerator/.gyb
+common.swift.old

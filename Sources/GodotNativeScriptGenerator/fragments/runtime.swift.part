@@ -356,6 +356,11 @@ protocol _GodotAnyNativeScript
     // must provide interfaces as Strings, using actual metatypes crashes the 
     // swift compiler 
     static 
+    var __properties__:Int
+    {
+        get 
+    }
+    static 
     var __methods__:[String]
     {
         get 

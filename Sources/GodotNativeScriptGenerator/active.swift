@@ -15,6 +15,7 @@ enum Inspector
     (
         // `type.symbols` used for `library.json`
         type:(name:String, symbols:[String]), 
+        properties:Int,
         methods:[String],
         signals:[String]
     )
@@ -155,8 +156,9 @@ extension Inspector
                 [\(i)]: \(interface.type.name) <- \
                 (\(interface.type.symbols.map{ "Godot::\($0)" }.joined(separator: ", ")))
                 {
-                    (\(interface.methods.count) methods)
-                    (\(interface.signals.count) signals)
+                    (\(interface.properties) \(interface.properties       == 1 ? "property" : "properties"))
+                    (\(interface.methods.count) \(interface.methods.count == 1 ? "method" : "methods"))
+                    (\(interface.signals.count) \(interface.signals.count == 1 ? "signal" : "signals"))
                 }
                 """)
         }
