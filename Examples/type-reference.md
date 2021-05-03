@@ -467,3 +467,50 @@ let rid:Godot.ResourceIdentifier = .init(bitPattern: bits)
 > **Warning:** Godot resource identifiers are semantically similar to opaque pointers, and resource identifiers with invalid bit-patterns may cause runtime crashes.
 
 The `Godot.ResourceIdentifier` type is a trivial type, and therefore does not require memory management.
+
+## array types 
+
+Pooled arrays in GDScript are represented in *Godot Swift* as specializations of `Godot.Array<Element>`.
+
+The `Godot.Array<Element>` type is an opaque wrapper around a Godot pooled array, and it supports no functionality other than converting to and from a native Swift `Array`. The main purpose of this type is to allow arrays and variant existentials to be moved without copying the underlying array buffer, in situations where it is not necessary to interact with the actual contents of the array. It can be thought of as a generalization of `Godot.String`. (However, it has no direct type-system relationship to the `Godot.String` type.)
+
+You can convert between Godot arrays and native Swift arrays using the `init(_:)` initializers on each type.
+
+```swift 
+let array:[Element]             = ... 
+
+let godot:Godot.Array<Element>  = .init(array)
+let swift:[Element]             = .init(godot)
+```
+
+All Godot engine APIs that take pooled array arguments can also take native Swift arrays, so it is rarely necessary to directly create instances of `Godot.Array<Element>`.
+
+Instances of `Godot.Array<Element>` are memory-managed by Swift.
+
+### `Godot.Array<`[`UInt8`](https://developer.apple.com/documentation/swift/uint8)`>` (`Godot::PoolByteArray`)
+
+The `Godot::PoolByteArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<UInt8>`.
+
+### `Godot.Array<`[`Int32`](https://developer.apple.com/documentation/swift/int32)`>` (`Godot::PoolIntArray`)
+
+The `Godot::PoolIntArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<Int32>`.
+
+### `Godot.Array<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::PoolRealArray`)
+
+The `Godot::PoolRealArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<Float32>`.
+
+### `Godot.Array<Vector2<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>>` (`Godot::PoolVector2Array`)
+
+The `Godot::PoolVector2Array` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<Vector2<Float32>>`.
+
+### `Godot.Array<Vector3<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>>` (`Godot::PoolVector3Array`)
+
+The `Godot::PoolVector3Array` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<Vector3<Float32>>`.
+
+### `Godot.Array<Vector4<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>>` (`Godot::PoolColorArray`)
+
+The `Godot::PoolColorArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<Vector4<Float32>>`.
+
+### `Godot.Array<`[`String`](https://developer.apple.com/documentation/swift/string)`>` (`Godot::PoolStringArray`)
+
+The `Godot::PoolStringArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<String>`. Note that the element type is the native Swift `String` type, *not* `Godot.String`.
