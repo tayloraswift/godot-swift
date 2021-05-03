@@ -128,7 +128,7 @@ Instances of `Godot.String` are memory-managed by Swift.
 
 The `Godot::Array` type in GDScript corresponds to the *Godot Swift* type `Godot.List`.
 
-Despite its name, the `Godot::Array` type is semantically equivalent to a Swift tuple, and in many situations, *Godot Swift* allows you to bridge `Godot::Array`’s directly to Swift tuple types, without having to go through `Godot.List` intermediates.
+Despite its name, the `Godot::Array` type is semantically equivalent to an `inout` Swift tuple, and in many situations, *Godot Swift* allows you to bridge `Godot::Array`’s directly to Swift tuple types, without having to go through `Godot.List` intermediates.
 
 > **Warning:** Do not confuse `Godot.List` with `Godot.Array<T>`. `Godot.Array<T>` corresponds to the *pooled* array types in GDScript.
 
@@ -172,9 +172,9 @@ The `Godot.List` type is [`ExpressibleByArrayLiteral`](https://developer.apple.c
 ```swift 
 let list:Godot.List = 
 [
-    nil     as Godot.Variant?, 
-    3.14    as Godot.Variant?,
-    5       as Godot.Variant?
+    nil  as Godot.Variant?, 
+    3.14 as Godot.Variant?,
+    5    as Godot.Variant?
 ]
 ```
 
@@ -186,3 +186,40 @@ let variants:[Godot.Variant?]   = .init(list)
 ```
 
 Instances of `Godot.List` are memory-managed by Swift. When a `Godot.List` is deinitialized by the Swift runtime, all of its elements are also deinitialized.
+
+### `Godot.Map` (`Godot::Dictionary`)
+
+The `Godot::Dictionary` type in GDScript corresponds to the *Godot Swift* type `Godot.Map`. It has no semantic equivalent in Swift, but it behaves somewhat similarly to a severely type-erased `inout` Swift `Dictionary`.
+
+The `Godot.Map` type is an opaque wrapper around a `Godot::Dictionary` object, and it supports no functionality other than basic key-to-value subscripts.
+
+The `Godot.Map` type cannot store `Void` values, because it uses the `nil` case of `Godot.Variant?` to represent key-value pairs not present in the unordered map. Accordingly, its key-to-value subscript is *non-optional* with respect to `Godot.Variant?`. (Note the single optional in its return type.)
+
+```swift 
+let map:Godot.Map           = ...
+let key:Godot.Variant?      = ... 
+let value:Godot.Variant?    = map[key]
+```
+
+Instances of `Godot.Map` have reference semantics. (Note the `let` declaration, as opposed to a `var` declaration.)
+
+```swift 
+let map:Godot.List      = ... 
+let key:Godot.Variant?  = ... 
+map[key]                = nil 
+```
+
+It is currently not possible to convert a `Godot.Map` instance to a Swift `[Godot.Variant?: Godot.Variant]` dictionary, because protocol existential types are not [`Hashable`](https://developer.apple.com/documentation/swift/hashable).
+
+The `Godot.Map` type is [`ExpressibleByDictionaryLiteral`](https://developer.apple.com/documentation/swift/expressiblebydictionaryliteral).
+
+```swift 
+let map:Godot.Map = 
+[
+    nil  as Godot.Variant?: 5     as Godot.Variant, 
+    3.14 as Godot.Variant?: 3.14  as Godot.Variant,
+    5    as Godot.Variant?: false as Godot.Variant
+]
+```
+
+Instances of `Godot.Map` are memory-managed by Swift. When a `Godot.Map` is deinitialized by the Swift runtime, all of its keys and values are also deinitialized.
