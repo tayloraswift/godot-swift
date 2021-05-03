@@ -363,3 +363,107 @@ let float32:Godot.Transform3<Float32>.Linear = .init(float64)
 ```
 
 The `Godot.Transform3<T>.Linear` type is [`Equatable`](https://developer.apple.com/documentation/swift/equatable).
+
+## miscellaneous types
+
+### `Godot.AnyDelegate` (`Godot::Object`)
+
+The `Godot::Object` type in GDScript corresponds to the *Godot Swift* type `Godot.AnyDelegate`. In Swift, the term *object* refers exclusively to reference-counted values, so *Godot Swift* uses the term *delegate* to refer to what is otherwise known as an “object” elsewhere in the Godot world.
+
+Reference-counted Godot delegates — that is, classes that inherit from `Godot::Reference` — correspond to the *Godot Swift* type `Godot.AnyObject`, which in turn, inherits from `Godot.AnyDelegate`.
+
+> **Warning:** Do not confuse `Godot.AnyObject` with `Godot.AnyDelegate`. `Godot.AnyDelegate` is the root base class, not `Godot.AnyObject`.
+
+Godot delegates are fully bridged to Swift’s dynamic type system. You can dynamically downcast to a subclass using the `as?` downcast operator.
+
+```swift 
+let delegate:Godot.AnyDelegate              = ... 
+guard let mesh:Godot.Unmanaged.MeshInstance = delegate as? Godot.Unmanaged.MeshInstance 
+else 
+{
+    ...
+}
+```
+
+You can upcast to a superclass using the `as` upcast operator, just like any other Swift `class`. 
+
+```swift 
+let resource:Godot.Resource = ... 
+let object:Godot.AnyObject  = resource as Godot.AnyObject
+```
+
+Emit a signal using the `emit(signal:as:)` method. It has the following signature: 
+
+```swift 
+final 
+func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
+    where Signal:Godot.Signal 
+```
+
+See the [using signals](README.md#using-signals) tutorial for more on how to use this method.
+
+Almost all of the methods, properties, constants, and enumerations in the Godot engine API are available on the *Godot Swift* delegate classes. GDScript properties are exposed as computed Swift properties of the canonical variant type. Some properties allow you to avoid unnecessary type conversions by providing generic getter and setter methods. Generic getters are spelled `\(property name)(as:)`, and generic setters are spelled `set(\(property name):)`.
+
+```swift 
+let mesh:Godot.ArrayMesh = ... 
+
+let float32:Vector3<Float32>.Rectangle = mesh.customAabb 
+let float64:Vector3<Float64>.Rectangle = mesh.customAabb(as: Vector3<Float64>.Rectangle.self)
+mesh.set(customAabb: float64)
+```
+
+Most GDScript methods are exposed as generic functions over appropriate type parameterizations. For example, all of the following are valid ways to call the `Godot.ArrayMesh.findByName(_:)` method:
+
+```swift 
+let mesh:Godot.ArrayMesh    = ... 
+let godot:Godot.String      = ...
+let swift:Swift.String      = ...
+
+let index32:Int32   = mesh.surfaceFindByName(godot)
+let index32:Int32   = mesh.surfaceFindByName(swift)
+let index:Int       = mesh.surfaceFindByName(godot)
+let index:Int       = mesh.surfaceFindByName(swift)
+```
+
+*Godot Swift* transforms all Godot symbol names (including argument labels) through a predefined set of string transformations, which convert Godot symbols to `camelCase` and expand unswifty abbreviations, among other things. You can find the full list of symbol transformation rules in the [symbol mappings reference](symbol-reference.md).
+
+If you are unsure about the signature of a particular Godot API in *Godot Swift*, you can find the source code of the generated bindings, organized by delegate class name, in the `Sources/GodotNativeScriptGenerator/.gyb/classes/` directory. (These files are emitted by the plugin for your convenience, and are not actually the sources the plugin adds to your Swift library.)
+
+Godot delegates are memory-managed by Swift. Keep in mind that this will only protect you from memory leaks if the delegate class itself is a memory-managed class (inherits from `Godot.AnyObject`). To help you keep track of this, all unmanaged Godot delegates are scoped under the namespace `Godot.Unmanaged`.
+
+Use the `free()` method on `Godot.AnyDelegate` to manually deallocate an unmanaged delegate. [Use this with caution, just as in GDScript.](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-free)
+
+```swift 
+let delegate:Godot.AnyDelegate = ... 
+delegate.free()
+```
+
+> **Warning:** An instance of static type `Godot.AnyDelegate` may, of course, be an instance of `Godot.AnyObject`, or one of its subclasses. Make sure an delegate of static type `Godot.AnyDelegate` is actually an unmanaged delegate before manually deallocating it.
+
+### `Godot.NodePath` (`Godot::NodePath`)
+
+The `Godot::NodePath` type in GDScript corresponds to the *Godot Swift* type `Godot.NodePath`.
+
+Create a `Godot.NodePath` instance from a string using the `init(parsing:)` initializer.
+
+```swift 
+let string:Swift.String = ...
+let path:Godot.NodePath = .init(parsing: string)
+```
+
+Instances of `Godot.NodePath` are memory-managed by Swift.
+
+### `Godot.ResourceIdentifier` (`Godot::RID`)
+
+The `Godot::RID` type in GDScript corresponds to the *Godot Swift* type `Godot.ResourceIdentifier`.
+
+Create a `Godot.ResourceIdentifier` from a raw `Int` bit-pattern using the `init(bitPattern:)` initializer. Only use this if you really know what you are doing.
+
+```swift 
+let bits:Int = ...
+let rid:Godot.ResourceIdentifier = .init(bitPattern: bits)
+```
+
+> **Warning:** Godot resource identifiers are semantically similar to opaque pointers, and resource identifiers with invalid bit-patterns may cause runtime crashes.
+
+The `Godot.ResourceIdentifier` type is a trivial type, and therefore does not require memory management.

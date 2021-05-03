@@ -177,6 +177,7 @@ struct Words:Comparable, CustomStringConvertible
             "Ref"       : ([], ["Reference"]),
             "Regen"     : ([], ["Regenerate"]),
             "Subdiv"    : ([], ["Subdivision"]),
+            "Surf"      : ([], ["Surface"]),
             //"Sub"       : ([], ["Subtract"]),
             "Tex"       : ([], ["Texture"]),
             "Vec"       : ([], ["Vector"]),
