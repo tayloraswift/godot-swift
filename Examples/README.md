@@ -1,5 +1,11 @@
 # godot-swift tutorials
 
+*quick reference:*
+
+* [**types**](type-reference.md)
+* [**symbol mappings**](symbol-reference.md)
+* [**math library reference**](math-reference.md)
+
 *jump to:*
 
 1. [basic usage](#basic-usage) ([sources](basic/))
