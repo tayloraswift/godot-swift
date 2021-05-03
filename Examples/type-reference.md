@@ -109,7 +109,7 @@ The `Godot::float` type in GDScript corresponds to `Float64` (`Double`) in Swift
 
 The `Godot::String` type in GDScript corresponds to the *Godot Swift* type `Godot.String`. It is rarely necessary to use `Godot.String` directly in user code, as Swift’s native `String` type conforms to `Godot.VariantRepresentable`. 
 
-The `Godot.String` type is an opaque wrapper around a `Godot::String` object, and it supports no functionality other than converting to and from a native Swift `String`. The main purpose of this type is to allow strings and variant existentials to be moved and copied without copying the underlying string buffer, in situations where it is not necessary to interact with the actual contents of the string.
+The `Godot.String` type is an opaque wrapper around a `Godot::String` object, and it supports no functionality other than converting to and from a native Swift `String`. The main purpose of this type is to allow strings and variant existentials to be moved without copying the underlying string buffer, in situations where it is not necessary to interact with the actual contents of the string.
 
 Convert between `String` and `Godot.String` using the `init(_:)`’s on each type:
 
@@ -123,3 +123,66 @@ let godot:Godot.String = .init(swift)
 ```
 
 Instances of `Godot.String` are memory-managed by Swift.
+
+### `Godot.List` (`Godot::Array`)
+
+The `Godot::Array` type in GDScript corresponds to the *Godot Swift* type `Godot.List`.
+
+Despite its name, the `Godot::Array` type is semantically equivalent to a Swift tuple, and in many situations, *Godot Swift* allows you to bridge `Godot::Array`’s directly to Swift tuple types, without having to go through `Godot.List` intermediates.
+
+> **Warning:** Do not confuse `Godot.List` with `Godot.Array<T>`. `Godot.Array<T>` corresponds to the *pooled* array types in GDScript.
+
+The `Godot.List` type is an opaque wrapper around a `Godot::Array` object, and it supports no functionality other than minimal conformances to [`RandomAccessCollection`](https://developer.apple.com/documentation/swift/randomaccesscollection) and [`MutableCollection`](https://developer.apple.com/documentation/swift/mutablecollection). The main purpose of this type is to allow lists and variant existentials to be moved or subscripted without copying the entire underlying list buffer, in situations where it is not necessary to interact with all of the actual elements of the list.
+
+The `Element` type of a `Godot.List` is a `Godot.Variant?` existential. (Note the double optional returned by the [`first`](https://developer.apple.com/documentation/swift/collection/3017676-first) property.)
+
+```swift 
+let list:Godot.List         = ... 
+let element:Godot.Variant?? = list.first 
+```
+
+Instances of `Godot.List` have reference semantics. (Note the `let` declaration, as opposed to a `var` declaration.)
+
+```swift 
+let list:Godot.List     = ... 
+list[list.startIndex]   = nil 
+```
+
+Create a list with capacity for a specified number of elements using the `init(count:)` convenience initializer:
+
+```swift 
+let count:Int       = ...
+let list:Godot.List = .init(count: count)
+```
+
+> **Note:** This initializer is called `init(count:)` and not `init(capacity:)`, because all list elements are initialized — to `nil`. Godot has no concept of uninitialized list memory.
+
+You can also dynamically resize a list using the `resize(to:)` method.
+
+```swift 
+let count:Int       = ...
+let list:Godot.List = .init()
+list.resize(to: count)
+```
+
+All newly-allocated positions in a `Godot.List` are initialized to `nil`.
+
+The `Godot.List` type is [`ExpressibleByArrayLiteral`](https://developer.apple.com/documentation/swift/expressiblebyarrayliteral).
+
+```swift 
+let list:Godot.List = 
+[
+    nil     as Godot.Variant?, 
+    3.14    as Godot.Variant?,
+    5       as Godot.Variant?
+]
+```
+
+You can convert a `Godot.List` to a `[Godot.Variant?]` array, just like any other Swift [`Sequence`](https://developer.apple.com/documentation/swift/sequence).
+
+```swift 
+let list:Godot.List             = ... 
+let variants:[Godot.Variant?]   = .init(list)
+```
+
+Instances of `Godot.List` are memory-managed by Swift. When a `Godot.List` is deinitialized by the Swift runtime, all of its elements are also deinitialized.

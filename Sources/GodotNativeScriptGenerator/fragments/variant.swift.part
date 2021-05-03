@@ -1582,15 +1582,15 @@ extension Godot.VariadicArguments:RandomAccessCollection, MutableCollection
 extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArrayLiteral
 {
     convenience 
-    init(capacity:Int = 0) 
+    init(count:Int = 0) 
     {
         self.init(with: Godot.api.1.0.godot_array_new)
-        self.resize(to: capacity)
+        self.resize(to: count)
     }
     convenience 
     init(arrayLiteral elements:Godot.Variant?...) 
     {
-        self.init(capacity: elements.count)
+        self.init(count: elements.count)
         for (i, element):(Int, Godot.Variant?) in elements.enumerated()
         {
             // it should be okay to assign here because godot default-initializes 
@@ -1601,7 +1601,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
     convenience 
     init(consuming elements:Godot.Variant.Unmanaged...)
     {
-        self.init(capacity: elements.count)
+        self.init(count: elements.count)
         withExtendedLifetime(self) 
         {
             for (i, unmanaged):(Int, Godot.Variant.Unmanaged) in elements.enumerated()
@@ -1615,11 +1615,11 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
         }
     }
     
-    func resize(to capacity:Int) 
+    func resize(to count:Int) 
     {
         withExtendedLifetime(self) 
         {
-            Godot.api.1.0.godot_array_resize(&self.core, .init(capacity))
+            Godot.api.1.0.godot_array_resize(&self.core, .init(count))
         }
     }
     
