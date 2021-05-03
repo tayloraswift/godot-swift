@@ -517,7 +517,7 @@ extension Godot
         {
             self.composite.w
         } 
-        var unit:Vector3<T> 
+        var normal:Vector3<T> 
         {
             self.composite[.xyz]
         }
@@ -527,9 +527,9 @@ extension Godot
         {
             self.composite = composite
         }
-        init(unit:Vector3<T>, origin:T) 
+        init(normal:Vector3<T>, origin:T) 
         {
-            self.composite = unit || origin
+            self.composite = normal || origin
         }
         init<U>(_ other:Plane3<U>) where U:SIMDScalar & BinaryFloatingPoint 
         {
@@ -751,7 +751,7 @@ extension godot_plane:Godot.RawAggregatePrivate
         let tracer:Godot.Plane3<Float32> = .init(composite: (1, 2, 3, 4)*)
         
         var data:Self = .init()
-        withUnsafePointer(to: godot_vector3.init(packing: tracer.unit))
+        withUnsafePointer(to: godot_vector3.init(packing: tracer.normal))
         {
             Godot.api.1.0.godot_plane_new_with_normal(&data, $0, tracer.origin)
         }

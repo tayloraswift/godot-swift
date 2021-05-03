@@ -56,7 +56,6 @@ Vector3<Swift.Float32>                  :Godot.Variant
 Vector4<Swift.Float32>                  :Godot.Variant
 Vector2<Swift.Float32>.Rectangle        :Godot.Variant
 Vector3<Swift.Float32>.Rectangle        :Godot.Variant
-
 Quaternion<Swift.Float32>               :Godot.Variant
 
 Godot.Plane3<Swift.Float32>             :Godot.Variant
@@ -83,9 +82,9 @@ The `Godot::null` type is then represented by the `nil` case of `Optional<Godot.
 
 > **Warning:** Do not conform additional types to `Godot.Variant` in user code. 
 
-The concrete *Godot Swift* types are detailed in the next section.
+The concrete *Godot Swift* types are detailed in the next few sections.
 
-## concrete types 
+## general purpose types 
 
 ### [`Void`](https://developer.apple.com/documentation/swift/void) (`Godot::null`)
 
@@ -223,3 +222,144 @@ let map:Godot.Map =
 ```
 
 Instances of `Godot.Map` are memory-managed by Swift. When a `Godot.Map` is deinitialized by the Swift runtime, all of its keys and values are also deinitialized.
+
+## math types 
+
+Math types in *Godot Swift* are all generic over [`BinaryFloatingPoint`](https://developer.apple.com/documentation/swift/binaryfloatingpoint)` & `[`SIMDScalar`](https://developer.apple.com/documentation/swift/simdscalar). For each math type, the specialization for `Float32` forms the canonical `Godot.Variant` type, with all other specializations conforming to `Godot.VariantRepresentable`. This makes it possible to write user code that is generic over `BinaryFloatingPoint & SIMDScalar` in most situations. 
+
+> **Note:** Recall that `Float32` by itself is *not* a `Godot.Variant` type; `Float64` (`Double`) is. The Godot engine stores scalar values internally in higher precision than aggregate values.
+
+### `Vector2<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::Vector2`)
+
+The `Godot::Vector2` type in GDScript corresponds to the *Godot Swift* type `Vector2<Float32>`. This type is a specialized `typealias` of the *Godot Swift* math library type `Vector<SIMD2<Float32>, Float32>`. You can learn more about the `Vector<Storage, Scalar>` type in the [math library reference](math-reference.md).
+
+### `Vector3<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::Vector3`)
+
+The `Godot::Vector3` type in GDScript corresponds to the *Godot Swift* type `Vector3<Float32>`. This type is a specialized `typealias` of the *Godot Swift* math library type `Vector<SIMD3<Float32>, Float32>`. You can learn more about the `Vector<Storage, Scalar>` type in the [math library reference](math-reference.md).
+
+### `Vector4<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::Color`)
+
+The `Godot::Color` type in GDScript corresponds to the *Godot Swift* type `Vector4<Float32>`. This type is a specialized `typealias` of the *Godot Swift* math library type `Vector<SIMD4<Float32>, Float32>`. You can learn more about the `Vector<Storage, Scalar>` type in the [math library reference](math-reference.md).
+
+### `Quaternion<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::Quat`)
+
+The `Godot::Quat` type in GDScript corresponds to the *Godot Swift* type `Quaternion<Float32>`. You can learn more about the `Quaternion<T>` type in the [math library reference](math-reference.md).
+
+> **Note:** The generic parameter of the `Quaternion<T>` has an additional type constraint requiring that `T:`[`Numerics.Real`](https://github.com/apple/swift-numerics/blob/main/Sources/RealModule/README.md).
+
+### `Godot.Plane3<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>` (`Godot::Plane`)
+
+The `Godot::Plane` type in GDScript corresponds to the *Godot Swift* type `Godot.Plane3<Float32>`.
+
+Create a `Godot.Plane3<T>` instance from a normal vector and an origin point with the `init(normal:origin:)` initializer:
+
+```swift 
+let normal:Vector3<T>       = ... 
+let origin:Vector3<T>       = ... 
+let plane:Godot.Plane3<T>   = .init(normal: normal, origin: origin)
+```
+
+Access the normal vector and origin point through the properties `normal` and `origin`:
+
+```swift 
+let plane:Godot.Plane3<T>   = 
+let normal:Vector3<T>       = plane.normal  
+let origin:Vector3<T>       = plane.origin
+```
+
+You can convert between floating point precisions with the `init(_:)` initializer:
+
+```swift 
+let float64:Godot.Plane3<Float64> = ... 
+let float32:Godot.Plane3<Float32> = .init(float64)
+```
+
+The `Godot.Plane3<T>` type is [`Hashable`](https://developer.apple.com/documentation/swift/hashable).
+
+### `Godot.Transform2<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>.Affine` (`Godot::Transform2D`)
+
+The `Godot::Transform2D` type in GDScript corresponds to the *Godot Swift* type `Godot.Transform2<Float32>.Affine`. It wraps the math library type `Vector2<Float32>.Matrix3`.
+
+Create a `Godot.Transform2<T>.Affine` instance from column vectors `a`, `b`, `c` using the `init(matrix:)` initializer:
+
+```swift 
+let a:Vector2<T> = ... , 
+    b:Vector2<T> = ... ,
+    c:Vector2<T> = ... 
+let transform:Godot.Transform2<T>.Affine = .init(matrix: (a, b, c))
+```
+
+Access the column vectors through the `matrix` property:
+
+```swift 
+let transform:Godot.Transform2<T>.Affine    = ...
+let (a, b, c):Vector2<Float32>.Matrix3      = transform.matrix 
+```
+
+You can convert between floating point precisions with the `init(_:)` initializer:
+
+```swift 
+let float64:Godot.Transform2<Float64>.Affine = ... 
+let float32:Godot.Transform2<Float32>.Affine = .init(float64)
+```
+
+The `Godot.Transform2<T>.Affine` type is [`Equatable`](https://developer.apple.com/documentation/swift/equatable).
+
+### `Godot.Transform3<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>.Affine` (`Godot::Transform`)
+
+The `Godot::Transform` type in GDScript corresponds to the *Godot Swift* type `Godot.Transform3<Float32>.Affine`. It wraps the math library type `Vector3<Float32>.Matrix4`.
+
+Create a `Godot.Transform3<T>.Affine` instance from column vectors `a`, `b`, `c`, `d` using the `init(matrix:)` initializer:
+
+```swift 
+let a:Vector3<T> = ... , 
+    b:Vector3<T> = ... ,
+    c:Vector3<T> = ... ,
+    d:Vector3<T> = ... 
+let transform:Godot.Transform3<T>.Affine = .init(matrix: (a, b, c, d))
+```
+
+Access the column vectors through the `matrix` property:
+
+```swift 
+let transform:Godot.Transform3<T>.Affine    = ...
+let (a, b, c, d):Vector3<Float32>.Matrix4   = transform.matrix 
+```
+
+You can convert between floating point precisions with the `init(_:)` initializer:
+
+```swift 
+let float64:Godot.Transform3<Float64>.Affine = ... 
+let float32:Godot.Transform3<Float32>.Affine = .init(float64)
+```
+
+The `Godot.Transform3<T>.Affine` type is [`Equatable`](https://developer.apple.com/documentation/swift/equatable).
+
+### `Godot.Transform3<`[`Float32`](https://developer.apple.com/documentation/swift/float)`>.Linear` (`Godot::Basis`)
+
+The `Godot::Basis` type in GDScript corresponds to the *Godot Swift* type `Godot.Transform3<Float32>.Linear`. It wraps the math library type `Vector3<Float32>.Matrix` (`Vector3<Float32>.Matrix3`).
+
+Create a `Godot.Transform3<T>.Linear` instance from column vectors `a`, `b`, `c` using the `init(matrix:)` initializer:
+
+```swift 
+let a:Vector3<T> = ... , 
+    b:Vector3<T> = ... ,
+    c:Vector3<T> = ... 
+let transform:Godot.Transform3<T>.Linear = .init(matrix: (a, b, c))
+```
+
+Access the column vectors through the `matrix` property:
+
+```swift 
+let transform:Godot.Transform3<T>.Linear    = ...
+let (a, b, c):Vector3<Float32>.Matrix       = transform.matrix 
+```
+
+You can convert between floating point precisions with the `init(_:)` initializer:
+
+```swift 
+let float64:Godot.Transform3<Float64>.Linear = ... 
+let float32:Godot.Transform3<Float32>.Linear = .init(float64)
+```
+
+The `Godot.Transform3<T>.Linear` type is [`Equatable`](https://developer.apple.com/documentation/swift/equatable).
