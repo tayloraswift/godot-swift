@@ -4,7 +4,8 @@ extension Godot.Library
     static 
     var interface:Interface 
     {
-        MySwiftClass.self           <- "MyExportedSwiftClass"
-        SwiftAdvancedMethods.self   <- "SwiftAdvancedMethods"
+        MySwiftClass.self               <- "MyExportedSwiftClass"
+        SwiftAdvancedMethods.self       <- "SwiftAdvancedMethods"
+        SwiftAdvancedProperties.self    <- "SwiftAdvancedProperties"
     }
 }

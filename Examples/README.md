@@ -10,6 +10,11 @@
 
 1. [basic usage](#basic-usage) ([sources](swift/basic-usage.swift))
 2. [advanced methods](#advanced-methods) ([sources](swift/advanced-methods.swift))
+3. [advanced properties](#advanced-properties) ([sources](swift/advanced-properties.swift))
+4. [signals](#signals) ([sources](swift/signals.swift))
+5. [life cycle management](#life-cycle-management) ([sources](swift/life-cycle-management.swift))
+6. [using custom types](#using-custom-types) ([sources](swift/custom-types.swift))
+7. [procedural geometry](#procedural-geometry) ([sources](swift/procedural-geometry.swift))
 
 ## basic usage
 
@@ -695,4 +700,181 @@ new value of `strings`: [element (0), [new string, element (1, 1)]]
 non-negative: 1
 non-negative: Null
 returned tuple: [3.141593, Null]
+```
+
+## advanced properties
+
+[`sources`](swift/advanced-properties.swift)
+
+> This tutorial assumes you already have the project from the [basic usage](#basic-usage) tutorial set up.
+
+Define a new nativescript class, `SwiftAdvancedProperties`, in `advanced-properties.swift`, and add it to the library interface in `library.swift`.
+
+```text 
+.
+├── Package.swift
+├── game/
+│   ├── project.godot 
+│   ├── main.tscn 
+│   ├── main.gd 
+│   ├── advanced-methods.tscn 
+│   ├── advanced-methods.gd 
+│   ├── libraries/ 
+│   └── ...
+└── swift/
+    ├── library.swift
+    ├── basic-usage.swift
+    ├── advanced-methods.swift
+    └── advanced-properties.swift
+```
+
+```swift 
+// advanced-properties.swift 
+
+final 
+class SwiftAdvancedProperties:Godot.NativeScript 
+{
+    var radians:Float64 
+    var degrees:Float64 
+    {
+        self.radians * 180.0 / .pi
+    }
+    
+    private 
+    var array:[Int]
+    
+    init(delegate _:Godot.Unmanaged.Spatial)
+    {
+        self.radians    = 0.5 * .pi
+        self.array      = [10, 11, 12]
+    }
+}
+```
+
+```swift 
+// library.swift 
+
+extension Godot.Library 
+{
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        MySwiftClass.self               <- "MyExportedSwiftClass"
+        SwiftAdvancedMethods.self       <- "SwiftAdvancedMethods"
+        SwiftAdvancedProperties.self    <- "SwiftAdvancedProperties"
+    }
+}
+```
+
+We already saw in the [basic usage](#basic-usage) tutorial how to register a settable property, by using a [`ReferenceWritableKeyPath`](https://developer.apple.com/documentation/swift/ReferenceWritableKeyPath).
+
+```swift 
+// advanced-properties.swift 
+
+extension SwiftAdvancedProperties
+{
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        Interface.properties 
+        {
+            \.radians   <- "radians"
+```
+
+We can also export a get-only property, by using an ordinary, immutable [`KeyPath`](https://developer.apple.com/documentation/swift/KeyPath). 
+
+```swift 
+            \.degrees   <- "degrees"
+```
+
+Attempting to set to a get-only property from GDScript is an error. 
+
+```gdscript 
+    $delegate.degrees = 5
+```
+
+```text 
+ERROR: <-(_:_:): (swift) cannot assign to get-only property 'degrees'
+```
+
+> **Note:** The Swift type inferencer will prefer `ReferenceWritableKeyPath` over `KeyPath` if the target property is settable.
+
+Any valid Swift keypath can be used as a GDScript property accessor. For example, we can expose elements in `self.array` by using subscript keypaths:
+
+```swift 
+            \.array[0]  <- "elements_0"
+            \.array[1]  <- "elements_1"
+            \.array[2]  <- "elements_2"
+        }
+    }
+}
+```
+
+> **Note:** Indexed GDScript properties are not supported (yet).
+
+We can build, install, and demo the `SwiftAdvancedProperties` nativescript in a new scene `advanced-properties.tscn`.
+
+```text 
+.
+└── game/
+    ├── project.godot 
+    ├── main.tscn 
+    ├── main.gd 
+    ├── advanced-methods.tscn 
+    ├── advanced-methods.gd 
+    ├── advanced-properties.tscn 
+    ├── advanced-properties.gd 
+    └── libraries/
+        ├── godot-swift-examples/ 
+        │   ├── library.gdnlib 
+        │   ├── MyExportedSwiftClass.gdns
+        │   └── SwiftAdvancedMethods.gdns
+        │   └── SwiftAdvancedProperties.gdns
+        ├── libgodot-swift-examples.so
+        └── libSwiftPM.so
+```
+
+```text 
+// advanced-properties.tscn
+
+○ root:Node             (advanced-properties.gd)
+└── ○ delegate:Spatial  (SwiftAdvancedProperties.gdns)
+```
+
+```gdscript 
+# advanced-properties.gd
+
+extends Node
+
+func _ready():
+    print('radians: ', $delegate.radians)
+    print('degrees: ', $delegate.degrees)
+    $delegate.radians = 0.678 * PI
+    print('radians: ', $delegate.radians)
+    print('degrees: ', $delegate.degrees)
+    
+    # $delegate.degrees = 5
+    
+    print('element 0: ', $delegate.elements_0)
+    print('element 1: ', $delegate.elements_1)
+    print('element 2: ', $delegate.elements_2)
+```
+
+```text 
+... 
+(swift) registering SwiftAdvancedProperties as nativescript 'Godot::SwiftAdvancedProperties'
+(swift) registering (function) as property 'Godot::SwiftAdvancedProperties::radians'
+(swift) registering (function) as property 'Godot::SwiftAdvancedProperties::degrees'
+(swift) registering (function) as property 'Godot::SwiftAdvancedProperties::elements_0'
+(swift) registering (function) as property 'Godot::SwiftAdvancedProperties::elements_1'
+(swift) registering (function) as property 'Godot::SwiftAdvancedProperties::elements_2'
+radians: 1.570796
+degrees: 90
+radians: 2.13
+degrees: 122.04
+element 0: 10
+element 1: 11
+element 2: 12
 ```
