@@ -1009,7 +1009,7 @@ func _ready():
     pass 
 
 func _on_delegate_my_signal(foo, bar):
-    print('received signal: (foo: ', foo, ', ', bar, ')')
+    print('received signal: (foo: ', foo, ', bar: ', bar, ')')
 ```
 
 ```text 
@@ -1017,5 +1017,104 @@ func _on_delegate_my_signal(foo, bar):
 (swift) registering SwiftSignals as nativescript 'Godot::SwiftSignals'
 (swift) registering (function) as method 'Godot::SwiftSignals::baz'
 (swift) registering MySignal as signal 'Godot::SwiftSignals::my_signal'
-received signal: (foo: 6, 5.55)
+received signal: (foo: 6, bar: 5.55)
+```
+
+## life cycle management
+
+[`sources`](swift/life-cycle-management.swift)
+
+All Swift nativescripts are memory-managed by *Godot Swift*. However, their life cycles are dependent on the life cycles of the delegates they are attached to, which means that if a nativescript’s delegate owner leaks, so will the nativescript.
+
+To demonstrate this, let’s define two nativescript classes, `SwiftUnmanaged`, and `SwiftManaged`. The `SwiftUnmanaged` nativescript will be attached to a `Godot::Node` (`Godot.Unmanaged.Node`) delegate, which is an unmanaged delegate type, and the `SwiftManaged` nativescript will be attached to a `Godot::Reference` (`Godot.AnyObject`) delegate, which is a managed delegate type. 
+
+```swift 
+// life-cycle-management.swift
+
+final 
+class SwiftUnmanaged:Godot.NativeScript
+{
+    init(delegate _:Godot.Unmanaged.Node) 
+    {
+        Godot.print("initialized instance of '\(Self.self)'")
+    }
+    deinit 
+    {
+        Godot.print("deinitialized instance of '\(Self.self)'")
+    }
+}
+final 
+class SwiftManaged:Godot.NativeScript
+{
+    init(delegate _:Godot.AnyObject) 
+    {
+        Godot.print("initialized instance of '\(Self.self)'")
+    }
+    deinit 
+    {
+        Godot.print("deinitialized instance of '\(Self.self)'")
+    }
+}
+```
+
+You may already be aware that a dynamically-allocated `Godot::Node` instance will leak if not manually freed later: 
+
+```gdscript 
+# life-cycle-management.gd
+
+extends Node
+
+const SwiftUnmanaged    = preload("res://libraries/godot-swift-examples/SwiftUnmanaged.gdns")
+const SwiftManaged      = preload("res://libraries/godot-swift-examples/SwiftManaged.gdns")
+
+func _ready():
+    var unmanaged:Node = SwiftUnmanaged.new()
+```
+
+*Godot Swift* has a built-in ARC sanitizer which is enabled if you run the `build` script in `debug` mode. It will track and report leaked Swift nativescripts on game termination. As of Godot 3.3.0, the game engine also has its own ARC sanitizer, which reports leaked delegates.
+
+```text 
+WARNING: deinit: (swift) detected 1 leaked instance of Examples.SwiftUnmanaged:
+    1 leaked instance of 'SwiftUnmanaged'
+   At: .build/plugins/outputs/godot-swift/Examples/GodotNativeScript/classes.swift:845.
+WARNING: cleanup: ObjectDB instances leaked at exit (run with --verbose for details).
+   At: core/object.cpp:2132.
+```
+
+> **Note:** The *Godot Swift* ARC sanitizer only tracks Swift nativescripts. It will not track delegates; the Godot engine’s own ARC sanitizer handles that.
+
+To prevent this issue, manually free the the unmanaged node with `queue_free()`. 
+
+```gdscript 
+    unmanaged.queue_free()
+```
+
+Delegate types that inherit from `Godot.AnyObject` (`Godot::Reference`) are memory-managed by Godot, which means nativescripts attached to them are also memory-managed. The `SwiftManaged` instances in the following code will be automatically deinitialized when exiting the `_ready()` function scope.
+
+```gdscript 
+    var managed_instances:Array = [
+        SwiftManaged.new(),
+        SwiftManaged.new(),
+        SwiftManaged.new(),
+    ]
+
+    print(managed_instances)
+
+    managed_instances = []
+```
+
+```text 
+...
+(swift) registering SwiftManaged as nativescript 'Godot::SwiftManaged'
+...
+(swift) registering SwiftUnmanaged as nativescript 'Godot::SwiftUnmanaged'
+(swift) initialized instance of 'SwiftUnmanaged'
+(swift) initialized instance of 'SwiftManaged'
+(swift) initialized instance of 'SwiftManaged'
+(swift) initialized instance of 'SwiftManaged'
+[[Reference:1209], [Reference:1210], [Reference:1211]]
+(swift) deinitialized instance of 'SwiftManaged'
+(swift) deinitialized instance of 'SwiftManaged'
+(swift) deinitialized instance of 'SwiftManaged'
+(swift) deinitialized instance of 'SwiftUnmanaged'
 ```

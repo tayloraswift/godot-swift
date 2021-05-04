@@ -8,5 +8,7 @@ extension Godot.Library
         SwiftAdvancedMethods.self       <- "SwiftAdvancedMethods"
         SwiftAdvancedProperties.self    <- "SwiftAdvancedProperties"
         SwiftSignals.self               <- "SwiftSignals"
+        SwiftUnmanaged.self             <- "SwiftUnmanaged"
+        SwiftManaged.self               <- "SwiftManaged"
     }
 }
