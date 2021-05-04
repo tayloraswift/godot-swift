@@ -66,7 +66,6 @@ class OutputBuffer
         self.buffered = ""
     }
 }
-
 extension Inspector 
 {
     static 

@@ -8,7 +8,7 @@ let package = Package(
     [
         .plugin(name: "GodotNativeScript", targets: ["GodotNativeScript"]),
         // examples 
-        .library(name: "godot-swift-basic", type: .dynamic, targets: ["Basic"]),
+        .library(name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
     ],
     dependencies: 
     [
@@ -47,11 +47,11 @@ let package = Package(
             ]),
         
         // examples 
-        .target(name: "Basic", dependencies: 
+        .target(name: "Examples", dependencies: 
             [
                 "GodotNative", 
             ], 
-            path: "Examples/basic/swift", 
-            plugins: ["GodotNativeScript"])
+            path: "Examples/swift", 
+            plugins: ["GodotNativeScript"]),
     ]
 )

@@ -16,10 +16,12 @@ struct Main:ParsableCommand {
     @Option(help: "the workspace directory for this tool")
     var workspace:AbsolutePath
     
-    @Option(help: "the stage-independent output file to generate")
-    var outputCommon:AbsolutePath
     @Option(help: "the stage-dependent output file to generate")
     var outputStaged:AbsolutePath
+    @Option(help: "the stage-independent output file to generate")
+    var outputCommon:AbsolutePath
+    @Option(help: "the stage-independent class definitions file to generate")
+    var outputClasses:AbsolutePath
     
     @Option(help: "the name of the target")
     var target:String
@@ -156,7 +158,7 @@ struct Main:ParsableCommand {
     
     #endif
         // generate stage-independent code
-        Synthesizer.generate(common: self.outputCommon)
+        Synthesizer.generate(common: self.outputCommon, classes: self.outputClasses)
     }
 }
 

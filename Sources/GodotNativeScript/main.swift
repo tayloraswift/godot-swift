@@ -8,10 +8,11 @@ let sources:[Path]  = targetBuildContext.inputFiles.filter
 }
 .map(\.path)
 
-let output:(common:Path, staged:Path) = 
+let output:(staged:Path, common:Path, classes:Path) = 
 (
+    directory.appending("registration.swift"),
     directory.appending("common.swift"),
-    directory.appending("registration.swift")
+    directory.appending("classes.swift")
 )
 
 commandConstructor.createBuildCommand(
@@ -21,15 +22,17 @@ commandConstructor.createBuildCommand(
     arguments: 
     [
         "--workspace",      "\(directory)", 
-        "--output-common",  "\(output.common)", 
         "--output-staged",  "\(output.staged)", 
+        "--output-common",  "\(output.common)", 
+        "--output-classes", "\(output.classes)", 
         "--target",            targetBuildContext.targetName,
         "--package-path",   "\(targetBuildContext.packageDirectory)"
     ],
     inputFiles: sources,
     outputFiles: 
     [
-        output.common,
         output.staged,
+        output.common,
+        output.classes,
     ]
 )

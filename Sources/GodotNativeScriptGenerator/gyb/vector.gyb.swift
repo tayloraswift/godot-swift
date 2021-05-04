@@ -735,6 +735,11 @@ enum Vector
             func map(_ transform:(Scalar) -> Scalar) -> Self 
             
             static 
+            func transpose(_ column:Self) -> Transpose 
+            static 
+            func transpose(_ row:Transpose) -> Self
+            
+            static 
             func diagonal(trimming matrix:Square) -> Self 
             static 
             func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
@@ -776,6 +781,17 @@ enum Vector
                         .map{ "transform(self.\($0))" }
                         .joined(separator: ", ")))
                 }
+                
+                static 
+                func transpose(_ row:Transpose) -> Self
+                {
+                    .init(\((0 ..< n).map{ "row.\($0)" }.joined(separator: ", ")))
+                } 
+                static 
+                func transpose(_ column:Self) -> Transpose 
+                {
+                    (\(components.cartesian.prefix(n).map{ "column.\($0)" }.joined(separator: ", ")))
+                } 
                 
                 static 
                 func diagonal(trimming matrix:Square) -> Self 
@@ -887,6 +903,13 @@ enum Vector
                 .init(storage: self.storage.map(transform))
             }
         }
+        extension Vector:CustomStringConvertible where Storage:SIMD.Transposable
+        {
+            var description:String 
+            {
+                "Vector\\(Storage.transpose(self.storage))"
+            }
+        }
         extension Vector 
         """
         Source.block 
@@ -941,14 +964,14 @@ enum Vector
             func * <T>(row:Vector\(n)<T>.Row) -> Vector\(n)<T>
                 where T:SIMDScalar
             {
-                .init(\((0 ..< n).map{ "row.\($0)" }.joined(separator: ", ")))
+                .init(storage: SIMD\(n)<T>.transpose(row))
             } 
             
             postfix 
             func * <T>(column:Vector\(n)<T>) -> Vector\(n)<T>.Row
                 where T:SIMDScalar
             {
-                (\(components.map{ "column.\($0)" }.joined(separator: ", ")))
+                SIMD\(n)<T>.transpose(column.storage)
             } 
             """
             for m:Int in 2 ... 4 
