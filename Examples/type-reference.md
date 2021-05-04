@@ -514,3 +514,112 @@ The `Godot::PoolColorArray` type in GDScript corresponds to the *Godot Swift* ty
 ### `Godot.Array<`[`String`](https://developer.apple.com/documentation/swift/string)`>` (`Godot::PoolStringArray`)
 
 The `Godot::PoolStringArray` type in GDScript corresponds to the *Godot Swift* type `Godot.Array<String>`. Note that the element type is the native Swift `String` type, *not* `Godot.String`.
+
+## variant-representable types
+
+Most GDScript types can be seamlessly bridged to multiple Swift types, through the `Godot.VariantRepresentable` protocol.
+
+### integer-representable types
+
+Most of Swift’s built-in integer types are representable by `Godot::int`. In particular, you can use: 
+
+1. [`Int32`](https://developer.apple.com/documentation/swift/Int32)
+2. [`Int16`](https://developer.apple.com/documentation/swift/Int16)
+3. [`Int8`](https://developer.apple.com/documentation/swift/Int8)
+4. [`Int`](https://developer.apple.com/documentation/swift/Int)
+
+
+5. [`UInt64`](https://developer.apple.com/documentation/swift/UInt64)
+6. [`UInt32`](https://developer.apple.com/documentation/swift/UInt32)
+7. [`UInt16`](https://developer.apple.com/documentation/swift/UInt16)
+8. [`UInt8`](https://developer.apple.com/documentation/swift/UInt8)
+9. [`UInt`](https://developer.apple.com/documentation/swift/UInt)
+
+Note that `Int64` is a `Godot.Variant` type, which means it is already `Godot.VariantRepresentable`.
+
+The numeric conversion will only succeed if the GDScript integer value does not overflow the specified Swift type. Otherwise, a runtime error will occur.
+
+### float-representable types
+
+Most of Swift’s built-in floating point types are representable by `Godot::float`. In particular, you can use: 
+
+1. [`Float32`](https://developer.apple.com/documentation/swift/Float)
+2. [`Float16`](https://developer.apple.com/documentation/swift/Float16)
+
+Note that `Float64` (`Double`) is a `Godot.Variant` type, which means it is already `Godot.VariantRepresentable`.
+
+The numeric conversion always succeeds, but may lose precision.
+
+### vector-representable types
+
+The *Godot Swift* math library vector types are conditionally representable by `Godot::Vector2`, `Godot::Vector3`, or `Godot::Color`, depending on their arity and scalar type. In particular, you can use: 
+
+1. `Vector2<Float64>` (from `Godot::Vector2`)
+2. `Vector2<Float16>` (from `Godot::Vector2`)
+
+
+3. `Vector3<Float64>` (from `Godot::Vector3`)
+4. `Vector3<Float16>` (from `Godot::Vector3`)
+
+
+5. `Vector4<Float64>` (from `Godot::Color`)
+6. `Vector4<Float16>` (from `Godot::Color`)
+
+Note that `Vector2<Float32>`, `Vector3<Float32>`, and `Vector4<Float32>` are `Godot.Variant` types, which means they are already `Godot.VariantRepresentable`.
+
+The numeric conversion always succeeds, but may lose precision.
+
+### rectangle-representable types
+
+The *Godot Swift* math library rectangle types are conditionally representable by `Godot::Rect2`, or `Godot::AABB`, depending on their arity and scalar type. In particular, you can use: 
+
+1. `Vector2<Float64>.Rectangle` (from `Godot::Rect2`)
+2. `Vector2<Float16>.Rectangle` (from `Godot::Rect2`)
+3. `Vector2<Float64>.ClosedRectangle` (from `Godot::Rect2`)
+4. `Vector2<Float32>.ClosedRectangle` (from `Godot::Rect2`)
+5. `Vector2<Float16>.ClosedRectangle` (from `Godot::Rect2`)
+
+
+1. `Vector3<Float64>.Rectangle` (from `Godot::AABB`)
+2. `Vector3<Float16>.Rectangle` (from `Godot::AABB`)
+3. `Vector3<Float64>.ClosedRectangle` (from `Godot::AABB`)
+4. `Vector3<Float32>.ClosedRectangle` (from `Godot::AABB`)
+5. `Vector3<Float16>.ClosedRectangle` (from `Godot::AABB`)
+
+Note that `Vector2<Float32>.Rectangle`, and `Vector3<Float32>.Rectangle` are `Godot.Variant` types, which means they are already `Godot.VariantRepresentable`.
+
+The numeric conversion always succeeds, but may lose precision.
+
+### other variant-representable math types 
+
+The remaining *Godot Swift* math types are always `Godot.VariantRepresentable`, for any of their generic specializations:
+
+1. `Quaternion<T>` (from `Godot::Quat`)
+2. `Godot.Plane3<T>` (from `Godot::Plane`)
+3. `Godot.Transform2<T>.Affine` (from `Godot::Transform2D`)
+4. `Godot.Transform3<T>.Affine` (from `Godot::Transform`)
+5. `Godot.Transform3<T>.Linear` (from `Godot::Basis`)
+
+### string-representable types 
+
+As previously mentioned, Swift’s native `String` type is representable by `Godot::String`. 
+
+1. `Swift.String`
+
+### array-representable types 
+
+As previously mentioned, Swift’s native `Array` is representable by `Godot::PoolByteArray`, `Godot::PoolIntArray`, `Godot::PoolRealArray`, `Godot::PoolVector2Array`, `Godot::PoolVector3Array`, `Godot::PoolColorArray`, or `Godot::PoolStringArray`, as long as its `Element` type is the appropriate Godot pooled array element type.
+
+1. `[UInt8]` (from `Godot::PoolByteArray`)
+2. `[Int32]` (from `Godot::PoolIntArray`)
+3. `[Float32]` (from `Godot::PoolRealArray`)
+4. `[Vector2<Float32>]` (from `Godot::PoolVector2Array`)
+5. `[Vector3<Float32>]` (from `Godot::PoolVector3Array`)
+6. `[Vector4<Float32>]` (from `Godot::PoolColorArray`)
+7. `[Swift.String]` (from `Godot::PoolStringArray`)
+
+### optional types 
+
+Any `Optional<Wrapped>` type is `Godot.VariantRepresentable` if its `Wrapped` type is `Godot.VariantRepresentable`. If so, the optional type is representable by the union type of `Godot::null` and the GDScript type that `Wrapped` is representable by.
+
+1. [`Optional<Wrapped>`](https://developer.apple.com/documentation/swift/Optional) `where Wrapped:Godot.VariantRepresentable`
