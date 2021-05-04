@@ -7,5 +7,6 @@ extension Godot.Library
         MySwiftClass.self               <- "MyExportedSwiftClass"
         SwiftAdvancedMethods.self       <- "SwiftAdvancedMethods"
         SwiftAdvancedProperties.self    <- "SwiftAdvancedProperties"
+        SwiftSignals.self               <- "SwiftSignals"
     }
 }

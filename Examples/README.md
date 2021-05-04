@@ -878,3 +878,144 @@ element 0: 10
 element 1: 11
 element 2: 12
 ```
+
+## signals 
+
+[`sources`](swift/signals.swift)
+
+> **Key terms:** 
+> - **signal definition**
+> - **signal interface**
+> - **signal value**
+
+> This tutorial assumes you already have the project from the [basic usage](#basic-usage) tutorial set up.
+
+Assuming you completed any of the previous three tutorials, you should already know how to define and declare a Swift nativescript, so we won’t go over that again.
+
+To create a **signal definition**, declare a type `MySignal`, and conform it to the protocol `Godot.Signal`.
+
+```swift 
+final 
+class SwiftSignals:Godot.NativeScript 
+{
+    enum MySignal:Godot.Signal 
+    {
+```
+
+The signal definition type has an `associatedtype` `Value`, which specifies the **signal value** type. In this example, we will set the `Value` type to `(foo:Int, bar:Float64)`.
+
+```swift 
+        typealias Value = (foo:Int, bar:Float64)
+```
+
+> **Note:** The signal definition type does not need to actually *store* the signal value; its purpose is simply to specify the name and format of the signal. In general, a signal definition type should simply be an uninhabited `enum`. This lets you abstract signal formats from signal values, for example, to reuse the same signal value type for multiple signals.
+
+The `Godot.Signal` protocol requires you to specify a **signal interface**, which specifies the order and names of the fields in the signal.
+
+```swift 
+        @Interface 
+        static 
+        var interface:Interface 
+        {
+            \.foo <- "foo"
+            \.bar <- "bar"
+        }
+```
+
+Finally, we must specify the signal’s name through the required static `name` property: 
+
+```swift 
+        static 
+        var name:String 
+        {
+            "my_signal"
+        }
+```
+
+To emit a signal, pass a value for it, and a signal definition type to the `emit(signal:as:)` method on the delegate.
+
+```swift 
+    init(delegate _:Godot.Unmanaged.Spatial) 
+    {
+    }
+
+    func baz(delegate:Godot.Unmanaged.Spatial) 
+    {
+        delegate.emit(signal: (6, 5.55), as: MySignal.self)
+    }
+```
+
+Any delegate can emit any signal, but if we want anything to be able to listen for it, we need to add it to the nativescript interface. Here, we have also added the `baz(delegate:)` trigger method to the interface, for demonstration purposes. 
+
+```swift 
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        Interface.signals 
+        {
+            MySignal.self 
+        }
+        Interface.methods 
+        {
+            baz(delegate:) <- "baz"
+        }
+    }
+}
+```
+
+To demo the signal, set up a new scene `signals.tscn`, with a root node, delegate node, and this time, a listener node. 
+
+```text 
+// signals.tscn
+
+○ root:Node             (signals.gd)
+├── ○ listener:Node     (signals-listener.gd)
+└── ○ delegate:Spatial  (SwiftSignals.gdns)
+```
+
+After attaching the `SwiftSignals` nativescript to the `delegate` node in the Godot editor, we can see that it now has a signal `my_signal(foo:int:)`. 
+
+```text 
+○ SwiftSignals.gdns 
+└── [→ my_signal(foo: int, bar: float)
+```
+
+Connect the signal to the `listener` node in the editor.
+
+```text 
+○ SwiftSignals.gdns 
+└── [→ my_signal(foo: int, bar: float)
+    └── →] ../listener :: _on_delegate_my_signal()
+```
+
+Fill out the `signals.gd` and `signals-listener.gd` scripts, and launch the `signals.tscn` scene to see the Swift signal in action:
+
+```gdscript
+# signals.gd 
+
+extends Node
+
+func _ready():
+    $delegate.baz()
+```
+
+```gdscript
+# signals-listener.gd 
+
+extends Node
+
+func _ready():
+    pass 
+
+func _on_delegate_my_signal(foo, bar):
+    print('received signal: (foo: ', foo, ', ', bar, ')')
+```
+
+```text 
+...
+(swift) registering SwiftSignals as nativescript 'Godot::SwiftSignals'
+(swift) registering (function) as method 'Godot::SwiftSignals::baz'
+(swift) registering MySignal as signal 'Godot::SwiftSignals::my_signal'
+received signal: (foo: 6, 5.55)
+```
