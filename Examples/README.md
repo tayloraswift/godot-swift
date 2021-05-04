@@ -9,7 +9,7 @@
 *jump to:*
 
 1. [basic usage](#basic-usage) ([sources](swift/basic-usage.swift))
-2. [advanced methods](#advanced methods) ([sources](swift/advanced-methods.swift))
+2. [advanced methods](#advanced-methods) ([sources](swift/advanced-methods.swift))
 
 ## basic usage
 
@@ -20,6 +20,8 @@
 > - **nativescript interface**
 > - **binding operator**
 > - **delegate**
+
+#### getting started 
 
 Start by creating two directories: `game`, which contains a Godot project, and `swift`, which will contain the Swift-language sources for a GDNative Swift library. Inside the `swift` folder, create an empty file named `library.swift`. The folder structure should look like this:
 
@@ -237,6 +239,8 @@ found 1 nativescript interface(s):
 }
 ```
 
+#### installing library resources
+
 The next step is to install our binary library products in our Godot game project. You can do this manually, as you would when using a framework like [`godot-cpp`](https://github.com/godotengine/godot-cpp), or you can use the [`build`](../build) python script (available in the repository root), which will compile the library and generate the necessary `.gdnlib` and `.gdns` resource files for you.
 
 > **Note:** The `build` script currently only works on Linux. You can help port it to MacOS! (This should only require changing a few paths and file extensions.)
@@ -326,9 +330,12 @@ If we run the game, we can now see the Swift library working as expected.
 
 [`sources`](swift/advanced-methods.swift)
 
+> **Key terms:** 
+> - **tuple splatting**
+
 > This tutorial assumes you already have the project from the [basic usage](#basic-usage) tutorial set up.
 
-Add a new source file, `advanced-methods.swift` to the Swift library.
+Add a new source file, `advanced-methods.swift`, to the Swift library.
 
 ```text 
 .
@@ -375,7 +382,9 @@ extension Godot.Library
 
 Now, let’s explore some of the kinds of nativescript methods we can write using *Godot Swift*.
 
-Although there aren’t many good use cases for this, you can define a method that takes a `Godot::null` argument by specifying its type in Swift as `Void` (sometimes written as the empty tuple `()`).
+#### `Void` parameters
+
+Although there aren’t many good use cases for this, you can define a method that takes a `Godot::null` parameter by specifying its type in Swift as `Void` (sometimes written as the empty tuple `()`).
 
 ```swift 
     func voidArgument(delegate _:Godot.Unmanaged.Spatial, void _:Void)  
@@ -389,6 +398,8 @@ A `Void` argument does not mean “no argument”; you must call such a function
 ```gdscript 
     $delegate.void_argument(null)
 ```
+
+#### `Optional` parameters
 
 Any `Godot.VariantRepresentable` type can be used as a method parameter type. For example, `Optional<Int>` is variant-representable (by the union type of `Godot::null` and `Godot::int`), which means we can define the following method: 
 
@@ -404,4 +415,284 @@ Such a method can be called from GDScript with either an integer argument, or `n
 ```gdscript 
     $delegate.optional_argument(10)
     $delegate.optional_argument(null)
+```
+
+#### multiple parameters 
+
+Methods can take any number of parameters, as long as the first parameter is `Self.Delegate`. The trailing parameters must be `Godot.VariantRepresentable`, but there is no requirement that they be of the same type. *Godot Swift* will generate the necessary variadic generic templates for you.
+
+```swift 
+    func multipleArguments(delegate _:Godot.Unmanaged.Spatial, 
+        bool:Bool, int:Int16, vector:Vector2<Float64>)  
+    {
+        Godot.print("hello from \(#function), recieved \(bool), \(int), \(vector)")
+    }
+```
+
+You can find a list of all the built-in `Godot.VariantRepresentable` types you can use in the [type reference](type-reference.md).
+
+#### tuple splatting
+
+*Godot Swift* supports **tuple splatting**. This feature allows you to automatically destructure `Godot::Array` parameters into strongly-typed tuple forms. 
+
+```swift 
+    func tupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:(String, (String, String)))  
+    {
+        Godot.print("hello from \(#function), recieved \(tuple)")
+    }
+```
+
+To call such a function from GDScript, pass it a `Godot::Array` of the expected form:
+
+```gdscript 
+    var strings:Array = [
+            'element (0)', [
+                'element (1, 0)', 
+                'element (1, 1)'
+            ]
+        ]
+    
+    $delegate.tuple_argument(strings)
+```
+
+You can also specify the Swift type of a `Godot::Array` parameter as `Godot.List`, to receive variable-length, type-erased Godot lists: 
+
+```swift 
+    func listArgument(delegate _:Godot.Unmanaged.Spatial, list:Godot.List)  
+    {
+        Godot.print("hello from \(#function), recieved list (\(list.count) elements)")
+        for (i, element):(Int, Godot.Variant?) in list.enumerated()
+        {
+            Godot.print("[\(i)]: \(element as Any)")
+        }
+    }
+```
+
+Both forms are called in the exact same way from GDScript.
+
+#### `inout` parameters
+
+*Godot Swift* supports `inout` parameters. 
+
+```swift 
+    func inoutArgument(delegate _:Godot.Unmanaged.Spatial, int:inout Int)  
+    {
+        Godot.print("hello from \(#function)")
+        int += 2
+    }
+```
+
+When called from GDScript, the integer argument passed to this function will be updated when the method returns.
+
+Tuple splatting also works with `inout`. 
+
+```swift 
+    func inoutTupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:inout (String, (String, String)))  
+    {
+        Godot.print("hello from \(#function), recieved \(tuple)")
+        tuple.1.0 = "new string"
+    }
+```
+
+The list elements are updated individually. Overwriting the entire tuple aggregate does not replace the `Godot::Array` instance itself.
+
+> **Warning:** GDScript has no concept of `inout` parameters, which means that modifying passed arguments may constitute unexpected behavior. Swift methods that modify their arguments should be clearly documented as such.
+
+#### return values 
+
+Any `Godot.VariantRepresentable` type can be used as a method return type. For example, we can return an `Optional<Int>` as follows: 
+
+```swift 
+    func optionalReturn(delegate _:Godot.Unmanaged.Spatial, int:Int) -> Int?  
+    {
+        int < 0 ? nil : int
+    }
+```
+
+Tuple splatting also works with return values. The following nativescript method produces a two-element `Godot::Array` when called from GDScript: 
+
+```swift 
+    func tupleReturn(delegate _:Godot.Unmanaged.Spatial) -> (Float32, Float64?)  
+    {
+        return (.pi, nil)
+    }
+}
+```
+
+The first element will become a `Godot::float` in GDScript, and the second element will become either a `Godot::float`, or `Godot::null`.
+
+#### putting it together 
+
+Before we can test our *Godot Swift* methods in GDScript, we need to add them to `SwiftAdvancedMethods`’s nativescript interface. 
+
+```swift 
+// advanced-methods.swift 
+
+extension SwiftAdvancedMethods 
+{
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        Interface.methods 
+        {
+            voidArgument(delegate:void:)                    <- "void_argument"
+            optionalArgument(delegate:int:)                 <- "optional_argument"
+            multipleArguments(delegate:bool:int:vector:)    <- "multiple_arguments"
+            tupleArgument(delegate:tuple:)                  <- "tuple_argument"
+            listArgument(delegate:list:)                    <- "list_argument"
+            
+            inoutArgument(delegate:int:)                    <- "inout_argument"
+            inoutTupleArgument(delegate:tuple:)             <- "inout_tuple_argument"
+            
+            optionalReturn(delegate:int:)                   <- "optional_return"
+            tupleReturn(delegate:)                          <- "tuple_return"
+        }
+    }
+}
+```
+
+Compile and install the Swift library using the `build` script: 
+
+```bash 
+$ ./build -c debug -i Examples/game/libraries
+```
+
+```text 
+...
+inspecting sub-build product 'libgodot-swift-examples.so'
+note: in directory '.build/plugins/outputs/godot-swift/Examples/GodotNativeScript/.build/debug'
+note: through entrypoint '__inspector_entrypoint_loader__'
+found 2 nativescript interface(s):
+[0]: Examples.MySwiftClass <- (Godot::MyExportedSwiftClass)
+{
+    (1 property)
+    (1 method)
+    (0 signals)
+}
+[1]: Examples.SwiftAdvancedMethods <- (Godot::SwiftAdvancedMethods)
+{
+    (0 properties)
+    (9 methods)
+    (0 signals)
+}
+generating file 'registration.swift'
+note: in directory '.build/plugins/outputs/godot-swift/Examples/GodotNativeScript'
+synthesizing variadic templates (8 signatures)
+[0]: (T.Delegate) -> (V0, V1)
+[1]: (T.Delegate, (U0, (U1, U2))) -> Void
+[2]: (T.Delegate, U0) -> V0
+[3]: (T.Delegate, U0) -> Void
+[4]: (T.Delegate, U0, U1, U2) -> Void
+[5]: (T.Delegate, Void) -> Void
+[6]: (T.Delegate, inout (U0, (U1, U2))) -> Void
+[7]: (T.Delegate, inout U0) -> Void
+synthesizing Godot.NativeScript conformances (2 types)
+[0]: Examples.MySwiftClass
+[1]: Examples.SwiftAdvancedMethods
+...
+installing to 'res://libraries/' in project 'game'
+```
+
+We can observe that *Godot Swift* generated eight generic templates, covering the signatures of the nine methods we defined on `SwiftAdvancedMethods`. (The `optionalArgument(delegate:int:)` and `listArgument(delegate:list:)` methods share a single template.)
+
+Add a new scene, `advanced-methods.tscn`, to the Godot project, and give it a root node `root` and a child node `delegate` of type `Godot::Spatial`. Create a GDScript script `advanced-methods.gd`, and attach it to the root node.
+
+```text 
+.
+└── game/
+    ├── project.godot 
+    ├── main.tscn 
+    ├── main.gd 
+    ├── advanced-methods.tscn 
+    ├── advanced-methods.gd 
+    └── libraries/
+        ├── godot-swift-examples/ 
+        │   ├── library.gdnlib 
+        │   ├── MyExportedSwiftClass.gdns
+        │   └── SwiftAdvancedMethods.gdns
+        ├── libgodot-swift-examples.so
+        └── libSwiftPM.so
+```
+
+Attach the `SwiftAdvancedMethods` nativescript to the `delegate` node.
+
+```text 
+// advanced-methods.tscn
+
+○ root:Node             (advanced-methods.gd)
+└── ○ delegate:Spatial  (SwiftAdvancedMethods.gdns)
+```
+
+Add the following demo code to the `advanced-methods.gd` script: 
+
+```gdscript 
+extends Node
+
+func _ready():
+    $delegate.void_argument(null)
+    
+    $delegate.optional_argument(10)
+    $delegate.optional_argument(null)
+    
+    $delegate.multiple_arguments(true, 3, Vector2(0.5, 0.75))
+    
+    var strings:Array = [
+        'element (0)', [
+            'element (1, 0)', 
+            'element (1, 1)'
+        ]
+    ]
+    
+    $delegate.tuple_argument(strings)
+    $delegate.list_argument(strings)
+    
+    var x:int = 5 
+    print('old value of `x`: ', x)
+    $delegate.inout_argument(x)
+    print('new value of `x`: ', x)
+    
+    print('old value of `strings`: ', strings)
+    $delegate.inout_tuple_argument(strings)
+    print('new value of `strings`: ', strings)
+    
+    print('non-negative: ', $delegate.optional_return( 1))
+    print('non-negative: ', $delegate.optional_return(-1))
+
+    print('returned tuple: ', $delegate.tuple_return())
+```
+
+If we launch the `advanced-methods.tscn` scene from the Godot editor, we can see the Swift methods in action. Output printed from Swift is prefixed with the string `'(swift)'`; output printed from GDScript is emitted as-is.
+
+```text 
+(swift) registering MySwiftClass as nativescript 'Godot::MyExportedSwiftClass'
+(swift) registering (function) as method 'Godot::MyExportedSwiftClass::bar'
+(swift) registering (function) as property 'Godot::MyExportedSwiftClass::foo'
+(swift) registering SwiftAdvancedMethods as nativescript 'Godot::SwiftAdvancedMethods'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::void_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::optional_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::multiple_arguments'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::tuple_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::list_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::inout_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::inout_tuple_argument'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::optional_return'
+(swift) registering (function) as method 'Godot::SwiftAdvancedMethods::tuple_return'
+(swift) hello from voidArgument(delegate:void:)
+(swift) hello from optionalArgument(delegate:int:), recieved Optional(10)
+(swift) hello from optionalArgument(delegate:int:), recieved nil
+(swift) hello from multipleArguments(delegate:bool:int:vector:), recieved true, 3, Vector(0.5, 0.75)
+(swift) hello from tupleArgument(delegate:tuple:), recieved ("element (0)", ("element (1, 0)", "element (1, 1)"))
+(swift) hello from listArgument(delegate:list:), recieved list (2 elements)
+(swift) [0]: Optional(Examples.Godot.String)
+(swift) [1]: Optional(Examples.Godot.List)
+old value of `x`: 5
+(swift) hello from inoutArgument(delegate:int:)
+new value of `x`: 7
+old value of `strings`: [element (0), [element (1, 0), element (1, 1)]]
+(swift) hello from inoutTupleArgument(delegate:tuple:), recieved ("element (0)", ("element (1, 0)", "element (1, 1)"))
+new value of `strings`: [element (0), [new string, element (1, 1)]]
+non-negative: 1
+non-negative: Null
+returned tuple: [3.141593, Null]
 ```
