@@ -633,11 +633,11 @@ extension Godot
     {
         enum Witness 
         {
-            typealias Get = (T) -> Godot.Variant.Unmanaged
-            typealias Set = (T,    Godot.Variant.Unmanaged) -> ()
+            typealias Get = (T) -> Godot.UnmanagedVariant
+            typealias Set = (T,    Godot.UnmanagedVariant) -> ()
             
             typealias Property  = (get:Get, set:Set) 
-            typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.Variant.Unmanaged
+            typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.UnmanagedVariant
         }
         
         typealias Property  = 
@@ -700,7 +700,7 @@ extension Godot
         typealias Argument =
         (
             annotations:Annotations.Argument, 
-            witness:(T) -> Godot.Variant.Unmanaged 
+            witness:(T) -> Godot.UnmanagedVariant 
         )
         
         let arguments:[Argument]
@@ -1011,8 +1011,8 @@ extension Godot.NativeScriptInterface
         {
             fatalError("(swift) \(description) received nil or invalid instance pointer")
         }
-        guard   let value:Godot.Variant.Unmanaged = 
-            value.map(Godot.Variant.Unmanaged.init(unsafeData:))
+        guard   let value:Godot.UnmanagedVariant = 
+            value.map(Godot.UnmanagedVariant.init(unsafeData:))
         else 
         {
             fatalError("(swift) received nil argument pointer from gdscript property assignment")
@@ -1068,7 +1068,7 @@ extension Godot
     struct VariadicArguments
     {
         private 
-        let arguments:UnsafeMutableBufferPointer<UnsafeMutablePointer<Variant.Unmanaged>>
+        let arguments:UnsafeMutableBufferPointer<UnsafeMutablePointer<UnmanagedVariant>>
         
         typealias RawArgument       = UnsafeMutablePointer<godot_variant>
         typealias RawArgumentVector = UnsafeMutablePointer<RawArgument?>
@@ -1096,7 +1096,7 @@ extension Godot
                 .init(start: start, count: count)
             
             return try buffer.withMemoryRebound(
-                to: UnsafeMutablePointer<Variant.Unmanaged>.self) 
+                to: UnsafeMutablePointer<UnmanagedVariant>.self) 
             {
                 try body(.init(arguments: $0))
             }

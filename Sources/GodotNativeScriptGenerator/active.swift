@@ -540,12 +540,12 @@ extension Synthesizer.Form
         case .void, .scalar(type: _):
             return Source.fragment
             {
-                "Godot.Variant.Unmanaged.pass(retaining: \(variable))" 
+                "Godot.UnmanagedVariant.pass(retaining: \(variable))" 
             }
         case .tuple(let elements):
             return Source.fragment
             {
-                "Godot.Variant.Unmanaged.pass(retaining: \(list).init(consuming: "
+                "Godot.UnmanagedVariant.pass(retaining: \(list).init(consuming: "
                 Source.fragment(indent: 1) 
                 {
                     elements.enumerated().map
@@ -599,7 +599,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: Void.self), 
                         function: symbol)
-                    return Godot.Variant.Unmanaged.pass(retaining: ())
+                    return Godot.UnmanagedVariant.pass(retaining: ())
                 }
                 """
             }
@@ -615,7 +615,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: \(type).self), 
                         function: symbol)
-                    return Godot.Variant.Unmanaged.pass(retaining: ())
+                    return Godot.UnmanagedVariant.pass(retaining: ())
                 }
                 """
             }
@@ -632,7 +632,7 @@ extension Synthesizer.Form
                     else 
                     {
                         Godot.print(error: .invalidArgumentTuple(\(list.root).count, expected: \(Self.tree(self)).self))
-                        return Godot.Variant.Unmanaged.pass(retaining: ())
+                        return Godot.UnmanagedVariant.pass(retaining: ())
                     }
                     """
                     if mutable 
@@ -651,7 +651,7 @@ extension Synthesizer.Form
                 {
                     Godot.print(error: .invalidArgument(\(list.root)[\(position)], expected: \(list.type).self), 
                         function: symbol)
-                    return Godot.Variant.Unmanaged.pass(retaining: ())
+                    return Godot.UnmanagedVariant.pass(retaining: ())
                 }
                 """
             }
@@ -775,14 +775,14 @@ extension Synthesizer.FunctionParameterization
                     {
                         """
                         (self:T, delegate:\(self.exclude), arguments:Godot.VariadicArguments) 
-                            -> Godot.Variant.Unmanaged in
+                            -> Godot.UnmanagedVariant in
                         
                         guard arguments.count == \(self.domain.count) 
                         else 
                         {
                             Godot.print(error: .invalidArgumentCount(arguments.count, expected: \(self.domain.count)), 
                                 function: symbol)
-                            return Godot.Variant.Unmanaged.pass(retaining: ())
+                            return Godot.UnmanagedVariant.pass(retaining: ())
                         }
                         """
                         

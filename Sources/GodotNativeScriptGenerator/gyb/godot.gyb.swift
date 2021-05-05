@@ -1513,7 +1513,7 @@ extension Godot
                         .\(type)
                     }
                     static 
-                    func unpacked(variant:Godot.Variant.Unmanaged) -> \(unpacked)? 
+                    func unpacked(variant:Godot.UnmanagedVariant) -> \(unpacked)? 
                     {
                         variant.load(where: Self.variantType)
                         {
@@ -1521,7 +1521,7 @@ extension Godot
                         } 
                     }
                     static 
-                    func variant(packing value:\(unpacked)) -> Godot.Variant.Unmanaged
+                    func variant(packing value:\(unpacked)) -> Godot.UnmanagedVariant
                     {
                         withUnsafePointer(to: Self.init(packing: value)) 
                         {
@@ -1591,13 +1591,13 @@ extension Godot
                     typealias RawArrayReference = godot_\(array)
                     
                     static 
-                    func downcast(array value:Godot.Variant.Unmanaged) -> RawArrayReference?
+                    func downcast(array value:Godot.UnmanagedVariant) -> RawArrayReference?
                     {
                         value.load(where: RawArrayReference.variantType, 
                             Godot.api.1.0.godot_variant_as_\(array))
                     }
                     static 
-                    func upcast(array value:RawArrayReference) -> Godot.Variant.Unmanaged
+                    func upcast(array value:RawArrayReference) -> Godot.UnmanagedVariant
                     {
                         withUnsafePointer(to: value) 
                         {
@@ -1905,7 +1905,7 @@ extension Godot
                 static 
                 func take(_ body:(UnsafeMutablePointer<godot_variant>) -> ()) -> Self 
                 {
-                    var unmanaged:Godot.Variant.Unmanaged = .init(with: body)
+                    var unmanaged:Godot.UnmanagedVariant = .init(with: body)
                     defer 
                     {
                         unmanaged.release()
@@ -1914,7 +1914,7 @@ extension Godot
                 }
                 func pass(_ body:(UnsafePointer<godot_variant>?) -> ()) 
                 {
-                    Godot.Variant.Unmanaged.pass(guaranteeing: self.variant, body)
+                    Godot.UnmanagedVariant.pass(guaranteeing: self.variant, body)
                 }
             }
             extension Optional:Godot.Function.Passable where Wrapped:Godot.AnyDelegate
@@ -2077,7 +2077,7 @@ extension Godot
             Source.block 
             {
                 """
-                func callAsFunction(delegate:Godot.AnyDelegate, variants:[Godot.Variant.Unmanaged]) 
+                func callAsFunction(delegate:Godot.AnyDelegate, variants:[Godot.UnmanagedVariant]) 
                 {
                     withExtendedLifetime(delegate) 
                     {
@@ -2370,7 +2370,7 @@ extension Godot.Class.Node
                         func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
                             where Signal:Godot.Signal 
                         {
-                            var variants:[Godot.Variant.Unmanaged] = 
+                            var variants:[Godot.UnmanagedVariant] = 
                                 [.pass(retaining: Signal.name)]
                                 +
                                 Signal.interface.arguments.map
