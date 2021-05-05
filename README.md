@@ -8,7 +8,7 @@
 
 ### getting started 
 
-*Godot Swift* uses the experimental Swift [package plugins](https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md) feature, which is currently only available in recent [nightly Swift toolchains](https://swift.org/download/#snapshots). Because this feature is in active development, we strongly recommend using the following Swift toolchain version to avoid compilation issues:
+*Godot Swift* uses the experimental Swift [package plugins](https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md) feature, which is currently only available in recent [nightly Swift toolchains](https://swift.org/download/#snapshots). Because this feature is in active development, we *strongly recommend* using the following Swift toolchain version to avoid compilation issues:
 
 * **`DEVELOPMENT-SNAPSHOT-2021-04-18-a`**
 
@@ -20,6 +20,14 @@
 
 > **Warning:** Although *Godot Swift* libraries should be compatible with later Godot versions, we *strongly recommend* using Godot 3.3.0 to avoid unrecognized-symbol errors at runtime.
 
-### [tutorials and example programs](Examples/)
+### [references, tutorials, and example programs](Examples/)
 
-1. [basic usage](Examples/README.md#basic-usage) ([sources](Examples/basic/))
+* [**types**](type-reference.md)
+
+
+1. [basic usage](Examples#basic-usage) ([sources](Examples/swift/basic-usage.swift))
+2. [advanced methods](Examples#advanced-methods) ([sources](Examples/swift/advanced-methods.swift))
+3. [advanced properties](Examples#advanced-properties) ([sources](Examples/swift/advanced-properties.swift))
+4. [signals](Examples#signals) ([sources](Examples/swift/signals.swift))
+5. [life cycle management](Examples#life-cycle-management) ([sources](Examples/swift/life-cycle-management.swift))
+6. [using custom types](Examples#using-custom-types) ([sources](Examples/swift/custom-types.swift))

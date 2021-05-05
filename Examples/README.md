@@ -1160,7 +1160,7 @@ protocol Godot.VariantRepresentable
 
 The static `variantType` property requirement is the simplest. It specifies a type hint for the conforming Swift type’s GDScript representation. It supports the following predefined cases:
 
-| case                  | GDScript type             |
+| Case                  | GDScript type             |
 | --------------------- | ------------------------- | 
 | `void`                | `Godot::null`             |
 | `bool`                | `Godot::bool`             |
@@ -1192,7 +1192,7 @@ The static `variantType` property requirement is the simplest. It specifies a ty
 
 If there is more than one possible GDScript type that can represent the conforming Swift type, it is acceptable to set `variantType` to the `void` case.
 
-We want `InputEvents` to be represented by a two-element `Godot.List` (`Godot::Array`) in GDScript, so we set it to the `list` case.
+We want `InputEvents` to be represented by a two-element `Godot.List` (`Godot::Array`) in GDScript, so we set the type hint to the `list` case.
 
 ```swift 
     static 
@@ -1263,7 +1263,7 @@ It is also possible to call the `passRetained()` instance method on `Godot.List`
 }
 ```
 
-As with [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the words “retained” and “retaining” indicate that an unbalanced retain will be performed, if applicable. In this example, the `Godot.List` literal expression creates a temporary `Godot.List` instance, which will be deinitialized as soon as it is no longer in use. However, the list itself will still be alive, with the unmanaged variant value storing a handle to it, which GDScript can later use to retrieve it.
+As with [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the words “retained” and “retaining” indicate that an unbalanced retain will be performed, if applicable. In this example, the `Godot.List` literal expression creates a temporary `Godot.List` instance, which will be deinitialized as soon as it is no longer in use. However, the list itself will still be alive, with the unmanaged variant value storing a handle to it, which GDScript can use to retrieve it later.
 
 #### union types
 
