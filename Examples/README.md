@@ -1120,3 +1120,287 @@ Delegate types that inherit from `Godot.AnyObject` (`Godot::Reference`) are memo
 (swift) deinitialized instance of 'SwiftManaged'
 (swift) deinitialized instance of 'SwiftUnmanaged'
 ```
+
+## using custom types 
+
+[`sources`](swift/custom-types.swift)
+
+> This tutorial assumes you already have the project from the [basic usage](#basic-usage) tutorial set up.
+
+So far, we have only used *Godot Swift*’s built-in `Godot.VariantRepresentable` types. In this tutorial, we will define and use custom types conforming to this protocol.
+
+#### one-to-one types
+
+To start, let’s define a type `InputEvents` which holds two Godot objects — an instance of `Godot.InputEventMouseButton`, and an instance of `Godot.InputEventKey`. 
+
+```swift 
+// custom-types.swift 
+
+struct InputEvents:Godot.VariantRepresentable
+{
+    let events:(mouse:Godot.InputEventMouseButton, key:Godot.InputEventKey)
+```
+
+The `Godot.VariantRepresentable` protocol has the following requirements:
+
+```swift 
+protocol Godot.VariantRepresentable 
+{
+    static 
+    var variantType:Godot.VariantType
+    {
+        get 
+    }
+    
+    static 
+    func takeUnretained(_:Godot.UnmanagedVariant) -> Self?
+    func passRetained() -> Godot.UnmanagedVariant 
+}
+```
+
+The static `variantType` property requirement is the simplest. It specifies a type hint for the conforming Swift type’s GDScript representation. It supports the following predefined cases:
+
+| case                  | GDScript type             |
+| --------------------- | ------------------------- | 
+| `void`                | `Godot::null`             |
+| `bool`                | `Godot::bool`             |
+| `int`                 | `Godot::int`              |
+| `float`               | `Godot::float`            |
+| `string`              | `Godot::String`           |
+| `list`                | `Godot::Array`            |
+| `map`                 | `Godot::Dictionary`       |
+| `vector2`             | `Godot::Vector2`          |
+| `vector3`             | `Godot::Vector3`          |
+| `vector4`             | `Godot::Color`            |
+| `rectangle2`          | `Godot::Rect2`            |
+| `rectangle3`          | `Godot::AABB`             |
+| `quaternion`          | `Godot::Quat`             |
+| `plane3`              | `Godot::Plane`            |
+| `affine2`             | `Godot::Transform2D`      |
+| `affine3`             | `Godot::Transform`        |
+| `linear3`             | `Godot::Basis`            |
+| `nodePath`            | `Godot::NodePath`         |
+| `resourceIdentifier`  | `Godot::RID`              |
+| `delegate`            | `Godot::Object`           |
+| `uint8Array`          | `Godot::PoolByteArray`    |
+| `int32Array`          | `Godot::PoolIntArray`     |
+| `float32Array`        | `Godot::PoolRealArray`    |
+| `stringArray`         | `Godot::PoolStringArray`  |
+| `vector2Array`        | `Godot::PoolVector2Array` |
+| `vector3Array`        | `Godot::PoolVector3Array` |
+| `vector4Array`        | `Godot::PoolColorArray`   |
+
+If there is more than one possible GDScript type that can represent the conforming Swift type, it is acceptable to set `variantType` to the `void` case.
+
+We want `InputEvents` to be represented by a two-element `Godot.List` (`Godot::Array`) in GDScript, so we set it to the `list` case.
+
+```swift 
+    static 
+    var variantType:Godot.VariantType 
+    {
+        .list
+    }
+```
+
+The next step is to implement the static `takeUnretained(_:)` method. It takes a parameter of type `Godot.UnmanagedVariant`, which, as its name suggests, is a type storing an unmanaged Godot variant.
+
+If you are familiar with the Swift standard library type [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the semantics here are exactly the same. That is, `takeUnretained(_:)` is expected to load a memory-managed instance of `Self` from the `Godot.UnmanagedVariant` value, performing an unbalanced retain, if applicable. If the original `Godot.UnmanagedVariant` is later deinitialized, the newly-loaded instance of `Self` should still be valid. If it is not possible to load an instance of `Self` from the variant data, this function should return `nil`.
+
+```swift 
+    static 
+    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    {
+        guard   let list:Godot.List = value.take(unretained: Godot.List.self), 
+                    list.count == 2, 
+                let mouse:Godot.InputEventMouseButton   = 
+                    list[0] as? Godot.InputEventMouseButton,
+                let key:Godot.InputEventKey             = 
+                    list[1] as? Godot.InputEventKey
+        else 
+        {
+            return nil 
+        }
+        
+        return .init(events: (mouse, key))
+    }
+```
+
+Let’s break down what’s happening in this implementation. 
+
+*  `guard   let list:Godot.List = value.take(unretained: Godot.List.self), `
+    
+    This line loads a (memory-managed) instance of `Godot.List` from the unmanaged variant value using the `take(unretained:)` method on `Godot.UnmanagedVariant`. It calls the `takeUnretained(_:)` implementation from the specified type, and can be used with any `Godot.VariantRepresentable` type. This allows new `Godot.VariantRepresentable` implementations to piggyback off of existing `Godot.VariantRepresentable` implementations.
+    
+    It is also possible to call the `takeUnretained(_:)` static method on `Godot.List` directly, but calling the `take(unretained:)` method on `Godot.UnmanagedVariant` is the preferred form. 
+    
+> **Warning:** Take care not to accidentally call `take(unretained:)` with `Self.self` — this will cause infinite recursion.
+
+*  `let mouse:Godot.InputEventMouseButton = list[0] as? Godot.InputEventMouseButton,`
+    
+    This line retrieves the first element of `list`, which has static type `Godot.Variant?`. Its *dynamic type* might be `Godot.AnyDelegate`, which in turn, might be `Godot.InputEventMouseButton`, so we use the `as?` operator to downcast to `Godot.InputEventMouseButton`.
+    
+    The `Godot.Variant?` existentials are memory-managed by Swift, so we don’t have to do any manual cleanup if the dynamic downcast fails.
+
+*  `let key:Godot.InputEventKey = list[1] as? Godot.InputEventKey`
+
+    This line does essentially the same thing as the one above it, except it attempts to downcast to `Godot.InputEventKey`.
+
+> **Note:** `Godot.InputEventMouseButton` and `Godot.InputEventMouseButton` are reference-counted delegates. The same code would still work for unmanaged delegate types, but their reference counts would not get incremented when loaded by `take(unretained:)` or the `Godot.List` subscript, since they do not have reference counts in the first place. This means it would be the GDScript caller’s responsibility to guarantee that the delegates are alive for the duration of the nativescript call.
+
+The `passRetained()` instance method is the inverse of `takeUnretained(_:)`. Here, we create a `Godot.List` literal, and convert it to an unmanaged variant using the `pass(retaining:)` constructor. Like the `take(unretained:)` method, `pass(retaining:)` can be used with any existing `Godot.VariantRepresentable` type.
+
+It is also possible to call the `passRetained()` instance method on `Godot.List` directly, but calling the `pass(retaining:)` constructor is the preferred form.
+
+```swift 
+    func passRetained() -> Godot.UnmanagedVariant 
+    {
+        .pass(retaining: 
+            [
+                self.events.mouse, 
+                self.events.key,
+            ] as Godot.List)
+    }
+}
+```
+
+As with [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the words “retained” and “retaining” indicate that an unbalanced retain will be performed, if applicable. In this example, the `Godot.List` literal expression creates a temporary `Godot.List` instance, which will be deinitialized as soon as it is no longer in use. However, the list itself will still be alive, with the unmanaged variant value storing a handle to it, which GDScript can later use to retrieve it.
+
+#### union types
+
+It is also possible to define custom Swift types that are representable by more than one GDScript type. Let’s define a type `UnitRangeElement<T>`, which models a floating point value in the range `0 ... 1`. In the typical Swift fashion, we will make it generic over `BinaryFloatingPoint`. 
+
+We want `UnitRangeElement<T>` to be representable by both `Godot::int` and `Godot::float`, so we set the type hint to `void`, which in this case means “any type”.
+
+```swift 
+struct UnitRangeElement<T>:Godot.VariantRepresentable 
+    where T:BinaryFloatingPoint
+{
+    let value:T 
+    
+    static 
+    var variantType:Godot.VariantType 
+    {
+        .void 
+    }
+```
+
+The `takeUnretained(_:)` implementation accepts the integer values `0` and `1`, and any floating point value in the range `0 ... 1`. We could attempt to load `Int64` and `Float64` values in a series of `if let`/`else if let` bindings, similar to what we did in the `InputEvents` example, but we can also load a `Godot.Variant?` existential, and switch over its type cases:
+
+```swift 
+    static 
+    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    {
+        switch value.take(unretained: Godot.Variant?.self)
+        {
+        case 0 as Int64: 
+            return .init(value: 0)
+        case 1 as Int64:
+            return .init(value: 1)
+        case let value as Float64:
+            guard 0 ... 1 ~= value 
+            else 
+            {
+                fallthrough 
+            }
+            return .init(value: .init(value))
+        default:
+            return nil 
+        }
+    }
+```
+
+> **Note:** `Godot.Variant?.self` is a metatype object of type `Optional<Godot.Variant>.Type`. This type can be thought of as an optionalized version of `Godot.Variant.Protocol`. Don’t confuse it with `Optional<Godot.Variant.Protocol>`, which is an optional metatype, not a metatype of an optional protocol type. (This is a subtle but extremely important distinction.)
+
+The `passRetained()` implementation can produce either a `Godot::int`, if possible, or a `Godot::float` otherwise. 
+
+```swift 
+    func passRetained() -> Godot.UnmanagedVariant 
+    {
+        switch self.value 
+        {
+        case 0:         return .pass(retaining: 0 as Int64)
+        case 1:         return .pass(retaining: 1 as Int64)
+        case let value: return .pass(retaining: Float64.init(value))
+        }
+    }
+```
+
+We can now define a nativescript `SwiftCustomTypes` to demonstrate the usage of our custom `Godot.VariantRepresentable` types: 
+
+```swift 
+final 
+class SwiftCustomTypes:Godot.NativeScript 
+{
+    @Interface 
+    static 
+    var interface:Interface 
+    {
+        Interface.methods 
+        {
+            push(delegate:inputs:) <- "push_inputs"
+        }
+        Interface.properties 
+        {
+            \.x <- "x"
+        }
+    }
+    
+    var x:UnitRangeElement<Float32> 
+    {
+        didSet
+        {
+            Godot.print("set `x` to \(self.x.value)")
+        }
+    }
+    
+    init(delegate _:Godot.Unmanaged.Spatial)
+    {
+        self.x = .init(value: 0.5)
+    }
+    
+    func push(delegate _:Godot.Unmanaged.Spatial, inputs:InputEvents)
+    {
+        Godot.print("\(#function) received inputs \(inputs)")
+    }
+}
+```
+
+If we test it from GDScript, we can see `InputEvents` and `UnitRangeElement<Float32>` in action. (The commented-out lines are invalid conversions, which would raise runtime type conversion errors, according to our custom type implementations.)
+
+```gdscript 
+# custom-types.gd 
+
+extends Node
+
+func _ready():
+    var mouse:InputEventMouseButton = InputEventMouseButton.new()
+    var key:InputEventKey           = InputEventKey.new()
+    
+    $delegate.push_inputs([mouse, key])
+    # $delegate.push_inputs([mouse])
+    
+    var zero:int = 0 
+    var one:int  = 1
+    $delegate.x = zero
+    $delegate.x = one
+    $delegate.x = 0.75 
+    # $delegate.x = 1.5
+    
+    $delegate.x = 1.0 
+    print(typeof($delegate.x) == TYPE_INT)
+```
+
+```text 
+(swift) registering SwiftCustomTypes as nativescript 'Godot::SwiftCustomTypes'
+(swift) registering (function) as method 'Godot::SwiftCustomTypes::push_inputs'
+(swift) registering (function) as property 'Godot::SwiftCustomTypes::x'
+(swift) push(delegate:inputs:) received inputs 
+    InputEvents(events: (mouse: Examples.Godot.InputEventMouseButton, key: Examples.Godot.InputEventKey))
+(swift) set `x` to 0.0
+(swift) set `x` to 1.0
+(swift) set `x` to 0.75
+(swift) set `x` to 1.0
+True
+```
+
+Observe that even when we set `x` to the floating point value `1.0`, it comes back as the integer value `1`, which is exactly what we expect, given our `UnitRangeElement<T>` implementation.

@@ -10,5 +10,6 @@ extension Godot.Library
         SwiftSignals.self               <- "SwiftSignals"
         SwiftUnmanaged.self             <- "SwiftUnmanaged"
         SwiftManaged.self               <- "SwiftManaged"
+        SwiftCustomTypes.self           <- "SwiftCustomTypes"
     }
 }
