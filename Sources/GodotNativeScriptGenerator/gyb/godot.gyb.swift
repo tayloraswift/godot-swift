@@ -1614,7 +1614,7 @@ extension Godot
                             withUnsafePointer(to: godot, Godot.api.1.0.godot_\(array)_read)
                         else 
                         {
-                            fatalError("recieved nil pointer from `godot_\(array)_read(_:)`")
+                            fatalError("received nil pointer from `godot_\(array)_read(_:)`")
                         }
                         defer 
                         {
@@ -1631,7 +1631,7 @@ extension Godot
                                 Godot.api.1.0.godot_\(array)_read_access_ptr(lock)
                             else 
                             {
-                                fatalError("recieved nil pointer from `godot_\(array)_read_access_ptr(_:)`")
+                                fatalError("received nil pointer from `godot_\(array)_read_access_ptr(_:)`")
                             }
                             """
                             if let _:String = godot
@@ -1671,7 +1671,7 @@ extension Godot
                             Godot.api.1.0.godot_\(array)_write(&array)
                         else 
                         {
-                            fatalError("recieved nil pointer from `godot_\(array)_write(_:)`")
+                            fatalError("received nil pointer from `godot_\(array)_write(_:)`")
                         }
                         defer 
                         {
@@ -1682,7 +1682,7 @@ extension Godot
                             Godot.api.1.0.godot_\(array)_write_access_ptr(lock)
                         else 
                         {
-                            fatalError("recieved nil pointer from `godot_\(array)_write_access_ptr(_:)`")
+                            fatalError("received nil pointer from `godot_\(array)_write_access_ptr(_:)`")
                         }
                         """
                         if let _:String = godot

@@ -1015,7 +1015,7 @@ extension Godot.NativeScriptInterface
             value.map(Godot.Variant.Unmanaged.init(unsafeData:))
         else 
         {
-            fatalError("(swift) recieved nil argument pointer from gdscript property assignment")
+            fatalError("(swift) received nil argument pointer from gdscript property assignment")
         }
         
         self[property: index].witness.set(instance, value) 
@@ -1088,7 +1088,7 @@ extension Godot
                 }
                 for i:Int in 0 ..< count where base[i] == nil 
                 {
-                    fatalError("(swift) recieved nil argument pointer from gdscript method call at position \(i)")
+                    fatalError("(swift) received nil argument pointer from gdscript method call at position \(i)")
                 }
             }
             

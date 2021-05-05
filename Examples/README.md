@@ -411,7 +411,7 @@ Any `Godot.VariantRepresentable` type can be used as a method parameter type. Fo
 ```swift 
     func optionalArgument(delegate _:Godot.Unmanaged.Spatial, int:Int?)  
     {
-        Godot.print("hello from \(#function), recieved \(int as Any)")
+        Godot.print("hello from \(#function), received \(int as Any)")
     }
 ```
 
@@ -430,7 +430,7 @@ Methods can take any number of parameters, as long as the first parameter is `Se
     func multipleArguments(delegate _:Godot.Unmanaged.Spatial, 
         bool:Bool, int:Int16, vector:Vector2<Float64>)  
     {
-        Godot.print("hello from \(#function), recieved \(bool), \(int), \(vector)")
+        Godot.print("hello from \(#function), received \(bool), \(int), \(vector)")
     }
 ```
 
@@ -443,7 +443,7 @@ You can find a list of all the built-in `Godot.VariantRepresentable` types you c
 ```swift 
     func tupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:(String, (String, String)))  
     {
-        Godot.print("hello from \(#function), recieved \(tuple)")
+        Godot.print("hello from \(#function), received \(tuple)")
     }
 ```
 
@@ -465,7 +465,7 @@ You can also specify the Swift type of a `Godot::Array` parameter as `Godot.List
 ```swift 
     func listArgument(delegate _:Godot.Unmanaged.Spatial, list:Godot.List)  
     {
-        Godot.print("hello from \(#function), recieved list (\(list.count) elements)")
+        Godot.print("hello from \(#function), received list (\(list.count) elements)")
         for (i, element):(Int, Godot.Variant?) in list.enumerated()
         {
             Godot.print("[\(i)]: \(element as Any)")
@@ -494,7 +494,7 @@ Tuple splatting also works with `inout`.
 ```swift 
     func inoutTupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:inout (String, (String, String)))  
     {
-        Godot.print("hello from \(#function), recieved \(tuple)")
+        Godot.print("hello from \(#function), received \(tuple)")
         tuple.1.0 = "new string"
     }
 ```
@@ -684,18 +684,18 @@ If we launch the `advanced-methods.tscn` scene from the Godot editor, we can see
 (swift) registering (function) as method 'Godot::SwiftAdvancedMethods::optional_return'
 (swift) registering (function) as method 'Godot::SwiftAdvancedMethods::tuple_return'
 (swift) hello from voidArgument(delegate:void:)
-(swift) hello from optionalArgument(delegate:int:), recieved Optional(10)
-(swift) hello from optionalArgument(delegate:int:), recieved nil
-(swift) hello from multipleArguments(delegate:bool:int:vector:), recieved true, 3, Vector(0.5, 0.75)
-(swift) hello from tupleArgument(delegate:tuple:), recieved ("element (0)", ("element (1, 0)", "element (1, 1)"))
-(swift) hello from listArgument(delegate:list:), recieved list (2 elements)
+(swift) hello from optionalArgument(delegate:int:), received Optional(10)
+(swift) hello from optionalArgument(delegate:int:), received nil
+(swift) hello from multipleArguments(delegate:bool:int:vector:), received true, 3, Vector(0.5, 0.75)
+(swift) hello from tupleArgument(delegate:tuple:), received ("element (0)", ("element (1, 0)", "element (1, 1)"))
+(swift) hello from listArgument(delegate:list:), received list (2 elements)
 (swift) [0]: Optional(Examples.Godot.String)
 (swift) [1]: Optional(Examples.Godot.List)
 old value of `x`: 5
 (swift) hello from inoutArgument(delegate:int:)
 new value of `x`: 7
 old value of `strings`: [element (0), [element (1, 0), element (1, 1)]]
-(swift) hello from inoutTupleArgument(delegate:tuple:), recieved ("element (0)", ("element (1, 0)", "element (1, 1)"))
+(swift) hello from inoutTupleArgument(delegate:tuple:), received ("element (0)", ("element (1, 0)", "element (1, 1)"))
 new value of `strings`: [element (0), [new string, element (1, 1)]]
 non-negative: 1
 non-negative: Null
@@ -1056,6 +1056,8 @@ class SwiftManaged:Godot.NativeScript
     }
 }
 ```
+
+> **Note:** *All* Swift nativescripts are memory-managed, even if they are `struct`s or `enum`s. In this example, we have defined `SwiftUnmanaged` and `SwiftManaged` as Swift `class`es, so that we can observe their deinitializations through the `deinit` observer.
 
 You may already be aware that a dynamically-allocated `Godot::Node` instance will leak if not manually freed later: 
 

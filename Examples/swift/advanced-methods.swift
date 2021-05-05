@@ -11,20 +11,20 @@ class SwiftAdvancedMethods:Godot.NativeScript
     }
     func optionalArgument(delegate _:Godot.Unmanaged.Spatial, int:Int?)  
     {
-        Godot.print("hello from \(#function), recieved \(int as Any)")
+        Godot.print("hello from \(#function), received \(int as Any)")
     }
     func multipleArguments(delegate _:Godot.Unmanaged.Spatial, 
         bool:Bool, int:Int16, vector:Vector2<Float64>)  
     {
-        Godot.print("hello from \(#function), recieved \(bool), \(int), \(vector)")
+        Godot.print("hello from \(#function), received \(bool), \(int), \(vector)")
     }
     func tupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:(String, (String, String)))  
     {
-        Godot.print("hello from \(#function), recieved \(tuple)")
+        Godot.print("hello from \(#function), received \(tuple)")
     }
     func listArgument(delegate _:Godot.Unmanaged.Spatial, list:Godot.List)  
     {
-        Godot.print("hello from \(#function), recieved list (\(list.count) elements)")
+        Godot.print("hello from \(#function), received list (\(list.count) elements)")
         for (i, element):(Int, Godot.Variant?) in list.enumerated()
         {
             Godot.print("[\(i)]: \(element as Any)")
@@ -38,7 +38,7 @@ class SwiftAdvancedMethods:Godot.NativeScript
     }
     func inoutTupleArgument(delegate _:Godot.Unmanaged.Spatial, tuple:inout (String, (String, String)))  
     {
-        Godot.print("hello from \(#function), recieved \(tuple)")
+        Godot.print("hello from \(#function), received \(tuple)")
         tuple.1.0 = "new string"
     }
     
