@@ -14,7 +14,6 @@
 4. [signals](#signals) ([sources](swift/signals.swift))
 5. [life cycle management](#life-cycle-management) ([sources](swift/life-cycle-management.swift))
 6. [using custom types](#using-custom-types) ([sources](swift/custom-types.swift))
-7. [procedural geometry](#procedural-geometry) ([sources](swift/procedural-geometry.swift))
 
 ## basic usage
 

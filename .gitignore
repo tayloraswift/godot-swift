@@ -1,11 +1,3 @@
-.DS_Store
 /.build
-/Packages
-/*.xcodeproj
-xcuserdata/
-DerivedData/
-.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-/Examples/_test
-/Examples/*/libraries
-/Sources/GodotNativeScriptGenerator/.gyb
-common.swift.old
+/.gyb
+/Examples/game/libraries/

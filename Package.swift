@@ -38,7 +38,7 @@ let package = Package(
             ],
             exclude: 
             [
-                "fragments/", "api/", ".gyb/",
+                "fragments/", "api/", 
             ]),
         .plugin(name: "GodotNativeScript", capability: .buildTool(),
             dependencies: 
