@@ -142,7 +142,7 @@ func <- <T, Value>(property:KeyPath<T, Value>, symbol:String)
         (
             get: 
             {
-                (instance:T) -> Godot.UnmanagedVariant in 
+                (instance:T) -> Godot.Unmanaged.Variant in 
                 
                 .pass(retaining: instance[keyPath: property])
             }, 
@@ -166,13 +166,13 @@ func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String)
         (
             get: 
             {
-                (instance:T) -> Godot.UnmanagedVariant in 
+                (instance:T) -> Godot.Unmanaged.Variant in 
                 
                 .pass(retaining: instance[keyPath: property])
             }, 
             set: 
             {
-                (instance:T, variant:Godot.UnmanagedVariant) in 
+                (instance:T, variant:Godot.Unmanaged.Variant) in 
                 
                 if let value:Value = variant.take(unretained: Value.self) 
                 {
@@ -197,7 +197,7 @@ func <- <T, U>(accessor:KeyPath<T, U>, label:String)
         annotations: .init(label: label, type: U.variantType), 
         witness: 
         {
-            (value:T) -> Godot.UnmanagedVariant in
+            (value:T) -> Godot.Unmanaged.Variant in
             
             .pass(retaining: value[keyPath: accessor])
         } 

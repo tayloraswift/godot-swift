@@ -132,16 +132,29 @@ enum Vector
         
         // we must parameterize the `Storage<T>` and `T` types separately, or 
         // else we cannot specialize on `Storage<_>` while keeping `T` generic.
+        
+        /// struct Vector<Storage, T> 
+        /// :   Swift.Hashable 
+        /// where Storage:Swift.SIMD, T:Swift.SIMDScalar, T == Storage.Scalar 
+        ///     An SIMD-backed vector.
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
         {
+            /// struct Vector.Mask 
+            ///     An SIMD-backed vector mask.
             struct Mask
             {
                 var storage:SIMDMask<Storage.MaskStorage>
             }
             
+            /// var Vector.storage:Storage 
+            ///     The SIMD backing storage of this vector.
             var storage:Storage 
             
+            /// init Vector.init(storage:)
+            ///     Creates a vector instance with the given SIMD value.
+            /// - storage   :Storage 
+            ///     An SIMD value.
             init(storage:Storage)
             {
                 self.storage = storage
@@ -151,13 +164,32 @@ enum Vector
         // initializations 
         extension Vector 
         {
+            /// init Vector.init(repeating:)
+            ///     Creates a vector instance with the given scalar value 
+            ///     repeated in all elements.
+            /// - value     :T 
+            ///     A scalar value.
             init(repeating value:T) 
             {
                 self.init(storage: .init(repeating: value))
             }
-            init(to value:T, where mask:Mask) 
+        }
+        extension Vector where T:AdditiveArithmetic 
+        {
+            /// init Vector.init(to:where:else:)
+            ///     Creates a vector instance with one of the two given scalar values 
+            ///     repeated in all elements, depending on the given mask.
+            /// - value     :T 
+            ///     The scalar value to use where `mask` is set.
+            /// - mask      :Mask  
+            ///     The vector mask used to choose between `value` and `empty`.
+            /// - empty     :T 
+            ///     The scalar value to use where `mask` is clear.
+            ///     
+            ///     The default value is [`(Swift.AdditiveArithmetic).zero`].
+            init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
-                self.init(storage: .init(repeating: value).replacing(with: value, where: mask.storage))
+                self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
             }
         }
         // assignments
@@ -948,6 +980,8 @@ enum Vector
         for n:Int in 2 ... 4 
         {
             """
+            /// typealias Vector\(n)<T> = Vector<Swift.SIMD\(n), T>
+            /// where T:Swift.SIMDScalar
             typealias Vector\(n)<T> = Vector<SIMD\(n)<T>, T> where T:SIMDScalar
             """
         }

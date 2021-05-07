@@ -9,7 +9,7 @@ struct InputEvents:Godot.VariantRepresentable
     }
     
     static 
-    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         guard   let list:Godot.List = value.take(unretained: Godot.List.self), 
                     list.count == 2, 
@@ -24,7 +24,7 @@ struct InputEvents:Godot.VariantRepresentable
         
         return .init(events: (mouse, key))
     }
-    func passRetained() -> Godot.UnmanagedVariant 
+    func passRetained() -> Godot.Unmanaged.Variant 
     {
         .pass(retaining: 
             [
@@ -46,7 +46,7 @@ struct UnitRangeElement<T>:Godot.VariantRepresentable
     }
     
     static 
-    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         switch value.take(unretained: Godot.Variant?.self)
         {
@@ -65,7 +65,7 @@ struct UnitRangeElement<T>:Godot.VariantRepresentable
             return nil 
         }
     }
-    func passRetained() -> Godot.UnmanagedVariant 
+    func passRetained() -> Godot.Unmanaged.Variant 
     {
         switch self.value 
         {

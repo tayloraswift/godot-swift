@@ -1152,8 +1152,8 @@ protocol Godot.VariantRepresentable
     }
     
     static 
-    func takeUnretained(_:Godot.UnmanagedVariant) -> Self?
-    func passRetained() -> Godot.UnmanagedVariant 
+    func takeUnretained(_:Godot.Unmanaged.Variant) -> Self?
+    func passRetained() -> Godot.Unmanaged.Variant 
 }
 ```
 
@@ -1201,13 +1201,13 @@ We want `InputEvents` to be represented by a two-element `Godot.List` (`Godot::A
     }
 ```
 
-The next step is to implement the static `takeUnretained(_:)` method. It takes a parameter of type `Godot.UnmanagedVariant`, which, as its name suggests, is a type storing an unmanaged Godot variant.
+The next step is to implement the static `takeUnretained(_:)` method. It takes a parameter of type `Godot.Unmanaged.Variant`, which, as its name suggests, is a type storing an unmanaged Godot variant.
 
-If you are familiar with the Swift standard library type [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the semantics here are exactly the same. That is, `takeUnretained(_:)` is expected to load a memory-managed instance of `Self` from the `Godot.UnmanagedVariant` value, performing an unbalanced retain, if applicable. If the original `Godot.UnmanagedVariant` is later deinitialized, the newly-loaded instance of `Self` should still be valid. If it is not possible to load an instance of `Self` from the variant data, this function should return `nil`.
+If you are familiar with the Swift standard library type [`Unmanaged<T>`](https://developer.apple.com/documentation/swift/Unmanaged), the semantics here are exactly the same. That is, `takeUnretained(_:)` is expected to load a memory-managed instance of `Self` from the `Godot.Unmanaged.Variant` value, performing an unbalanced retain, if applicable. If the original `Godot.Unmanaged.Variant` is later deinitialized, the newly-loaded instance of `Self` should still be valid. If it is not possible to load an instance of `Self` from the variant data, this function should return `nil`.
 
 ```swift 
     static 
-    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         guard   let list:Godot.List = value.take(unretained: Godot.List.self), 
                     list.count == 2, 
@@ -1228,9 +1228,9 @@ Let’s break down what’s happening in this implementation.
 
 *  `guard   let list:Godot.List = value.take(unretained: Godot.List.self), `
     
-    This line loads a (memory-managed) instance of `Godot.List` from the unmanaged variant value using the `take(unretained:)` method on `Godot.UnmanagedVariant`. It calls the `takeUnretained(_:)` implementation from the specified type, and can be used with any `Godot.VariantRepresentable` type. This allows new `Godot.VariantRepresentable` implementations to piggyback off of existing `Godot.VariantRepresentable` implementations.
+    This line loads a (memory-managed) instance of `Godot.List` from the unmanaged variant value using the `take(unretained:)` method on `Godot.Unmanaged.Variant`. It calls the `takeUnretained(_:)` implementation from the specified type, and can be used with any `Godot.VariantRepresentable` type. This allows new `Godot.VariantRepresentable` implementations to piggyback off of existing `Godot.VariantRepresentable` implementations.
     
-    It is also possible to call the `takeUnretained(_:)` static method on `Godot.List` directly, but calling the `take(unretained:)` method on `Godot.UnmanagedVariant` is the preferred form. 
+    It is also possible to call the `takeUnretained(_:)` static method on `Godot.List` directly, but calling the `take(unretained:)` method on `Godot.Unmanaged.Variant` is the preferred form. 
     
 > **Warning:** Take care not to accidentally call `take(unretained:)` with `Self.self` — this will cause infinite recursion.
 
@@ -1251,7 +1251,7 @@ The `passRetained()` instance method is the inverse of `takeUnretained(_:)`. Her
 It is also possible to call the `passRetained()` instance method on `Godot.List` directly, but calling the `pass(retaining:)` constructor is the preferred form.
 
 ```swift 
-    func passRetained() -> Godot.UnmanagedVariant 
+    func passRetained() -> Godot.Unmanaged.Variant 
     {
         .pass(retaining: 
             [
@@ -1287,7 +1287,7 @@ The `takeUnretained(_:)` implementation accepts the integer values `0` and `1`, 
 
 ```swift 
     static 
-    func takeUnretained(_ value:Godot.UnmanagedVariant) -> Self?
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         switch value.take(unretained: Godot.Variant?.self)
         {
@@ -1313,7 +1313,7 @@ The `takeUnretained(_:)` implementation accepts the integer values `0` and `1`, 
 The `passRetained()` implementation can produce either a `Godot::int`, if possible, or a `Godot::float` otherwise. 
 
 ```swift 
-    func passRetained() -> Godot.UnmanagedVariant 
+    func passRetained() -> Godot.Unmanaged.Variant 
     {
         switch self.value 
         {

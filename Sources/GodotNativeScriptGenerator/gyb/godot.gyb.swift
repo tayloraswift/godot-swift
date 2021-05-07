@@ -405,10 +405,15 @@ struct Words:Comparable, CustomStringConvertible
     }
     var camelcased:String 
     {
+        self.camelcased()
+    }
+    
+    func camelcased(escaped escaping:Bool = true) -> String 
+    {
         if let head:String = self.components.first?.lowercased() 
         {
             let normalized:String 
-            if self.components.dropFirst().isEmpty
+            if escaping, self.components.dropFirst().isEmpty
             {
                 // escape keywords 
                 switch head 
@@ -1454,26 +1459,21 @@ extension Godot
         let root:Class.Node             = Self.tree(descriptors: descriptors)
         // `withExtendedLifetime` is important because properties hold `unowned`
         //  references to upstream nodes 
-        let classes:[(node:Class.Node, functions:String?, definition:String)] = 
-            withExtendedLifetime(root)
+        let classes:
+        [
+            (
+                node:Class.Node, 
+                functions:String?, 
+                definition:String,
+                documentation:String
+            )
+        ] 
+        = 
+        withExtendedLifetime(root)
         {
             root.preorder.compactMap
             {
-                ($0, $0.functions, $0.definition)
-                /* switch $0.name 
-                {
-                case    .split(pascal: "AnyDelegate"),
-                        .split(pascal: "AnyObject"  ),
-                        .split(pascal: "Resource"   ),
-                        .split(pascal: "Node"),
-                        .split(pascal: "Spatial"),
-                        .split(pascal: "VisualInstance"),
-                        .split(pascal: "GeometryInstance"),
-                        .split(pascal: "MeshInstance"):
-                    return ($0, $0.definition)
-                default:
-                    return nil 
-                } */
+                ($0, $0.functions, $0.definition, $0.documentation)
             }
             .sorted 
             {
@@ -1513,7 +1513,7 @@ extension Godot
                         .\(type)
                     }
                     static 
-                    func unpacked(variant:Godot.UnmanagedVariant) -> \(unpacked)? 
+                    func unpacked(variant:Godot.Unmanaged.Variant) -> \(unpacked)? 
                     {
                         variant.load(where: Self.variantType)
                         {
@@ -1521,7 +1521,7 @@ extension Godot
                         } 
                     }
                     static 
-                    func variant(packing value:\(unpacked)) -> Godot.UnmanagedVariant
+                    func variant(packing value:\(unpacked)) -> Godot.Unmanaged.Variant
                     {
                         withUnsafePointer(to: Self.init(packing: value)) 
                         {
@@ -1591,13 +1591,13 @@ extension Godot
                     typealias RawArrayReference = godot_\(array)
                     
                     static 
-                    func downcast(array value:Godot.UnmanagedVariant) -> RawArrayReference?
+                    func downcast(array value:Godot.Unmanaged.Variant) -> RawArrayReference?
                     {
                         value.load(where: RawArrayReference.variantType, 
                             Godot.api.1.0.godot_variant_as_\(array))
                     }
                     static 
-                    func upcast(array value:RawArrayReference) -> Godot.UnmanagedVariant
+                    func upcast(array value:RawArrayReference) -> Godot.Unmanaged.Variant
                     {
                         withUnsafePointer(to: value) 
                         {
@@ -1905,7 +1905,7 @@ extension Godot
                 static 
                 func take(_ body:(UnsafeMutablePointer<godot_variant>) -> ()) -> Self 
                 {
-                    var unmanaged:Godot.UnmanagedVariant = .init(with: body)
+                    var unmanaged:Godot.Unmanaged.Variant = .init(with: body)
                     defer 
                     {
                         unmanaged.release()
@@ -1914,7 +1914,7 @@ extension Godot
                 }
                 func pass(_ body:(UnsafePointer<godot_variant>?) -> ()) 
                 {
-                    Godot.UnmanagedVariant.pass(guaranteeing: self.variant, body)
+                    Godot.Unmanaged.Variant.pass(guaranteeing: self.variant, body)
                 }
             }
             extension Optional:Godot.Function.Passable where Wrapped:Godot.AnyDelegate
@@ -2077,7 +2077,7 @@ extension Godot
             Source.block 
             {
                 """
-                func callAsFunction(delegate:Godot.AnyDelegate, variants:[Godot.UnmanagedVariant]) 
+                func callAsFunction(delegate:Godot.AnyDelegate, variants:[Godot.Unmanaged.Variant]) 
                 {
                     withExtendedLifetime(delegate) 
                     {
@@ -2119,9 +2119,6 @@ extension Godot
             Source.block 
             {
                 """
-                enum Unmanaged 
-                {
-                }
                 enum Singleton 
                 {
                 }
@@ -2156,7 +2153,7 @@ extension Godot
             """
             Source.block 
             {
-                for (node, functions, _):(Class.Node, String?, String) in classes
+                for (node, functions, _, _):(Class.Node, String?, String, String) in classes
                 {
                     if let functions:String = functions 
                     {
@@ -2172,11 +2169,39 @@ extension Godot
             }
         }
         
-        for (node, _, definition):(Class.Node, String?, String) in classes
+        for (node, _, definition, _):(Class.Node, String?, String, String) in classes
         {
             Source.section(name: "classes", "\(node.name).swift.part")
             {
                 definition 
+            }
+        }
+        
+        // do not include documentation in generated file 
+        let _:String = Source.section(name: "entrapta.swift")
+        {
+            """
+            /// module GodotNativeScript 
+            ///     Swift language support for the Godot game engine. 
+            /// 
+            ///     Do not actually import `GodotNativeScript` in your project. All 
+            ///     code generated by this plugin is included inline in your Swift 
+            ///     library.
+            
+            /// enum Godot 
+            ///     A namespace for Godot-related functionality.
+            
+            /// enum Godot.Unmanaged 
+            ///     A namespace for Godot types that are not memory-managed by the 
+            ///     Godot engine.
+            
+            /// enum Godot.Singleton 
+            ///     A namespace for Godot singleton classes.
+            
+            """
+            for documentation:String in classes.map(\.documentation)
+            {
+                documentation
             }
         }
     }
@@ -2370,7 +2395,7 @@ extension Godot.Class.Node
                         func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
                             where Signal:Godot.Signal 
                         {
-                            var variants:[Godot.UnmanagedVariant] = 
+                            var variants:[Godot.Unmanaged.Variant] = 
                                 [.pass(retaining: Signal.name)]
                                 +
                                 Signal.interface.arguments.map
@@ -2754,7 +2779,7 @@ extension Godot.SwiftType.Parameterized
                 .generic    (type: let type,            constraints: _):
             return type 
         case    .enumeration(type: _):
-            return "Int64" 
+            return "Swift.Int64" 
         case .variant: 
             return "Godot.VariantExistential"
         }
@@ -2868,46 +2893,46 @@ extension Godot.Class.Node.KnownType
         switch self 
         {
         case .void:
-            return .concrete(type: "()")
+            return .concrete(type: "Swift.Void")
         case .bool:
-            return .concrete(type: "Bool")
+            return .concrete(type: "Swift.Bool")
         case .int:
-            return .narrowed(type: "Int64"){ $0 } 
-            constraints:    { "\($0):FixedWidthInteger" }
+            return .narrowed(type: "Swift.Int64"){ $0 } 
+            constraints:    { "\($0):Swift.FixedWidthInteger" }
         case .float:
-            return .narrowed(type: "Float64"){ $0 }
-            constraints:    { "\($0):BinaryFloatingPoint" }
+            return .narrowed(type: "Swift.Float64"){ $0 }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint" }
         case .vector2:
-            return .narrowed(type: "Float32"){ "Vector2<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Vector2<\($0)>" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .vector3:
-            return .narrowed(type: "Float32"){ "Vector3<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Vector3<\($0)>" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .vector4:
-            return .narrowed(type: "Float32"){ "Vector4<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Vector4<\($0)>" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         
         case .quaternion:
-            return .narrowed(type: "Float32"){ "Quaternion<\($0)>" }
-            constraints:    { "\($0):SIMDScalar & Numerics.Real & BinaryFloatingPoint" }
+            return .narrowed(type: "Swift.Float32"){ "Quaternion<\($0)>" }
+            constraints:    { "\($0):Swift.SIMDScalar & Numerics.Real & Swift.BinaryFloatingPoint" }
         case .plane3:
-            return .narrowed(type: "Float32"){ "Godot.Plane3<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Godot.Plane3<\($0)>" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .rectangle2:
-            return .narrowed(type: "Float32"){ "Vector2<\($0)>.Rectangle" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Vector2<\($0)>.Rectangle" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .rectangle3:
-            return .narrowed(type: "Float32"){ "Vector3<\($0)>.Rectangle" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Vector3<\($0)>.Rectangle" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .affine2:
-            return .narrowed(type: "Float32"){ "Godot.Transform2<\($0)>.Affine" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Godot.Transform2<\($0)>.Affine" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .affine3:
-            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Affine" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Godot.Transform3<\($0)>.Affine" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .linear3:
-            return .narrowed(type: "Float32"){ "Godot.Transform3<\($0)>.Linear" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
+            return .narrowed(type: "Swift.Float32"){ "Godot.Transform3<\($0)>.Linear" }
+            constraints:    { "\($0):Swift.BinaryFloatingPoint & Swift.SIMDScalar" }
         case .resourceIdentifier:   
             return .concrete(type: "Godot.ResourceIdentifier")
         
@@ -2923,25 +2948,25 @@ extension Godot.Class.Node.KnownType
         
         case .uint8Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<UInt8>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Swift.UInt8>.RawValue" }
         case .int32Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Int32>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Swift.Int32>.RawValue" }
         case .float32Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Float32>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Swift.Float32>.RawValue" }
         case .stringArray:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<String>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Swift.String>.RawValue" }
         case .vector2Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector2<Float32>>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector2<Swift.Float32>>.RawValue" }
         case .vector3Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector3<Float32>>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector3<Swift.Float32>>.RawValue" }
         case .vector4Array:
             return .generic { $0 }
-            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector4<Float32>>.RawValue" }
+            constraints:    { "\($0):Godot.Function.Passable, \($0).RawValue == Godot.Array<Vector4<Swift.Float32>>.RawValue" }
         case .object(let type): 
             return .concrete(type: "\(type)?")
         case .enumeration(let type):
@@ -2954,32 +2979,32 @@ extension Godot.Class.Node.KnownType
     {
         switch self 
         {
-        case .void:                 return "()"
-        case .bool:                 return "Bool"
-        case .int:                  return "Int64"
-        case .float:                return "Float64"
-        case .vector2:              return "Vector2<Float32>"
-        case .vector3:              return "Vector3<Float32>"
-        case .vector4:              return "Vector4<Float32>"
-        case .quaternion:           return "Quaterinion<Float32>"
-        case .plane3:               return "Godot.Plane3<Float32>"
-        case .rectangle2:           return "Vector2<Float32>.Rectangle"
-        case .rectangle3:           return "Vector3<Float32>.Rectangle"
-        case .affine2:              return "Godot.Transform2<Float32>.Affine"
-        case .affine3:              return "Godot.Transform3<Float32>.Affine"
-        case .linear3:              return "Godot.Transform3<Float32>.Linear"
+        case .void:                 return "Swift.Void"
+        case .bool:                 return "Swift.Bool"
+        case .int:                  return "Swift.Int64"
+        case .float:                return "Swift.Float64"
+        case .vector2:              return "Vector2<Swift.Float32>"
+        case .vector3:              return "Vector3<Swift.Float32>"
+        case .vector4:              return "Vector4<Swift.Float32>"
+        case .quaternion:           return "Quaterinion<Swift.Float32>"
+        case .plane3:               return "Godot.Plane3<Swift.Float32>"
+        case .rectangle2:           return "Vector2<Swift.Float32>.Rectangle"
+        case .rectangle3:           return "Vector3<Swift.Float32>.Rectangle"
+        case .affine2:              return "Godot.Transform2<Swift.Float32>.Affine"
+        case .affine3:              return "Godot.Transform3<Swift.Float32>.Affine"
+        case .linear3:              return "Godot.Transform3<Swift.Float32>.Linear"
         case .resourceIdentifier:   return "Godot.ResourceIdentifier"
         case .list:                 return "Godot.List"
         case .map:                  return "Godot.Map"
         case .nodePath:             return "Godot.NodePath"
         case .string:               return "Godot.String"
-        case .uint8Array:           return "Godot.Array<UInt8>"
-        case .int32Array:           return "Godot.Array<Int32>"
-        case .float32Array:         return "Godot.Array<Float32>"
+        case .uint8Array:           return "Godot.Array<Swift.UInt8>"
+        case .int32Array:           return "Godot.Array<Swift.Int32>"
+        case .float32Array:         return "Godot.Array<Swift.Float32>"
         case .stringArray:          return "Godot.Array<Swift.String>"
-        case .vector2Array:         return "Godot.Array<Vector2<Float32>>"
-        case .vector3Array:         return "Godot.Array<Vector3<Float32>>"
-        case .vector4Array:         return "Godot.Array<Vector4<Float32>>"
+        case .vector2Array:         return "Godot.Array<Vector2<Swift.Float32>>"
+        case .vector3Array:         return "Godot.Array<Vector3<Swift.Float32>>"
+        case .vector4Array:         return "Godot.Array<Vector4<Swift.Float32>>"
         case .object(let type):     return "\(type)?"
         case .enumeration(let type):return type
         case .variant:              return "Godot.Variant?"
