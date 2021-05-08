@@ -31,6 +31,12 @@ extension Godot.Class.Node
                 /// :   \(parent.namespace).\(parent.name)
                 """
             }
+            if self.children.isEmpty 
+            {
+                """
+                /// final 
+                """
+            }
             """
             ///     The [`Godot::\(self.symbol)`](\(page)) class.
             
@@ -61,6 +67,7 @@ extension Godot.Class.Node
             {
                 """
                 /// func \(self.namespace).\(self.name).emit<Signal>(signal:as:)
+                /// final 
                 /// where Signal:Godot.Signal
                 ///     Emits a value as the specified signal type.
                 /// - value :   Signal.Value 
@@ -75,11 +82,15 @@ extension Godot.Class.Node
             { 
                 """
                 /// func \(self.namespace).\(self.name).retain()
+                /// final 
+                /// @   discardableResult
                 ///     Performs an unbalanced retain.
                 /// - ->    : Swift.Bool 
                 ///     This method should always return `true`.
                 
                 /// func \(self.namespace).\(self.name).release()
+                /// final 
+                /// @   discardableResult
                 ///     Performs an unbalanced release.
                 /// - ->    : Swift.Bool 
                 ///     `true` if `self` was uniquely-referenced before performing 
@@ -108,10 +119,23 @@ extension Godot.Class.Node
                 = 
                 property.type.swift.parameterized(as: "T")
                 
-                let type:String = generics.isEmpty ? parameterization.outer : property.type.canonical
+                let type:String         = generics.isEmpty ? parameterization.outer : property.type.canonical
+                let modifiers:[String]  = 
+                    (property.is.final    ? ["final"] : []) 
+                    + 
+                    (property.is.override ? ["override"] : [])
                 
                 """
-                /// var \(self.namespace).\(self.name).\(key.name.camelcased(escaped: false)):\(type)
+                /// var \(self.namespace).\(self.name).\(key.name.camelcased(escaped: false)):\(type) { get \(property.set == nil ? "" : "set ")}
+                """
+                if !modifiers.isEmpty
+                {
+                    """
+                    /// \(modifiers.joined(separator: " "))
+                    """
+                }
+                """
+                ///     The [`Godot::\(self.symbol)::\(key.symbol)`](\(page)#properties) property.
                 
                 """
             }

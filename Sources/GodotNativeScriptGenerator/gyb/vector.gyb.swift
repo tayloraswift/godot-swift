@@ -144,6 +144,8 @@ enum Vector
             ///     An SIMD-backed vector mask.
             struct Mask
             {
+                /// var Vector.Mask.storage:Swift.SIMDMask<Storage.MaskStorage> 
+                ///     The SIMD backing storage of this vector mask.
                 var storage:SIMDMask<Storage.MaskStorage>
             }
             
@@ -177,6 +179,7 @@ enum Vector
         extension Vector where T:AdditiveArithmetic 
         {
             /// init Vector.init(to:where:else:)
+            /// ?   where T:Swift.AdditiveArithmetic
             ///     Creates a vector instance with one of the two given scalar values 
             ///     repeated in all elements, depending on the given mask.
             /// - value     :T 
@@ -186,7 +189,7 @@ enum Vector
             /// - empty     :T 
             ///     The scalar value to use where `mask` is clear.
             ///     
-            ///     The default value is [`(Swift.AdditiveArithmetic).zero`].
+            ///     The default value is [`Swift.AdditiveArithmetic`zero`].
             init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
                 self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
@@ -195,21 +198,55 @@ enum Vector
         // assignments
         extension Vector 
         {
+            /// mutating func Vector.replace(with:where:)
+            ///     Conditionally replaces the elements of this vector with the 
+            ///     given scalar value, according to the given mask.
+            /// - scalar    :T 
+            ///     The new scalar value. 
+            /// - mask      :Mask 
+            ///     The vector mask used to conditionally assign `scalar`.
             mutating 
             func replace(with scalar:T, where mask:Mask) 
             {
                 self.storage.replace(with: scalar, where: mask.storage)
             }
+            /// mutating func Vector.replace(with:where:)
+            ///     Conditionally replaces the elements of this vector with the 
+            ///     elements of the given vector, according to the given mask.
+            /// - other     :Self 
+            ///     A vector containing the new elements. 
+            /// - mask      : Mask 
+            ///     The vector mask used to conditionally assign elements of `other`.
             mutating 
             func replace(with other:Self, where mask:Mask) 
             {
                 self.storage.replace(with: other.storage, where: mask.storage)
             }
             
+            /// func Vector.replacing(with:where:)
+            ///     Creates a new vector, replacing the elements of this vector with the 
+            ///     given scalar value, according to the given mask.
+            /// - scalar    :T 
+            ///     The new scalar value. 
+            /// - mask      :Mask 
+            ///     The vector mask used to choose between the elements of this 
+            ///     vector, and `scalar`.
+            /// - ->        :Self 
+            ///     The new vector.
             func replacing(with scalar:T, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: scalar, where: mask.storage))
             }
+            /// func Vector.replacing(with:where:)
+            ///     Creates a new vector, replacing the elements of this vector with the 
+            ///     elements of the given vector, according to the given mask.
+            /// - other     :Self 
+            ///     A vector containing the new elements. 
+            /// - mask      :Mask 
+            ///     The vector mask used to choose between the elements of this 
+            ///     vector, and the elements of `other`.
+            /// - ->        :Self 
+            ///     The new vector.
             func replacing(with other:Self, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: other.storage, where: mask.storage))
@@ -217,17 +254,49 @@ enum Vector
         }
         
         // `Comparable`-related functionality
+        /// protocol VectorRangeExpression 
+        ///     A type representing an *n*-dimensional axis-aligned region.
         protocol VectorRangeExpression
         {
+            /// associatedtype VectorRangeExpression.Storage 
+            /// where Storage:Swift.SIMD 
+            /// required 
+            
+            /// associatedtype VectorRangeExpression.T 
+            /// where T:Swift.SIMDScalar, T == Storage.Scalar  
+            /// required 
+            
             associatedtype Storage  where Storage:SIMD 
             associatedtype T        where T:SIMDScalar, T == Storage.Scalar 
             
+            /// typealias VectorRangeExpression.Bound = Vector<Storage, T>
+            ///     The vector type representing the bounds of this vector 
+            ///     range expression.
             typealias Bound = Vector<Storage, T>
             
+            /// func VectorRangeExpression.contains(_:)
+            /// required 
+            ///     Returns a boolean value indicating whether the given element 
+            ///     is contained within the vector range expression.
+            /// - element   :Bound 
+            ///     The element to check for containment.
+            /// - ->        :Swift.Bool 
+            ///     `true` if `element` is contained in this vector range; 
+            ///     otherwise, `false`.
             func contains(_ element:Bound) -> Bool 
         }
         extension VectorRangeExpression 
         {
+            /// static func VectorRangeExpression.(~=)(pattern:element:) 
+            ///     Returns a boolean value indicating whether a value is 
+            ///     included in a vector range.
+            /// - pattern   :Self
+            ///     A vector range.
+            /// - element   :Bound 
+            ///     A value to match against `pattern`.
+            /// - ->        :Swift.Bool 
+            ///     `true` if `element` is contained in the vector range `pattern`; 
+            ///     otherwise, `false`.
             static 
             func ~= (pattern:Self, element:Bound) -> Bool 
             {
@@ -235,13 +304,30 @@ enum Vector
             }
         }
         
+        /// protocol VectorFiniteRangeExpression
+        /// :   VectorRangeExpression 
+        ///     A type representing an *n*-dimensional axis-aligned rectangle.
         protocol VectorFiniteRangeExpression:VectorRangeExpression 
         {
+            /// init VectorFiniteRangeExpression.init(lowerBound:upperBound:)
+            /// required 
+            ///     Creates a finite vector range with the given bounds.
+            /// - lowerBound    :Bound 
+            ///     The lower bound.
+            /// - upperBound    :Bound 
+            ///     The upper bound.
             init(lowerBound:Bound, upperBound:Bound)
+            
+            /// var VectorFiniteRangeExpression.lowerBound:Bound 
+            /// required 
+            ///     The lower bound of this vector range.
             var lowerBound:Bound 
             {
                 get 
             }
+            /// var VectorFiniteRangeExpression.upperBound:Bound 
+            /// required 
+            ///     The upper bound of this vector range.
             var upperBound:Bound 
             {
                 get 
@@ -253,11 +339,32 @@ enum Vector
         Source.block 
         {
             """
+            /// struct Vector.Rectangle 
+            /// :   VectorFiniteRangeExpression 
+            /// :   Swift.Hashable
+            /// ?   where T:Swift.Comparable 
+            ///     An *n*-dimensional half-open axis-aligned region from a lower 
+            ///     bound up to, but not including, an upper bound.
             struct Rectangle:VectorFiniteRangeExpression, Hashable
             {
+                /// var Vector.Rectangle.lowerBound:Vector<Storage, T>
+                /// ?:  VectorFiniteRangeExpression
+                ///     The lower bound of this axis-aligned rectangle.
                 var lowerBound:Vector<Storage, T>
+                /// var Vector.Rectangle.upperBound:Vector<Storage, T>
+                /// ?:  VectorFiniteRangeExpression
+                ///     The upper bound of this axis-aligned rectangle.
                 var upperBound:Vector<Storage, T>
                 
+                /// func Vector.Rectangle.contains(_:)
+                /// ?:  VectorRangeExpression
+                ///     Indicates whether the given element is contained within 
+                ///     this half-open axis-aligned rectangle.
+                /// - element   :Vector<Storage, T> 
+                ///     The element to check for containment.
+                /// - ->        :Swift.Bool 
+                ///     `true` if `element` is contained in this half-open 
+                ///     axis-aligned rectangle; otherwise, `false`.
                 func contains(_ element:Vector<Storage, T>) -> Bool 
                 {
                     Vector<Storage, T>.all(
@@ -265,11 +372,32 @@ enum Vector
                 }
             }
             
+            /// struct Vector.ClosedRectangle 
+            /// :   VectorFiniteRangeExpression 
+            /// :   Swift.Hashable
+            /// ?   where T:Swift.Comparable 
+            ///     An *n*-dimensional axis-aligned region from a lower 
+            ///     bound up to, and including, an upper bound.
             struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
             {
+                /// var Vector.ClosedRectangle.lowerBound:Vector<Storage, T>
+                /// ?:  VectorFiniteRangeExpression
+                ///     The lower bound of this axis-aligned rectangle.
                 var lowerBound:Vector<Storage, T>
+                /// var Vector.ClosedRectangle.upperBound:Vector<Storage, T>
+                /// ?:  VectorFiniteRangeExpression
+                ///     The upper bound of this axis-aligned rectangle.
                 var upperBound:Vector<Storage, T>
                 
+                /// func Vector.ClosedRectangle.contains(_:)
+                /// ?:  VectorRangeExpression
+                ///     Indicates whether the given element is contained within 
+                ///     this axis-aligned rectangle.
+                /// - element   :Vector<Storage, T> 
+                ///     The element to check for containment.
+                /// - ->        :Swift.Bool 
+                ///     `true` if `element` is contained in this 
+                ///     axis-aligned rectangle; otherwise, `false`.
                 func contains(_ element:Vector<Storage, T>) -> Bool 
                 {
                     Vector<Storage, T>.all(
@@ -277,11 +405,27 @@ enum Vector
                 }
             }
             
+            /// static func Vector.(..<)(lhs:rhs:)
+            ///     Returns a half-open axis-aligned rectangle with the given bounds.
+            /// - lhs   :Self 
+            ///     The lower bound.
+            /// - rhs   :Self 
+            ///     The upper bound.
+            /// - ->    :Rectangle 
+            ///     A half-open axis-aligned rectangle.
             static 
             func ..< (lhs:Self, rhs:Self) -> Rectangle
             {
                 .init(lowerBound: lhs, upperBound: rhs)
             }
+            /// static func Vector.(...)(lhs:rhs:)
+            ///     Returns an axis-aligned rectangle with the given bounds.
+            /// - lhs   :Self 
+            ///     The lower bound.
+            /// - rhs   :Self 
+            ///     The upper bound.
+            /// - ->    :ClosedRectangle 
+            ///     An axis-aligned rectangle.
             static 
             func ... (lhs:Self, rhs:Self) -> ClosedRectangle
             {

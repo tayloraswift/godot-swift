@@ -2198,6 +2198,112 @@ extension Godot
             /// enum Godot.Singleton 
             ///     A namespace for Godot singleton classes.
             
+            /// protocol Godot.ArrayElement 
+            ///     A type that can be used as an [`Godot.Array.Element`] type.
+            /// 
+            ///     Do not conform custom types to this protocol.
+            
+            /// protocol Godot.VariantRepresentable 
+            ///     A type that can be represented by a GDScript variant value.
+            
+            /// protocol Godot.Variant
+            /// :   Godot.VariantRepresentable 
+            ///     A type-erased GDScript variant.
+            /// 
+            ///     Do not conform custom types to this protocol; conform custom
+            ///     types to [`Godot.VariantRepresentable`] instead.
+            
+            /// struct Godot.VariantType
+            /// :   Swift.Hashable 
+            ///     The [`Godot::Variant::Type`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-type) enumeration.
+            
+            /// struct Godot.VariantOperator
+            /// :   Swift.Hashable 
+            ///     The [`Godot::Variant::Operator`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-operator) enumeration.
+            
+            /// class Godot.Array<Element>
+            /// :   Godot.Variant 
+            /// where Element:Godot.ArrayElement
+            /// final 
+            ///     One of the Godot pooled array types.
+            """
+            for (godot, element):(String, String) in 
+            [
+                ("String",  "Swift.String"),
+                ("Byte",    "Swift.UInt8"),
+                ("Int",     "Swift.Int32"),
+                ("Real",    "Swift.Float32"),
+                ("Vector2", "Vector2<Swift.Float32>"),
+                ("Vector3", "Vector3<Swift.Float32>"),
+                ("Color",   "Vector4<Swift.Float32>"),
+            ]
+            {
+                """
+                /// 
+                ///     If [`Element`] is [[`\(element)`]], this type corresponds to the 
+                ///     [`Godot::Pool\(godot)Array`](https://docs.godotengine.org/en/stable/classes/class_pool\(godot.lowercased())array.html) type.
+                """
+            }
+            """
+            
+            /// class Godot.String
+            /// :   Godot.Variant 
+            /// final 
+            ///     The [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) type.
+            
+            /// class Godot.List
+            /// :   Godot.Variant 
+            /// final 
+            ///     The [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) type.
+            
+            /// class Godot.Map
+            /// :   Godot.Variant 
+            /// final 
+            ///     The [`Godot::Dictionary`](https://docs.godotengine.org/en/stable/classes/class_dictionary.html) type.
+            
+            /// class Godot.NodePath
+            /// :   Godot.Variant 
+            /// final 
+            ///     The [`Godot::NodePath`](https://docs.godotengine.org/en/stable/classes/class_nodepath.html) type.
+            
+            /// class Godot.ResourceIdentifier
+            /// :   Godot.Variant 
+            /// final 
+            ///     The [`Godot::RID`](https://docs.godotengine.org/en/stable/classes/class_rid.html) type.
+            
+            /// struct Godot.Plane3<T> 
+            /// :   Swift.Hashable
+            /// :   Godot.VariantRepresentable 
+            /// :   Godot.Variant where T == Swift.Float32
+            /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
+            ///     The [`Godot::Plane`](https://docs.godotengine.org/en/stable/classes/class_plane.html) type.
+            
+            /// enum Godot.Transform2<T>
+            /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
+            ///     A namespace for 2-dimensional transforms.
+
+            /// struct Godot.Transform2.Affine
+            /// :   Swift.Equatable
+            /// :   Godot.VariantRepresentable 
+            /// :   Godot.Variant where T == Swift.Float32
+            ///     The [`Godot::Transform2D`](https://docs.godotengine.org/en/stable/classes/class_transform2d.html) type.
+            
+            /// enum Godot.Transform3<T>
+            /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
+            ///     A namespace for 3-dimensional transforms.
+            
+            /// struct Godot.Transform3.Affine
+            /// :   Swift.Equatable
+            /// :   Godot.VariantRepresentable 
+            /// :   Godot.Variant where T == Swift.Float32
+            ///     The [`Godot::Transform`](https://docs.godotengine.org/en/stable/classes/class_transform.html) type.
+            
+            /// struct Godot.Transform3.Linear
+            /// :   Swift.Equatable
+            /// :   Godot.VariantRepresentable 
+            /// :   Godot.Variant where T == Swift.Float32
+            ///     The [`Godot::Basis`](https://docs.godotengine.org/en/stable/classes/class_basis.html) type.
+            
             """
             for documentation:String in classes.map(\.documentation)
             {

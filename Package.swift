@@ -5,9 +5,10 @@ let package = Package(
     name: "Godot",
     products: 
     [
-        .plugin(    name: "GodotNativeScript",      targets: ["GodotNativeScript"]),
+        .plugin(    name: "GodotNativeScript",                      targets: ["GodotNativeScript"]),
+        .executable(name: "godot-swift-nativescript-generator",     targets: ["GodotNativeScriptGenerator"]),
         // examples 
-        .library(   name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
+        .library(   name: "godot-swift-examples", type: .dynamic,   targets: ["Examples"]),
     ],
     dependencies: 
     [

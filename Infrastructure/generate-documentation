@@ -1,4 +1,3 @@
-
 #!/bin/bash
 TOOL_NAME=$0
 usage() 
@@ -34,6 +33,17 @@ while [ "$1" != "" ] ; do
     shift 
 done 
 
+# compile godot-swift-nativescript-generator tool 
+SWIFTPM_ENABLE_PLUGINS=1 swift build -c debug \
+    -Xswiftc -DENABLE_ARC_SANITIZER \
+    -Xswiftc -Xfrontend -Xswiftc -warn-long-expression-type-checking=500 \
+    --product godot-swift-nativescript-generator
+
+# run godot-swift-nativescript-generator tool (does not compile the entire library)
+.build/debug/godot-swift-nativescript-generator generate \
+    --output-common .gyb/common.swift \
+    --output-classes .gyb/classes.swift
+
 base=$PWD
 
 mkdir -p .entrapta/ 
@@ -57,7 +67,7 @@ sources="../../.gyb/entrapta.swift ../../.gyb/vector.swift.part"
 if [ -z $local ]; then 
     .build/release/entrapta $sources --directory ../../Documentation/ --url-prefix https://kelvin13.github.io/godot-swift --github https://github.com/kelvin13/godot-swift --project Godot\ Swift\ Documentation --theme eternia
 else 
-    .build/release/entrapta $sources --directory ../../Documentation/ --url-prefix $base/documentation --url-suffix /index.html --github https://github.com/kelvin13/godot-swift --project Godot\ Swift\ Documentation --theme eternia
+    .build/release/entrapta $sources --directory ../../Documentation/ --url-prefix $base/Documentation --url-suffix /index.html --github https://github.com/kelvin13/godot-swift --project Godot\ Swift\ Documentation --theme eternia
 fi 
 
 cd ../../

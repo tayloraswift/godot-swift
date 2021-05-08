@@ -4,9 +4,16 @@ import TSCBasic
 extension AbsolutePath:ExpressibleByArgument 
 {
     public
-    init?(argument:String)
+    init?(argument string:String)
     {
-        try? self.init(validating: argument)
+        if let base:Self = localFileSystem.currentWorkingDirectory
+        {
+            self.init(string, relativeTo: base)
+        }
+        else 
+        {
+            try? self.init(validating: string)
+        }
     }
 }
 
