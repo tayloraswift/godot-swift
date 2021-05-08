@@ -13,9 +13,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     # uses .swift-version
-    # - uses: YOCKOW/Action-setup-swift@master
-    #   
-    # - run: Infrastructure/generate-documentation
+    - uses: YOCKOW/Action-setup-swift@master
+      
+    - run: Infrastructure/generate-documentation
     
     - uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
