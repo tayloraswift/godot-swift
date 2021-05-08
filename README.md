@@ -22,6 +22,7 @@
 
 ### [references, tutorials, and example programs](Examples/)
 
+* [**api reference**](https://kelvin13.github.io/godot-swift/)
 * [**types**](type-reference.md)
 
 
