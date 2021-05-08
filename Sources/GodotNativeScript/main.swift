@@ -1,6 +1,7 @@
 import PackagePlugin
 
-let tool:TargetBuildContext.Tool = try targetBuildContext.tool(named: "GodotNativeScriptGenerator")
+let tool:TargetBuildContext.Tool = 
+    try targetBuildContext.tool(named: "GodotNativeScriptGenerator")
 let directory:Path  = targetBuildContext.outputDirectory
 let sources:[Path]  = targetBuildContext.inputFiles.filter
 {
@@ -17,14 +18,32 @@ let output:(staged:Path, common:Path, classes:Path) =
 
 commandConstructor.createBuildCommand(
     displayName:
-        "Generating files '\(output.common)', '\(output.staged)'",
+        "Generating files '\(output.common)', '\(output.classes)'",
     executable: tool.path,
     arguments: 
     [
-        "--workspace",      "\(directory)", 
-        "--output-staged",  "\(output.staged)", 
+        "generate",
+        
         "--output-common",  "\(output.common)", 
         "--output-classes", "\(output.classes)", 
+    ],
+    inputFiles: sources,
+    outputFiles: 
+    [
+        output.common,
+        output.classes,
+    ]
+)
+commandConstructor.createBuildCommand(
+    displayName:
+        "Generating file '\(output.staged)'",
+    executable: tool.path,
+    arguments: 
+    [
+        "synthesize",
+        
+        "--workspace",      "\(directory)", 
+        "--output",         "\(output.staged)", 
         "--target",            targetBuildContext.targetName,
         "--package-path",   "\(targetBuildContext.packageDirectory)"
     ],
@@ -32,7 +51,5 @@ commandConstructor.createBuildCommand(
     outputFiles: 
     [
         output.staged,
-        output.common,
-        output.classes,
     ]
 )

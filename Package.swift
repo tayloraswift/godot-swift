@@ -1,21 +1,20 @@
 // swift-tools-version:999.0
-
 import PackageDescription
 
 let package = Package(
     name: "Godot",
     products: 
     [
-        .plugin(name: "GodotNativeScript", targets: ["GodotNativeScript"]),
+        .plugin(    name: "GodotNativeScript",      targets: ["GodotNativeScript"]),
         // examples 
-        .library(name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
+        .library(   name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
     ],
     dependencies: 
     [
-        .package(url: "https://github.com/apple/swift-numerics",        .upToNextMinor(from: "0.1.0")),
-        .package(url: "https://github.com/apple/swift-atomics.git",     .upToNextMinor(from: "0.0.1")),
-        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "0.3.1")),
-        .package(url: "https://github.com/apple/swift-package-manager", .branch("main")),
+        .package(url: "https://github.com/apple/swift-package-manager",     .revision("a52d4d82d2cc84ffaed3208877ccee03cc85357e")),
+        .package(url: "https://github.com/apple/swift-argument-parser",     .exact("0.4.3")),
+        .package(url: "https://github.com/apple/swift-numerics",            .exact("0.1.0")),
+        .package(url: "https://github.com/apple/swift-atomics",             .exact("0.0.3")),
     ],
     targets: 
     [
@@ -43,7 +42,7 @@ let package = Package(
         .plugin(name: "GodotNativeScript", capability: .buildTool(),
             dependencies: 
             [
-                "GodotNativeScriptGenerator"
+                "GodotNativeScriptGenerator",
             ]),
         
         // examples 

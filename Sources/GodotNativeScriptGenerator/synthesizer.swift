@@ -1,303 +1,344 @@
-enum Inspector 
-{
-    enum Error:Swift.Error 
-    {
-        case subBuildFailed
-        case couldNotOpenSubBuildProduct(String)
-        case missingSubBuildProductSymbol(String)
-        case invalidSubBuildInterfaceFormat(Any.Type, expected:Any.Type)
-    }
-    
-    static 
-    let entrypoint:String = "__inspector_entrypoint_loader__"
-    
-    typealias Interface = 
-    (
-        // `type.symbols` used for `library.json`
-        type:(name:String, symbols:[String]), 
-        properties:Int,
-        methods:[String],
-        signals:[String]
-    )
-}
-
-#if !BUILD_STAGE_INERT 
-
+import ArgumentParser
+import PackageModel
+import PackageLoading
 import TSCBasic
-import Workspace
 
-final
-class OutputBuffer 
+extension Main.Synthesizer 
 {
-    private 
-    var buffered:String 
-    
-    init()
+    enum Inspector 
     {
-        self.buffered = ""
-    }
-    
-    func push(utf8:[UInt8]) 
-    {
-        let lines:[Substring] = "\(self.buffered)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
-            .split(separator: "\n", omittingEmptySubsequences: false)
-        guard let last:Substring = lines.last 
-        else 
+        enum Error:Swift.Error 
         {
-            return 
-        }
-        self.buffered = .init(last)
-        for line:Substring in lines.dropLast()
-        {
-            print("(sub-build)".bolded, line)
-        }
-    }
-    
-    func flush()
-    {
-        guard !self.buffered.isEmpty 
-        else 
-        {
-            return 
+            case subBuildFailed
+            case couldNotOpenSubBuildProduct(String)
+            case missingSubBuildProductSymbol(String)
+            case invalidSubBuildInterfaceFormat(Any.Type, expected:Any.Type)
         }
         
-        print("(sub-build)".bolded, self.buffered)
+        static 
+        let entrypoint:String = "__inspector_entrypoint_loader__"
         
-        self.buffered = ""
+        typealias Interface = 
+        (
+            // `type.symbols` used for `library.json`
+            type:(name:String, symbols:[String]), 
+            properties:Int,
+            methods:[String],
+            signals:[String]
+        )
     }
-}
-extension Inspector 
-{
-    static 
-    func inspect(workspace:AbsolutePath, toolchain:AbsolutePath, 
-        dependency:(package:String, product:String, path:AbsolutePath)) throws
-        -> [Interface]
+    
+    func run() throws
     {
-        let triple:Triple = .getHostTriple(usingSwiftCompiler: toolchain)
+        // locate toolchain. this gives the `swiftc` tool, not the `swift` tool!
+        let toolchain:AbsolutePath = Self.toolchain()
+    #if BUILD_STAGE_INERT 
+        self.synthesize()
+    #else  
+        print(bold: "starting two-stage build...")
+        // get basic information about the package 
+        let dependency:(package:String, product:String, path:AbsolutePath) = 
+            Self.product(at: self.packagePath, containing: self.target, toolchain: toolchain)
         
-        var configuration:String { "debug" }
-        let path:(cache:AbsolutePath, build:AbsolutePath, product:AbsolutePath)
-        path.cache      = workspace.appending(component: ".cache")
-        path.build      = workspace.appending(component: ".build")
-        path.product    = path.build.appending(component: configuration).appending(
-            component: "\(triple.dynamicLibraryPrefix)\(dependency.product)\(triple.dynamicLibraryExtension)")
-        
-        let arguments:[String] = 
-        [
-            "swift", "build", "--product", dependency.product, 
-            "-c", configuration, 
-            "--package-path",   "\(dependency.path)", 
-            "--cache-path",     "\(path.cache)", 
-            "--build-path",     "\(path.build)", 
-            "--disable-repository-cache",
-            "-Xswiftc", "-DBUILD_STAGE_INERT"
-        ]
-        
-        print(bold: "starting sub-build with invocation:")
-        print(arguments.joined(separator: " "))
-        
-        let output:OutputBuffer = .init()
-        
-        let process:Process = .init(arguments: arguments, environment: ProcessEnv.vars, 
-            outputRedirection: .stream
+        do 
+        {
+            let interfaces:[Inspector.Interface] = try Inspector.inspect(workspace: self.workspace, 
+                toolchain: toolchain, dependency: dependency)
+                
+            self.synthesize(interfaces: interfaces)
+            
+            // output library configuration file
+            Source.generate(file: self.workspace.appending(component: "library.json")) 
             {
-                output.push(utf8: $0)
-            }
-            stderr: 
-            {
-                output.push(utf8: $0)
-            })
-        try process.launch()
-        let result:ProcessResult = try process.waitUntilExit()
-        
-        output.flush()
-        
-        guard case .terminated(code: 0) = result.exitStatus
-        else 
-        {
-            throw Error.subBuildFailed
-        }
-        
-        guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
-        else 
-        {
-            throw Error.couldNotOpenSubBuildProduct("\(path.product)")
-        }
-        
-        guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
-            dlsym(library, symbol: Self.entrypoint) 
-        else 
-        {
-            throw Error.missingSubBuildProductSymbol(Self.entrypoint)
-        }
-        
-        print(bold: "inspecting sub-build product '\(path.product.basename)'")
-        print(note: "in directory '\(path.product.parentDirectory)'")
-        print(note: "through entrypoint '\(Self.entrypoint)'")
-        
-        let description:AnyObject = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
-        guard let interfaces:[Interface] = description as? [Interface]
-        else 
-        {
-            throw Error.invalidSubBuildInterfaceFormat(type(of: description), expected: [Interface].self)
-        }
-        
-        // dlclose seems to be broken, so we leak the dynamic library, just as 
-        // the swift official tools do: 
-        // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
-        library.leak()
-        
-        print("found \(interfaces.count) nativescript interface(s):")
-        for (i, interface):(Int, Interface) in interfaces.enumerated()
-        {
-            print(
                 """
-                [\(i)]: \(interface.type.name) <- \
-                (\(interface.type.symbols.map{ "Godot::\($0)" }.joined(separator: ", ")))
                 {
-                    (\(interface.properties) \(interface.properties       == 1 ? "property" : "properties"))
-                    (\(interface.methods.count) \(interface.methods.count == 1 ? "method" : "methods"))
-                    (\(interface.signals.count) \(interface.signals.count == 1 ? "signal" : "signals"))
+                    "product": "\(dependency.product)", 
+                    "symbols": \(interfaces.flatMap(\.type.symbols))
                 }
+                """
+            }
+        }
+        catch Inspector.Error.subBuildFailed 
+        {
+            print(error: "sub-build failed")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.couldNotOpenSubBuildProduct(let product) 
+        {
+            print(error: "could not open sub-build dynamic library product '\(product)'")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.missingSubBuildProductSymbol(let symbol) 
+        {
+            print(error: "could not find sub-build dynamic library symbol '\(symbol)'")
+            throw ExitCode.failure
+        }
+        catch Inspector.Error.invalidSubBuildInterfaceFormat(let type, expected: let expected) 
+        {
+            print(error: "inspector interface description type (\(type)) does not match expected type \(expected)")
+            throw ExitCode.failure
+        }
+    #endif
+    }
+    
+    private static 
+    func product(at path:AbsolutePath, containing target:String, toolchain:AbsolutePath) 
+        -> (package:String, product:String, path:AbsolutePath)
+    {
+        let manifest:Manifest
+        do 
+        {
+            manifest = try tsc_await 
+            { 
+                ManifestLoader.loadRootManifest(at: path, 
+                    swiftCompiler:      toolchain, 
+                    swiftCompilerFlags: [], 
+                    identityResolver:   DefaultIdentityResolver.init(), 
+                    on:                 .global(), 
+                    completion:         $0) 
+            }
+        }
+        catch let error 
+        {
+            fatalError(
+                """
+                could not parse manifest at '\(path)' 
+                \(error)
                 """)
         }
         
-        return interfaces
-    }
-}
-
-final 
-class Diagnostics 
-{
-    final 
-    class Delegate<Context> 
-    {
-        let diagnostics:Diagnostics 
-        let context:Context 
-        
-        init(_ diagnostics:Diagnostics, context:Context)
+        print(note: "searching for dynamic library products containing the target '\(target)'")
+        let candidates:[String] = manifest.products.compactMap
         {
-            self.diagnostics    = diagnostics 
-            self.context        = context
-        }
-    }
-    
-    enum Diagnostic 
-    {
-        case error(String)
-        case warning(String)
-        case note(String)
-        
-        func plant() -> String 
-        {
-            switch self 
+            (product:ProductDescription) -> String? in 
+            if case .library(.dynamic) = product.type, product.targets.contains(target)
             {
-            case .error     (let message): return 
-                """
-                #error(
-                "\(message)"
-                )
-                """
-            case .warning   (let message): return 
-                """
-                #warning(
-                "\(message)"
-                )
-                """
-            // no swift support for #message yet, unfortunately
-            case .note      (let message): return 
-                """
-                #warning(
-                "note: \(message)"
-                )
-                """
+                print(note: "found product '\(product.name)'")
+                return product.name 
+            }
+            else 
+            {
+                return nil 
             }
         }
-    }
-    
-    private
-    var diagnostics:[Diagnostic] 
-    
-    init()
-    {
-        self.diagnostics = []
-    }
-    
-    func with<R, Context>(context:Context, _ body:(Delegate<Context>) throws -> R) 
-        rethrows -> R 
-    {
-        try body(.init(self, context: context))
-    }
-    
-    func emit(_ diagnostic:Diagnostic) 
-    {
-        self.diagnostics.append(diagnostic)
-    }
-    
-    func plant() -> String 
-    {
-        Source.fragment 
+        
+        guard let product:String = candidates.first 
+        else 
         {
-            for diagnostic:Diagnostic in self.diagnostics 
-            {
-                diagnostic.plant()
-            }
+            print(error: "no dynamic library products containing the target '\(target)' were found")
+            fatalError("aborted")
         }
-    }
-}
-extension Diagnostics.Delegate 
-{
-    func with<R, Next>(context:Next, _ body:(Diagnostics.Delegate<Next>) throws -> R) 
-        rethrows -> R 
-    {
-        try body(.init(self.diagnostics, context: context))
-    }
-    
-    func error(_ message:(Context) -> String)
-    {
-        self.diagnostics.emit(.error(message(self.context)))
-    }
-    func warning(_ message:(Context) -> String)
-    {
-        self.diagnostics.emit(.warning(message(self.context)))
-    }
-    func note(_ message:(Context) -> String)
-    {
-        self.diagnostics.emit(.note(message(self.context)))
-    }
-}
-
-// diagnostic helpers 
-extension SwiftGrammar.SwiftType 
-{
-    func match(vector arity:Int) -> String? 
-    {
-        if  case .named(let identifiers)                = self,
-            let head:SwiftGrammar.TypeIdentifier        = identifiers.first, 
-            identifiers.dropFirst().isEmpty, 
-            head.identifier == "Vector", 
-            let storage:SwiftGrammar.SwiftType          = head.generics.first, 
-            let _:SwiftGrammar.SwiftType                = head.generics.dropFirst().first, 
-            head.generics.dropFirst(2).isEmpty, 
-            
-            case .named(let storageIdentifiers)         = storage, 
-            let storageHead:SwiftGrammar.TypeIdentifier = storageIdentifiers.first, 
-            storageIdentifiers.dropFirst().isEmpty, 
-            storageHead.identifier == "SIMD\(arity)", 
-            let scalar:SwiftGrammar.SwiftType           = storageHead.generics.first, 
-            storageHead.generics.dropFirst().isEmpty 
+        if candidates.count > 1 
         {
-            return "\(scalar)" 
+            print(warning: "multiple candidate products found, using '\(product)'")
         }
         else 
         {
-            return nil 
+            print(note: "using product '\(product)'")
+        }
+        
+        return (manifest.name, product, path)
+    }
+    
+    private static 
+    func toolchain() -> AbsolutePath
+    {
+        // locate toolchain 
+        let invocation:[String]
+        
+        #if os(macOS)
+        invocation = ["xcrun", "--sdk", "macosx", "-f", "swiftc"]
+        #else
+        invocation = ["which", "swiftc"]
+        #endif
+        
+        guard let output:String = try? Process.checkNonZeroExit(arguments: invocation) 
+        else 
+        {
+            fatalError("could not locate swift toolchain")
+        }
+        
+        return .init(output.spm_chomp())
+    }
+}
+
+#if BUILD_STAGE_INERT 
+
+extension Main.Synthesizer 
+{
+    func synthesize()
+    {
+        Source.generate(file: self.output)
+        {
+            """
+            // placeholders to make inert library compile 
+            func <- <T, Function>(method:@escaping (T) -> Function, symbol:String) 
+                -> Godot.NativeScriptInterface<T>.Method
+                where T:Godot.NativeScript
+            {
+                Function.self
+            }
+            
+            extension Godot.AnyDelegate 
+            {
+                final 
+                func emit<Signal, T>(signal _:Signal.Value, as _:Signal.Type, from _:T.Type)
+                    where Signal:Godot.Signal, T:Godot.NativeScript 
+                {
+                }
+            }
+            
+            // inspection apis 
+            extension Godot.NativeScript 
+            {
+                static 
+                var __properties__:Int 
+                {
+                    Self.interface.properties.count
+                }
+                static 
+                var __methods__:[String] 
+                {
+                    Self.interface.methods.map{ "\\($0)" }
+                }
+                static 
+                var __signals__:[String]
+                {
+                    Self.interface.signals.map 
+                    {
+                        String.init(reflecting: $0)
+                    }
+                }
+            }
+            
+            @_cdecl("\(Inspector.entrypoint)") 
+            public 
+            func \(Inspector.entrypoint)() -> UnsafeMutableRawPointer
+            {
+                let interfaces:[\(Inspector.Interface.self)] = 
+                    Godot.Library.interface.types.map 
+                {
+                    (
+                        type:       (.init(reflecting: $0.type), $0.symbols), 
+                        properties: $0.type.__properties__,
+                        methods:    $0.type.__methods__,
+                        signals:    $0.type.__signals__
+                    )
+                }
+                return Unmanaged<AnyObject>
+                    .passRetained(interfaces as AnyObject)
+                    .toOpaque()
+            }
+            """
         }
     }
 }
 
-extension Synthesizer 
-{
+#else 
+
+import Workspace
+
+extension Main.Synthesizer 
+{    
+    final 
+    class Diagnostics 
+    {
+        final 
+        class Delegate<Context> 
+        {
+            let diagnostics:Diagnostics 
+            let context:Context 
+            
+            init(_ diagnostics:Diagnostics, context:Context)
+            {
+                self.diagnostics    = diagnostics 
+                self.context        = context
+            }
+            
+            func with<R, Next>(context:Next, _ body:(Delegate<Next>) throws -> R) 
+                rethrows -> R 
+            {
+                try body(.init(self.diagnostics, context: context))
+            }
+            
+            func error(_ message:(Context) -> String)
+            {
+                self.diagnostics.emit(.error(message(self.context)))
+            }
+            func warning(_ message:(Context) -> String)
+            {
+                self.diagnostics.emit(.warning(message(self.context)))
+            }
+            func note(_ message:(Context) -> String)
+            {
+                self.diagnostics.emit(.note(message(self.context)))
+            }
+        }
+        
+        enum Diagnostic 
+        {
+            case error(String)
+            case warning(String)
+            case note(String)
+            
+            func plant() -> String 
+            {
+                switch self 
+                {
+                case .error     (let message): return 
+                    """
+                    #error(
+                    "\(message)"
+                    )
+                    """
+                case .warning   (let message): return 
+                    """
+                    #warning(
+                    "\(message)"
+                    )
+                    """
+                // no swift support for #message yet, unfortunately
+                case .note      (let message): return 
+                    """
+                    #warning(
+                    "note: \(message)"
+                    )
+                    """
+                }
+            }
+        }
+        
+        private
+        var diagnostics:[Diagnostic] 
+        
+        init()
+        {
+            self.diagnostics = []
+        }
+        
+        func with<R, Context>(context:Context, _ body:(Delegate<Context>) throws -> R) 
+            rethrows -> R 
+        {
+            try body(.init(self, context: context))
+        }
+        
+        func emit(_ diagnostic:Diagnostic) 
+        {
+            self.diagnostics.append(diagnostic)
+        }
+        
+        func plant() -> String 
+        {
+            Source.fragment 
+            {
+                for diagnostic:Diagnostic in self.diagnostics 
+                {
+                    diagnostic.plant()
+                }
+            }
+        }
+    }
+    
     enum Form:Hashable  
     {
         struct Parameter:Hashable 
@@ -443,9 +484,7 @@ extension Synthesizer
             }
         }
     }
-}
-extension Synthesizer 
-{
+    
     struct FunctionParameterization:Hashable
     {
         private 
@@ -490,8 +529,7 @@ extension Synthesizer
         }
     }
 }
-
-extension Synthesizer.Form 
+extension Main.Synthesizer.Form 
 {
     var types:[String] 
     {
@@ -658,12 +696,12 @@ extension Synthesizer.Form
         }
     }
 }
-extension Synthesizer.Form.Parameter 
+extension Main.Synthesizer.Form.Parameter 
 {
     static 
     func tree(_ domain:[Self], nodes list:(label:String, type:String)) -> String? 
     {
-        func lists(root:Synthesizer.Form) -> String 
+        func lists(root:Main.Synthesizer.Form) -> String 
         {
             switch root 
             {
@@ -674,7 +712,7 @@ extension Synthesizer.Form.Parameter
             }
         }
         
-        let body:String = domain.map{ Synthesizer.Form.tree($0.type) }.joined(separator: ", ")
+        let body:String = domain.map{      Main.Synthesizer.Form.tree($0.type) }.joined(separator: ", ")
         let tail:String = domain.map{ $0.inout ? lists(root: $0.type) : "Void" }.joined(separator: ", ")
         if domain.isEmpty 
         {
@@ -704,15 +742,15 @@ extension Synthesizer.Form.Parameter
         }
     }
 }
-extension Synthesizer.FunctionParameterization
+extension Main.Synthesizer.FunctionParameterization
 {
     var signature:String 
     {
         let domain:[String] = [self.exclude] + self.domain.map 
         {
-            "\($0.inout ? "inout " : "")\(Synthesizer.Form.tree($0.type))"
+            "\($0.inout ? "inout " : "")\(Main.Synthesizer.Form.tree($0.type))"
         }
-        let range:String = Synthesizer.Form.tree(self.range)
+        let range:String = Main.Synthesizer.Form.tree(self.range)
         return "(\(domain.joined(separator: ", "))) -> \(range)"
     }
     
@@ -763,7 +801,7 @@ extension Synthesizer.FunctionParameterization
                     """
                     Source.block(delimiters: ("[", "], "))
                     {
-                        for type:Synthesizer.Form in self.domain.map(\.type)
+                        for type:Main.Synthesizer.Form in self.domain.map(\.type)
                         {
                             """
                             Godot.Annotations.Argument.init(label: "", type: \(type.variantType)), 
@@ -787,7 +825,7 @@ extension Synthesizer.FunctionParameterization
                         """
                         
                         if let domain:String = 
-                            Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
+                            Main.Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
                         {
                             if self.domain.contains(where: \.inout) 
                             {
@@ -810,7 +848,7 @@ extension Synthesizer.FunctionParameterization
                                 """
                             }
                         }
-                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                        for (position, parameter):(Int, Main.Synthesizer.Form.Parameter) in 
                             self.domain.enumerated() 
                         {
                             parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
@@ -819,11 +857,11 @@ extension Synthesizer.FunctionParameterization
                         
                         """
                         
-                        let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
+                        let output:\(Main.Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
                         
                         """
                         
-                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in 
+                        for (position, parameter):(Int, Main.Synthesizer.Form.Parameter) in 
                             self.domain.enumerated() 
                             where parameter.inout 
                         {
@@ -839,11 +877,9 @@ extension Synthesizer.FunctionParameterization
         }
     }
 }
-
-extension Synthesizer 
+extension Main.Synthesizer 
 {
-    static 
-    func generate(staged:AbsolutePath, interfaces:[Inspector.Interface])
+    func synthesize(interfaces:[Inspector.Interface])
     {
         let diagnostics:Diagnostics = .init()
         // diagnose repeated signal types within the same nativescript 
@@ -942,7 +978,7 @@ extension Synthesizer
             }
         })
         
-        Source.generate(file: staged) 
+        Source.generate(file: self.output) 
         {
             """
             // generated by '\(#file)'
@@ -1132,6 +1168,176 @@ extension Synthesizer
                 """
             }
         }
+    }
+}
+
+// diagnostic helpers 
+extension SwiftGrammar.SwiftType 
+{
+    func match(vector arity:Int) -> String? 
+    {
+        if  case .named(let identifiers)                = self,
+            let head:SwiftGrammar.TypeIdentifier        = identifiers.first, 
+            identifiers.dropFirst().isEmpty, 
+            head.identifier == "Vector", 
+            let storage:SwiftGrammar.SwiftType          = head.generics.first, 
+            let _:SwiftGrammar.SwiftType                = head.generics.dropFirst().first, 
+            head.generics.dropFirst(2).isEmpty, 
+            
+            case .named(let storageIdentifiers)         = storage, 
+            let storageHead:SwiftGrammar.TypeIdentifier = storageIdentifiers.first, 
+            storageIdentifiers.dropFirst().isEmpty, 
+            storageHead.identifier == "SIMD\(arity)", 
+            let scalar:SwiftGrammar.SwiftType           = storageHead.generics.first, 
+            storageHead.generics.dropFirst().isEmpty 
+        {
+            return "\(scalar)" 
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+}
+
+extension Main.Synthesizer.Inspector 
+{
+    private final 
+    class OutputBuffer 
+    {
+        private 
+        var buffered:String 
+        
+        init()
+        {
+            self.buffered = ""
+        }
+        
+        func push(utf8:[UInt8]) 
+        {
+            let lines:[Substring] = "\(self.buffered)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+                .split(separator: "\n", omittingEmptySubsequences: false)
+            guard let last:Substring = lines.last 
+            else 
+            {
+                return 
+            }
+            self.buffered = .init(last)
+            for line:Substring in lines.dropLast()
+            {
+                print("(sub-build)".bolded, line)
+            }
+        }
+        
+        func flush()
+        {
+            guard !self.buffered.isEmpty 
+            else 
+            {
+                return 
+            }
+            
+            print("(sub-build)".bolded, self.buffered)
+            
+            self.buffered = ""
+        }
+    }
+    
+    static 
+    func inspect(workspace:AbsolutePath, toolchain:AbsolutePath, 
+        dependency:(package:String, product:String, path:AbsolutePath)) throws
+        -> [Interface]
+    {
+        let triple:Triple = .getHostTriple(usingSwiftCompiler: toolchain)
+        
+        var configuration:String { "debug" }
+        let path:(cache:AbsolutePath, build:AbsolutePath, product:AbsolutePath)
+        path.cache      = workspace.appending(component: ".cache")
+        path.build      = workspace.appending(component: ".build")
+        path.product    = path.build.appending(component: configuration).appending(
+            component: "\(triple.dynamicLibraryPrefix)\(dependency.product)\(triple.dynamicLibraryExtension)")
+        
+        let arguments:[String] = 
+        [
+            "swift", "build", "--product", dependency.product, 
+            "-c", configuration, 
+            "--package-path",   "\(dependency.path)", 
+            "--cache-path",     "\(path.cache)", 
+            "--build-path",     "\(path.build)", 
+            "--disable-repository-cache",
+            "-Xswiftc", "-DBUILD_STAGE_INERT"
+        ]
+        
+        print(bold: "starting sub-build with invocation:")
+        print(arguments.joined(separator: " "))
+        
+        let output:OutputBuffer = .init()
+        
+        let process:Process = .init(arguments: arguments, environment: ProcessEnv.vars, 
+            outputRedirection: .stream
+            {
+                output.push(utf8: $0)
+            }
+            stderr: 
+            {
+                output.push(utf8: $0)
+            })
+        try process.launch()
+        let result:ProcessResult = try process.waitUntilExit()
+        
+        output.flush()
+        
+        guard case .terminated(code: 0) = result.exitStatus
+        else 
+        {
+            throw Error.subBuildFailed
+        }
+        
+        guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
+        else 
+        {
+            throw Error.couldNotOpenSubBuildProduct("\(path.product)")
+        } 
+        
+        guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
+            dlsym(library, symbol: Self.entrypoint) 
+        else 
+        {
+            throw Error.missingSubBuildProductSymbol(Self.entrypoint)
+        }
+        
+        print(bold: "inspecting sub-build product '\(path.product.basename)'")
+        print(note: "in directory '\(path.product.parentDirectory)'")
+        print(note: "through entrypoint '\(Self.entrypoint)'")
+        
+        let description:AnyObject = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
+        guard let interfaces:[Interface] = description as? [Interface]
+        else 
+        {
+            throw Error.invalidSubBuildInterfaceFormat(type(of: description), expected: [Interface].self)
+        }
+        
+        // dlclose seems to be broken, so we leak the dynamic library, just as 
+        // the swift official tools do: 
+        // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
+        library.leak()
+        
+        print("found \(interfaces.count) nativescript interface(s):")
+        for (i, interface):(Int, Interface) in interfaces.enumerated()
+        {
+            print(
+                """
+                [\(i)]: \(interface.type.name) <- \
+                (\(interface.type.symbols.map{ "Godot::\($0)" }.joined(separator: ", ")))
+                {
+                    (\(interface.properties) \(interface.properties       == 1 ? "property" : "properties"))
+                    (\(interface.methods.count) \(interface.methods.count == 1 ? "method" : "methods"))
+                    (\(interface.signals.count) \(interface.signals.count == 1 ? "signal" : "signals"))
+                }
+                """)
+        }
+        
+        return interfaces
     }
 }
 

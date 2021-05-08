@@ -1,11 +1,8 @@
-import struct TSCBasic.AbsolutePath
-
-enum Synthesizer 
+extension Main.Generator 
 {
-    static 
-    func generate(common:AbsolutePath, classes:AbsolutePath)
+    func run() 
     {
-        Source.generate(file: classes)
+        Source.generate(file: self.outputClasses)
         {
             Source.text(from: "fragments", "external.swift.part")
             Source.text(from: "fragments", "runtime.swift.part")
@@ -13,7 +10,7 @@ enum Synthesizer
             
             Godot.swift 
         }
-        Source.generate(file: common)
+        Source.generate(file: self.outputCommon)
         {
             Source.text(from: "fragments", "dsl.swift.part")
             
