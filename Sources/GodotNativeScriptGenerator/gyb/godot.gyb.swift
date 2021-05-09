@@ -2203,6 +2203,29 @@ extension Godot
             /// 
             ///     Do not conform custom types to this protocol.
             
+            /// protocol Godot.Signal 
+            ///     A type specifying the name and format of a Godot signal.
+            
+            /// associatedtype Godot.Signal.Value 
+            /// required 
+            ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
+            
+            /// static var Godot.Signal.name:Swift.String { get }
+            /// required 
+            ///     The name of this signal type, as seen by Godot.
+            
+            /// static var Godot.Signal.interface:Interface { get }
+            /// required 
+            ///     The interface of this signal type, specifying how signal fields 
+            ///     are read from an instance of [[`Value`]]. 
+            
+            /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
+            
+            /// struct Godot.SignalInterface<T> 
+            /// @   resultBuilder 
+            ///     A descriptor specifying how signal fields are read from an 
+            ///     instance of [[`T`]].
+            
             /// protocol Godot.VariantRepresentable 
             ///     A type that can be represented by a GDScript variant value.
             

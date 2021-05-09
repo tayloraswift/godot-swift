@@ -99,6 +99,56 @@ enum Vector
         }
     }
     
+    private static 
+    func define(comparator:String, prose:String, condition:String) -> String 
+    {
+        """
+        /// static func Vector.(\(comparator))(lhs:rhs:)
+        /// ?   where T:\(condition) 
+        ///     Returns a vector mask with the result of a elementwise 
+        ///     \(prose) comparison of two vectors.
+        /// - lhs   :Self 
+        /// - rhs   :Self 
+        /// - ->    :Mask 
+        ///     A vector mask where each element is set if the corresponding 
+        ///     element of `lhs` is \(prose) the corresponding element 
+        ///     of `rhs`.
+        static 
+        func \(comparator) (lhs:Self, rhs:Self) -> Mask 
+        {
+            .init(storage: lhs.storage .\(comparator) rhs.storage)
+        }
+        /// static func Vector.(\(comparator))(lhs:scalar:)
+        /// ?   where T:\(condition) 
+        ///     Returns a vector mask with the result of a elementwise 
+        ///     \(prose) comparison of a vector with a scalar value.
+        /// - lhs   :Self 
+        /// - scalar:T 
+        /// - ->    :Mask 
+        ///     A vector mask where each element is set if the corresponding 
+        ///     element of `lhs` is \(prose) `scalar`.
+        static 
+        func \(comparator) (lhs:Self, scalar:T) -> Mask 
+        {
+            .init(storage: lhs.storage .\(comparator) scalar)
+        }
+        /// static func Vector.(\(comparator))(scalar:rhs:)
+        /// ?   where T:\(condition) 
+        ///     Returns a vector mask with the result of a elementwise 
+        ///     \(prose) comparison of a scalar value with a vector.
+        /// - scalar:T
+        /// - rhs   :Self 
+        /// - ->    :Mask 
+        ///     A vector mask where each element is set if `scalar` is \(prose) 
+        ///     the corresponding element of `rhs`.
+        static 
+        func \(comparator) (scalar:T, rhs:Self) -> Mask 
+        {
+            .init(storage: scalar .\(comparator) rhs.storage)
+        }
+        """
+    }
+    
     @Source.Code 
     private static 
     var code:String 
@@ -160,6 +210,33 @@ enum Vector
             init(storage:Storage)
             {
                 self.storage = storage
+            }
+        }
+        extension Vector 
+        {
+            /// static func Vector.any(_:)
+            ///     Returns a boolean value indicating if any element of the given 
+            ///     vector mask is set. 
+            /// - mask  :Mask 
+            ///     A vector mask.
+            /// - ->    :Swift.Bool 
+            ///     `true` if any element of `mask` is set; otherwise, `false`.
+            static 
+            func any(_ mask:Mask) -> Bool 
+            {
+                Swift.any(mask.storage)
+            }
+            /// static func Vector.all(_:)
+            ///     Returns a boolean value indicating if all elements of the given 
+            ///     vector mask are set. 
+            /// - mask  :Mask 
+            ///     A vector mask.
+            /// - ->    :Swift.Bool 
+            ///     `true` if all elements of `mask` are set; otherwise, `false`.
+            static 
+            func all(_ mask:Mask) -> Bool 
+            {
+                Swift.all(mask.storage)
             }
         }
         
@@ -406,6 +483,7 @@ enum Vector
             }
             
             /// static func Vector.(..<)(lhs:rhs:)
+            /// ?   where T:Swift.Comparable 
             ///     Returns a half-open axis-aligned rectangle with the given bounds.
             /// - lhs   :Self 
             ///     The lower bound.
@@ -419,6 +497,7 @@ enum Vector
                 .init(lowerBound: lhs, upperBound: rhs)
             }
             /// static func Vector.(...)(lhs:rhs:)
+            /// ?   where T:Swift.Comparable 
             ///     Returns an axis-aligned rectangle with the given bounds.
             /// - lhs   :Self 
             ///     The lower bound.
@@ -432,12 +511,27 @@ enum Vector
                 .init(lowerBound: lhs, upperBound: rhs)
             }
             
+            /// func Vector.clamped(to:)
+            /// ?   where T:Swift.Comparable 
+            ///     Creates a new vector with each element clamped to the extents 
+            ///     of the given axis-aligned rectangle.
+            /// - rectangle :ClosedRectangle 
+            ///     An axis-aligned rectangle.
+            /// - ->        :Self 
+            ///     A new vector, where each element is contained within the 
+            ///     corresponding lanewise bounds of `rectangle`.
             func clamped(to rectangle:ClosedRectangle) -> Self 
             {
                 .init(storage: self.storage.clamped(
                     lowerBound: rectangle.lowerBound.storage,
                     upperBound: rectangle.upperBound.storage))
             }
+            /// mutating func Vector.clamped(to:)
+            /// ?   where T:Swift.Comparable 
+            ///     Clamps each element of this vector to the extents 
+            ///     of the given axis-aligned rectangle.
+            /// - rectangle :ClosedRectangle 
+            ///     An axis-aligned rectangle.
             mutating 
             func clamp(to rectangle:ClosedRectangle) 
             {
@@ -446,32 +540,31 @@ enum Vector
                     upperBound: rectangle.upperBound.storage)
             } 
             """
-            for comparator:String in ["<", "<=", "!=", "==", ">=", ">"] 
-            {
-                """
-                static 
-                func \(comparator) (lhs:Self, rhs:Self) -> Mask 
-                {
-                    .init(storage: lhs.storage .\(comparator) rhs.storage)
-                }
-                static 
-                func \(comparator) (lhs:Self, rhs:T) -> Mask 
-                {
-                    .init(storage: lhs.storage .\(comparator) rhs)
-                }
-                static 
-                func \(comparator) (lhs:T, rhs:Self) -> Mask 
-                {
-                    .init(storage: lhs .\(comparator) rhs.storage)
-                }
-                """
-            }
-            for (vended, base):(String, String) in 
+            for (comparator, prose):(String, String) in 
             [
-                ("min", "pointwiseMin"), ("max", "pointwiseMax")
+                ("<",   "less than"), 
+                ("<=",  "less than or equal to"), 
+                (">=",  "greater than or equal to"), 
+                (">",   "greater than"),
+            ] 
+            {
+                Self.define(comparator: comparator, prose: prose, condition: "Swift.Comparable")
+            }
+            for (vended, base, prose):(String, String, String) in 
+            [
+                ("min", "pointwiseMin", "minimum"), 
+                ("max", "pointwiseMax", "maximum")
             ] 
             {
                 """
+                /// static func Vector.\(vended)(_:_:)
+                /// ?   where T:Swift.Comparable 
+                ///     Returns the result of an elementwise \(vended) operation.
+                /// - a :Self 
+                /// - b :Self 
+                /// - ->:Self 
+                ///     A vector where each element is the \(prose) of the corresponding 
+                ///     elements of `a` and `b`.
                 static 
                 func \(vended)(_ a:Self, _ b:Self) -> Self
                 {
@@ -479,103 +572,207 @@ enum Vector
                 }
                 """
             }
-            for (vended, base):(String, String) in [("min", "min"), ("max", "max")] 
+            for (vended, base, prose):(String, String, String) in 
+            [
+                ("min", "min", "minimum"), 
+                ("max", "max", "maximum")
+            ] 
             {
                 """
+                /// var Vector.\(vended):T { get }
+                /// ?   where T:Swift.Comparable 
+                ///     The value of the \(prose) element of this vector.
                 var \(vended):T 
                 {
                     self.storage.\(base)()
                 }
                 """
             }
-            """
-            static 
-            func any(_ mask:Mask) -> Bool 
-            {
-                Swift.any(mask.storage)
-            }
-            static 
-            func all(_ mask:Mask) -> Bool 
-            {
-                Swift.all(mask.storage)
-            }
-            """
         }
         """
+        
+        extension Vector where T:Equatable 
+        """
+        Source.block 
+        {
+            for (comparator, prose):(String, String) in 
+            [
+                ("!=",  "not equal to"), 
+                ("==",  "equal to"), 
+            ] 
+            {
+                Self.define(comparator: comparator, prose: prose, condition: "Swift.Equatable")
+            }
+        }
+        """
+        
         extension Vector where T:SignedInteger & FixedWidthInteger 
         {
-            // note: T.min maps to T.max 
+            /// static func Vector.abs(clamping:)
+            /// ?   where T:Swift.SignedInteger & Swift.FixedWidthInteger
+            ///     Performs an elementwise absolute value operation on the 
+            ///     given vector, clamping the result to the range of values 
+            ///     representable by [[`T`]].
+            /// 
+            ///     **Note:** Elements with the value `T.min` are mapped to 
+            ///     the value `T.max`. All other values are transformed according 
+            ///     to the mathematical definition of absolute value.
+            /// 
+            ///     **Note:** To obtain the scalar magnitude of an integer vector, 
+            ///     convert it to floating point vector, and use the 
+            ///     [`norm`] instance property.
+            /// - value :Self
+            ///     A vector. 
+            /// - ->    :Self 
+            ///     A vector where each element contains the absolute value of 
+            ///     the corresponding element of `value`, or `T.max` if the 
+            ///     original element was `T.min`.
             static 
-            func abs(clamping self:Self) -> Self 
+            func abs(clamping value:Self) -> Self 
             {
                 // saturating twos complement negation
-                .max(~self, .abs(wrapping: self))
+                .max(~value, .abs(wrapping: value))
             }
-            // note: T.min remains T.min 
+            /// static func Vector.abs(wrapping:)
+            /// ?   where T:Swift.SignedInteger & Swift.FixedWidthInteger
+            ///     Performs an elementwise absolute value operation on the 
+            ///     given vector, with two’s-complement wraparound if the resulting 
+            ///     elements are not representable by [[`T`]].
+            /// 
+            ///     **Note:** Elements with the value `T.min` will remain `T.min`, 
+            ///     as the value `-T.min` is equivalent to `T.max` when truncated 
+            ///     to the bit width of [[`T`]]. All other values are transformed according 
+            ///     to the mathematical definition of absolute value.
+            /// 
+            ///     **Note:** To obtain the scalar magnitude of an integer vector, 
+            ///     convert it to floating point vector, and use the 
+            ///     [`norm`] instance property.
+            /// - value :Self
+            ///     A vector. 
+            /// - ->    :Self 
+            ///     A vector where each element contains the absolute value of 
+            ///     the corresponding element of `value`, or `T.min` if the 
+            ///     original element was `T.min`.
             static 
-            func abs(wrapping self:Self) -> Self 
+            func abs(wrapping value:Self) -> Self 
             {
-                .max(self, 0 - self)
+                .max(value, 0 - value)
             }
         }
         extension Vector where T:BinaryFloatingPoint 
         {
+            /// static func Vector.abs(_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Performs an elementwise absolute value operation on the 
+            ///     given vector.
+            ///
+            ///     **Note:** To obtain the scalar magnitude of a vector, use the 
+            ///     [`norm`] instance property.
+            /// - value :Self
+            ///     A vector. 
+            /// - ->    :Self 
+            ///     A vector where each element contains the absolute value of 
+            ///     the corresponding element of `value`, or `T.nan` if the original 
+            ///     element was `T.nan`.
             static 
-            func abs(_ self:Self) -> Self 
+            func abs(_ value:Self) -> Self 
             {
-                .max(self, -self)
+                .max(value, -value)
             }
         }
         extension Vector.Mask 
         """
         Source.block 
         {
-            let operators:[(String, String)] = 
+            let operators:[(vended:String, base:String, prose:String)] = 
             [
-                ("|", ".|"),
-                ("&", ".&"),
-                ("^", ".^"),
+                ("|", ".|", "or"),
+                ("&", ".&", "and"),
+                ("^", ".^", "xor"),
             ]
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.Mask.(\(vended))(lhs:rhs:)
+                ///     Returns the result of a bitwise *\(prose)* operation on 
+                ///     the given vector masks.
+                /// - lhs   :Self 
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     The bitwise result of `lhs` *\(prose)* `rhs`.
                 static 
                 func \(vended) (lhs:Self, rhs:Self) -> Self 
                 {
                     .init(storage: lhs.storage \(base) rhs.storage)
                 }
+                /// static func Vector.Mask.(\(vended))(lhs:scalar:)
+                ///     Returns the result of a bitwise *\(prose)* operation on 
+                ///     the given vector mask, and the vector mask obtained by 
+                ///     broadcasting the given boolean value.
+                /// - lhs   :Self 
+                /// - scalar:Swift.Bool  
+                /// - ->    :Self 
+                ///     A vector mask where each element contains the bitwise 
+                ///     result of the corresponding element of `lhs` *\(prose)* `scalar`.
                 static 
-                func \(vended) (lhs:Self, rhs:Bool) -> Self 
+                func \(vended) (lhs:Self, scalar:Bool) -> Self 
                 {
-                    .init(storage: lhs.storage \(base) rhs)
+                    .init(storage: lhs.storage \(base) scalar)
                 }
+                /// static func Vector.Mask.(\(vended))(scalar:rhs:)
+                ///     Returns the result of a bitwise *\(prose)* operation on 
+                ///     the vector mask obtained by broadcasting the given boolean 
+                ///     value, and the given vector mask.
+                /// - scalar:Swift.Bool  
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     A vector mask where each element contains the bitwise 
+                ///     result of `scalar` *\(prose)* the corresponding element of `rhs`.
                 static 
-                func \(vended) (lhs:Bool, rhs:Self) -> Self 
+                func \(vended) (scalar:Bool, rhs:Self) -> Self 
                 {
-                    .init(storage: lhs \(base) rhs.storage)
+                    .init(storage: scalar \(base) rhs.storage)
                 }
                 """
             }
             // miscellaneous 
             """
+            /// static prefix func Vector.Mask.(~)(rhs:)
+            ///     Returns the result of a bitwise *not* operation on the given 
+            ///     vector mask.
+            /// - rhs   :Self 
+            /// - ->    :Self 
+            ///     The bitwise result of *not* `rhs`.
             static prefix 
-            func ~ (self:Self) -> Self
+            func ~ (rhs:Self) -> Self
             {
-                .init(storage: .!self.storage)
+                .init(storage: .!rhs.storage)
             }
             """
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.Mask.(\(vended)=)(lhs:rhs:)
+                ///     Performs a bitwise *\(prose)* operation on 
+                ///     the given vector masks, storing the result into `&lhs`.
+                /// - lhs   :inout Self 
+                /// - rhs   :Self 
                 static 
                 func \(vended)= (lhs:inout Self, rhs:Self)  
                 {
                     lhs.storage \(base)= rhs.storage
                 }
+                /// static func Vector.Mask.(\(vended)=)(lhs:scalar:)
+                ///     Performs a bitwise *\(prose)* operation on 
+                ///     the given vector mask, and the vector mask obtained by 
+                ///     broadcasting the given boolean value, storing the result 
+                ///     into `&lhs`.
+                /// - lhs   :inout Self 
+                /// - scalar:Swift.Bool  
                 static 
-                func \(vended)= (lhs:inout Self, rhs:Bool)  
+                func \(vended)= (lhs:inout Self, scalar:Bool)  
                 {
-                    lhs.storage \(base)= rhs
+                    lhs.storage \(base)= scalar
                 }
                 """
             }
@@ -843,6 +1040,9 @@ enum Vector
                 {
                     """
                     
+                    /// var Vector.norm:T { get }
+                    /// ?   where T:Swift.\(domain)
+                    ///     The scalar norm of this vector.
                     var norm:T 
                     {
                         (self <> self).squareRoot() 

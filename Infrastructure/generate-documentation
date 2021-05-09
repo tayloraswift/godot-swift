@@ -33,14 +33,14 @@ while [ "$1" != "" ] ; do
     shift 
 done 
 
-# compile godot-swift-nativescript-generator tool 
+# compile GodotNativeScriptGenerator tool 
 SWIFTPM_ENABLE_PLUGINS=1 swift build -c debug \
     -Xswiftc -DENABLE_ARC_SANITIZER \
     -Xswiftc -Xfrontend -Xswiftc -warn-long-expression-type-checking=500 \
-    --product godot-swift-nativescript-generator
+    --product GodotNativeScriptGenerator
 
-# run godot-swift-nativescript-generator tool (does not compile the entire library)
-.build/debug/godot-swift-nativescript-generator generate \
+# run GodotNativeScriptGenerator tool (does not compile the entire library)
+.build/debug/GodotNativeScriptGenerator generate \
     --output-common .gyb/common.swift \
     --output-classes .gyb/classes.swift
 

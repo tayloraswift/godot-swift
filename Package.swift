@@ -6,7 +6,7 @@ let package = Package(
     products: 
     [
         .plugin(    name: "GodotNativeScript",                      targets: ["GodotNativeScript"]),
-        .executable(name: "godot-swift-nativescript-generator",     targets: ["GodotNativeScriptGenerator"]),
+        .executable(name: "GodotNativeScriptGenerator",             targets: ["GodotNativeScriptGenerator"]),
         // examples 
         .library(   name: "godot-swift-examples", type: .dynamic,   targets: ["Examples"]),
     ],
