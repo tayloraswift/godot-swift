@@ -1346,6 +1346,11 @@ enum Vector
         }
         
         // linear aggregates
+        
+        /// extension Swift.SIMD 
+        
+        /// protocol Swift.SIMD.Transposable
+        /// :   Swift.SIMD 
         protocol _SIMDTransposable:SIMD 
         {
             associatedtype Transpose
