@@ -169,6 +169,8 @@ enum Vector
         """
         import protocol Numerics.Real
         
+        infix   operator ..  : RangeFormationPrecedence // interpolation
+        
         infix   operator <>  : MultiplicationPrecedence // dot/inner product
         infix   operator >|< : MultiplicationPrecedence // cross product
         infix   operator ><  : MultiplicationPrecedence // matrix product
@@ -526,7 +528,7 @@ enum Vector
                     lowerBound: rectangle.lowerBound.storage,
                     upperBound: rectangle.upperBound.storage))
             }
-            /// mutating func Vector.clamped(to:)
+            /// mutating func Vector.clamp(to:)
             /// ?   where T:Swift.Comparable 
             ///     Clamps each element of this vector to the extents 
             ///     of the given axis-aligned rectangle.
@@ -786,8 +788,14 @@ enum Vector
             """
             extension Vector where T:\(domain)
             {
+                /// static var Vector.zero:Self { get }
+                /// ?   where T:Swift.\(domain)
+                ///     A vector with all elements set to zero.
                 static 
                 var zero:Self   { .init(storage: .zero) }
+                /// static var Vector.one:Self { get }
+                /// ?   where T:Swift.\(domain)
+                ///     A vector with all elements set to one.
                 static 
                 var one:Self    { .init(storage:  .one) }
             }
@@ -805,7 +813,10 @@ enum Vector
         // horizontal operations 
         extension Vector where T:FixedWidthInteger
         {
-            // note: uses wrapping addition
+            /// var Vector.sum:T { get }
+            /// ?   where T:Swift.FixedWidthInteger 
+            ///     The sum of all elements of this vector, with two’s-complement 
+            ///     wraparound if the result is not representable by [[`T`]].
             var sum:T 
             {
                 self.storage.wrappedSum()
@@ -813,6 +824,9 @@ enum Vector
         }
         extension Vector where T:BinaryFloatingPoint
         {
+            /// var Vector.sum:T { get }
+            /// ?   where T:Swift.BinaryFloatingPoint 
+            ///     The sum of all elements of this vector.
             var sum:T 
             {
                 self.storage.sum()
@@ -824,72 +838,134 @@ enum Vector
         """
         Source.block 
         {
-            let operators:[(vended:String, base:String)] =
+            let operators:[(vended:String, base:String, prose:String)] =
             [
-                ("|", "|"),
-                ("&", "&"),
-                ("^", "^"),
+                ("|", "|", "bitwise *or*"),
+                ("&", "&", "bitwise *and*"),
+                ("^", "^", "bitwise *xor*"),
                 
-                ("&<<", "&<<"),
-                ("&>>", "&>>"),
+                ("&<<", "&<<", "masked left-shift"),
+                ("&>>", "&>>", "masked right-shift"),
                 
-                ("+", "&+"),
-                ("-", "&-"),
-                ("*", "&*"),
-                ("/", "/"),
-                ("%", "%"),
+                ("+", "&+", "wrapping addition"),
+                ("-", "&-", "wrapping subtraction"),
+                ("*", "&*", "wrapping multiplication"),
+                ("/", "/",  "division"),
+                ("%", "%",  "remainder"),
             ]
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.(\(vended))(lhs:rhs:)
+                /// ?   where T:Swift.FixedWidthInteger
+                ///     Returns the elementwise result of a \(prose) operation on 
+                ///     the given vectors.
+                /// - lhs   :Self 
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     The elementwise result of a \(prose) operation on 
+                ///     `lhs` and `rhs`.
                 static 
                 func \(vended) (lhs:Self, rhs:Self) -> Self 
                 {
                     .init(storage: lhs.storage \(base) rhs.storage)
                 }
+                /// static func Vector.(\(vended))(lhs:scalar:)
+                /// ?   where T:Swift.FixedWidthInteger
+                ///     Returns the elementwise result of a \(prose) operation on 
+                ///     the given vector, and the vector obtained by broadcasting 
+                ///     the given scalar.
+                /// - lhs   :Self 
+                /// - scalar:T 
+                /// - ->    :Self 
+                ///     The elementwise result of a \(prose) operation on 
+                ///     `lhs` and `scalar`.
                 static 
-                func \(vended) (lhs:Self, rhs:T) -> Self 
+                func \(vended) (lhs:Self, scalar:T) -> Self 
                 {
-                    .init(storage: lhs.storage \(base) rhs)
+                    .init(storage: lhs.storage \(base) scalar)
                 }
+                /// static func Vector.(\(vended))(scalar:rhs:)
+                /// ?   where T:Swift.FixedWidthInteger
+                ///     Returns the elementwise result of a \(prose) operation on 
+                ///     the vector obtained by broadcasting the given scalar, and 
+                ///     the given vector.
+                /// - scalar:T 
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     The elementwise result of a \(prose) operation on 
+                ///     `scalar` and `rhs`.
                 static 
-                func \(vended) (lhs:T, rhs:Self) -> Self 
+                func \(vended) (scalar:T, rhs:Self) -> Self 
                 {
-                    .init(storage: lhs \(base) rhs.storage)
+                    .init(storage: scalar \(base) rhs.storage)
                 }
                 """
             }
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.(\(vended)=)(lhs:rhs:)
+                /// ?   where T:Swift.FixedWidthInteger
+                ///     Performs an elementwise \(prose) operation on 
+                ///     the given vectors, storing the result in `&lhs`.
+                /// - lhs   :inout Self 
+                /// - rhs   :Self 
                 static 
                 func \(vended)= (lhs:inout Self, rhs:Self)  
                 {
                     lhs.storage \(base)= rhs.storage
                 }
+                /// static func Vector.(\(vended)=)(lhs:scalar:)
+                /// ?   where T:Swift.FixedWidthInteger
+                ///     Performs an elementwise \(prose) operation on 
+                ///     the given vector, and the vector obtained by broadcasting 
+                ///     the given scalar, storing the result in `&lhs`.
+                /// - lhs   :inout Self 
+                /// - scalar:T 
                 static 
-                func \(vended)= (lhs:inout Self, rhs:T)  
+                func \(vended)= (lhs:inout Self, scalar:T)  
                 {
-                    lhs.storage \(base)= rhs
+                    lhs.storage \(base)= scalar
                 }
                 """
             }
             // miscellaneous 
             """
+            /// static prefix func Vector.(~)(rhs:)
+            /// ?   where T:Swift.FixedWidthInteger
+            ///     Returns the elementwise result of a bitwise *not* operation 
+            ///     on the given vector.
+            /// - rhs   :Self 
+            /// - ->    :Self 
+            ///     A vector where each element contains the result of a
+            ///     bitwise *not* operation on the corresponding element of `rhs`.
             static prefix
             func ~ (self:Self) -> Self 
             {
                 .init(storage: ~self.storage)
             }
             
+            /// static var Vector.leadingZeroBitCount:Self { get }
+            /// ?   where T:Swift.FixedWidthInteger
+            ///     A vector where each element contains the number of leading 
+            ///     zero bits in the corresponding element of this vector.
             var leadingZeroBitCount:Self 
             {
                 .init(storage: self.storage.leadingZeroBitCount)
             }
+            /// static var Vector.nonzeroBitCount:Self { get }
+            /// ?   where T:Swift.FixedWidthInteger
+            ///     A vector where each element contains the number of non-zero 
+            ///     bits in the corresponding element of this vector.
             var nonzeroBitCount:Self 
             {
                 .init(storage: self.storage.nonzeroBitCount)
             }
+            /// static var Vector.trailingZeroBitCount:Self { get }
+            /// ?   where T:Swift.FixedWidthInteger
+            ///     A vector where each element contains the number of trailing 
+            ///     zero bits in the corresponding element of this vector.
             var trailingZeroBitCount:Self 
             {
                 .init(storage: self.storage.leadingZeroBitCount)
@@ -901,103 +977,260 @@ enum Vector
         """
         Source.block 
         {
-            let operators:[(vended:String, base:String)] =
+            let operators:[(vended:String, base:String, prose:String)] =
             [
-                ("+", "+"),
-                ("-", "-"),
-                ("*", "*"),
-                ("/", "/")
+                ("+", "+", "sum"),
+                ("-", "-", "difference"),
+                ("*", "*", "product"),
+                ("/", "/", "quotient")
             ]
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.(\(vended))(lhs:rhs:)
+                /// ?   where T:Swift.BinaryFloatingPoint
+                ///     Returns the elementwise \(prose) of the given vectors.
+                /// - lhs   :Self 
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     The elementwise \(prose) of `lhs` and `rhs`.
                 static 
                 func \(vended) (lhs:Self, rhs:Self) -> Self 
                 {
                     .init(storage: lhs.storage \(base) rhs.storage)
                 }
+                /// static func Vector.(\(vended))(lhs:scalar:)
+                /// ?   where T:Swift.BinaryFloatingPoint
+                ///     Returns the elementwise \(prose) of the given vector, and 
+                ///     the vector obtained by broadcasting the given scalar.
+                /// - lhs   :Self 
+                /// - scalar:T 
+                /// - ->    :Self 
+                ///     The elementwise \(prose) of `lhs` and the vector obtained 
+                ///     by broadcasting `scalar`.
                 static 
-                func \(vended) (lhs:Self, rhs:T) -> Self 
+                func \(vended) (lhs:Self, scalar:T) -> Self 
                 {
-                    .init(storage: lhs.storage \(base) rhs)
+                    .init(storage: lhs.storage \(base) scalar)
                 }
+                /// static func Vector.(\(vended))(scalar:rhs:)
+                /// ?   where T:Swift.BinaryFloatingPoint
+                ///     Returns the elementwise \(prose) of the vector obtained 
+                ///     by broadcasting the given scalar, and the given vector.
+                /// - scalar:Self 
+                /// - rhs   :Self 
+                /// - ->    :Self 
+                ///     The elementwise \(prose) of the vector obtained 
+                ///     by broadcasting `scalar`, and `rhs`.
                 static 
-                func \(vended) (lhs:T, rhs:Self) -> Self 
+                func \(vended) (scalar:T, rhs:Self) -> Self 
                 {
-                    .init(storage: lhs \(base) rhs.storage)
+                    .init(storage: scalar \(base) rhs.storage)
                 }
                 """
             }
-            for (vended, base):(String, String) in operators
+            for (vended, base, prose):(String, String, String) in operators
             {
                 """
+                /// static func Vector.(\(vended)=)(lhs:rhs:)
+                /// ?   where T:Swift.BinaryFloatingPoint
+                ///     Stores the elementwise \(prose) of the given vectors in 
+                ///     `&lhs`.
+                /// - lhs   :inout Self 
+                /// - rhs   :Self 
                 static 
                 func \(vended)= (lhs:inout Self, rhs:Self)  
                 {
                     lhs.storage \(base)= rhs.storage
                 }
+                /// static func Vector.(\(vended)=)(lhs:scalar:)
+                /// ?   where T:Swift.BinaryFloatingPoint
+                ///     Stores the elementwise \(prose) of the given vector and 
+                ///     the vector obtained by broadcasting `scalar` in `&lhs`.
+                /// - lhs   :inout Self 
+                /// - scalar:T 
                 static 
-                func \(vended)= (lhs:inout Self, rhs:T)  
+                func \(vended)= (lhs:inout Self, scalar:T)  
                 {
-                    lhs.storage \(base)= rhs
+                    lhs.storage \(base)= scalar
                 }
                 """
             }
             // miscellaneous
             """
+            /// static prefix func Vector.(-)(rhs:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Negates the given vector. 
+            /// - rhs   :Self 
             static prefix
-            func - (self:Self) -> Self 
+            func - (rhs:Self) -> Self 
             {
-                .init(storage: -self.storage)
+                .init(storage: -rhs.storage)
             }
+            /// func Vector.addingProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Returns the elementwise sum of this vector, and the 
+            ///     elementwise product of the two given vectors, in a single 
+            ///     fused-multiply operation.
+            /// - a :Self 
+            /// - b :Self 
+            /// - ->:Self 
+            ///     The elementwise sum of this vector, and the elementwise 
+            ///     product of `a` and `b`.
             func addingProduct(_ a:Self, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b.storage))
             }
+            /// func Vector.addingProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Returns the elementwise sum of this vector, and the given 
+            ///     vector scaled by the given scalar value, in a single 
+            ///     fused-multiply operation.
+            /// - a :Self 
+            /// - b :T 
+            /// - ->:Self 
+            ///     The elementwise sum of this vector, and `a` scaled by `b`.
             func addingProduct(_ a:Self, _ b:T) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b))
             }
+            /// func Vector.addingProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Returns the elementwise sum of this vector, and the given 
+            ///     vector scaled by the given scalar value, in a single 
+            ///     fused-multiply operation.
+            /// - a :T 
+            /// - b :Self 
+            /// - ->:Self 
+            ///     The elementwise sum of this vector, and `b` scaled by `a`.
             func addingProduct(_ a:T, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a, b.storage))
             }
+            /// mutating func Vector.addProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Adds each element of the elementwise product of the two given 
+            ///     vectors to the corresponding element of this vector, in a single 
+            ///     fused-multiply operation.
+            /// - a :Self 
+            /// - b :Self 
             mutating 
             func addProduct(_ a:Self, _ b:Self) 
             {
                 self.storage.addProduct(a.storage, b.storage)
             }
+            /// mutating func Vector.addProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Adds each element of the given vector scaled by the given scalar 
+            ///     value to the corresponding element of this vector, in a single 
+            ///     fused-multiply operation.
+            /// - a :Self 
+            /// - b :T 
             mutating 
             func addProduct(_ a:Self, _ b:T) 
             {
                 self.storage.addProduct(a.storage, b)
             }
+            /// mutating func Vector.addProduct(_:_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Adds each element of the given vector scaled by the given scalar 
+            ///     value to the corresponding element of this vector, in a single 
+            ///     fused-multiply operation.
+            /// - a :T 
+            /// - b :Self 
             mutating 
             func addProduct(_ a:T, _ b:Self) 
             {
                 self.storage.addProduct(a, b.storage)
             }
+            
+            /// func Vector.rounded(_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Returns this vector, rounded according to the given rounding rule. 
+            /// - rule  :Swift.FloatingPointRoundingRule 
+            ///     The rounding rule to use. The default value is
+            ///     [`Swift.FloatingPointRoundingRule`toNearestOrAwayFromZero`].
+            /// - ->    :Self 
+            ///     A vector where each element is obtained by rounding the corresponding 
+            ///     element of this vector according to `rule`.
             func rounded(_ rule:FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> Self 
             {
                 .init(storage: self.storage.rounded(rule))
             }
+            /// mutating func Vector.round(_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Rounds each element of this vector according to the given rounding rule. 
+            /// - rule  :Swift.FloatingPointRoundingRule 
+            ///     The rounding rule to use. The default value is
+            ///     [`Swift.FloatingPointRoundingRule`toNearestOrAwayFromZero`].
             mutating 
             func round(_ rule:FloatingPointRoundingRule = .toNearestOrAwayFromZero) 
             {
                 self.storage.round(rule)
             }
             
+            /// static func Vector.sqrt(_:)
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Returns the elementwise square root of the given vector.
+            /// - vector:Self 
+            ///     A vector.
+            /// - ->    :Self 
+            ///     The elementwise square root of `vector`.
             static 
-            func sqrt(_ self:Self) -> Self 
+            func sqrt(_ vector:Self) -> Self 
             {
-                .init(storage: self.storage.squareRoot())
+                .init(storage: vector.storage.squareRoot())
             }
             
-            static 
-            func interpolate(_ a:Self, _ b:Self, by t:T) 
-                -> Self
+            /// struct Vector.LineSegment 
+            /// :   Swift.Hashable
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     A pair of vectors, which can be linearly interpolated.
+            /// 
+            ///     Create a line segment using the [`(Vector).(..)(_:_:)`] 
+            ///     operator. 
+            struct LineSegment:Hashable 
             {
-                (a * (1 - t)).addingProduct(b, t)
+                /// var Vector.LineSegment.start:Vector<Storage, T>
+                ///     The starting point of this line segment.
+                var start:Vector<Storage, T>
+                /// var Vector.LineSegment.end:Vector<Storage, T>
+                ///     The ending point of this line segment.
+                var end:Vector<Storage, T>
+                
+                /// func Vector.LineSegment.callAsFunction(_:)
+                ///     Interpolates between the endpoints of this line segment 
+                ///     by the given parameter. 
+                /// 
+                ///     Calling this method is equivalent to writing 
+                ///     the code `(self.start * (1 - t)).addingProduct(self.end, t)`.
+                /// - t :T
+                ///     The interpolation parameter. It is acceptable to pass 
+                ///     values less than `0`, or greater than `1`.
+                /// - ->:Vector<Storage, T>
+                ///     A vector obtained by linearly interpolating the endpoints 
+                ///     of this line segment by `t`. 
+                func callAsFunction(_ t:T) -> Vector<Storage, T>
+                {
+                    (self.start * (1 - t)).addingProduct(self.end, t)
+                }
+            }
+            
+            /// static func Vector.(..)(_:_:) 
+            /// ?   where T:Swift.BinaryFloatingPoint
+            ///     Creates a line segment from two endpoints. 
+            /// 
+            ///     There are no restrictions on the endpoint vectors.
+            /// - start :Self
+            ///     The starting point.
+            /// - end   :Self
+            ///     The ending point.
+            /// - ->    :LineSegment 
+            ///     A line segment.
+            static 
+            func .. (_ start:Self, _ end:Self) -> LineSegment
+            {
+                .init(start: start, end: end)
             } 
             """
         }
@@ -1009,10 +1242,20 @@ enum Vector
             for function:String in ["sin", "cos", "tan", "asin", "acos", "atan", "exp", "log"] 
             {
                 """
+                /// static func Vector.\(function)(_:)
+                /// ?   where Storage:Swift.SIMD.Transposable, T:Numerics.Real
+                ///     Returns the elementwise `\(function)` of the given vector. 
+                /// 
+                ///     **Note:** This function is not SIMD-vectorized; it is 
+                ///     implemented through scalar operations.
+                /// - vector:Self 
+                ///     A vector. 
+                /// - ->    :Self 
+                ///     The elementwise `\(function)` of `vector`.
                 static 
-                func \(function)(_ self:Self) -> Self 
+                func \(function)(_ vector:Self) -> Self 
                 {
-                    self.map(T.\(function)(_:))
+                    vector.map(T.\(function)(_:))
                 }
                 """
             }
@@ -1299,6 +1542,11 @@ enum Vector
             
             """
             
+            /// struct Vector.Diagonal
+            /// :   Swift.Hashable 
+            ///     An *n*\\ ×\\ *n* diagonal matrix. 
+            /// 
+            ///     Use this type to perform efficient matrix row- and column-scaling. 
             struct Diagonal:Hashable 
             {
                 fileprivate 
