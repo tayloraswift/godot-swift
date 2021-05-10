@@ -172,6 +172,10 @@ code a.syntax-type
 {
     color: #ffa010;
 }
+code a.syntax-imported-type
+{
+    color: #ff8135;
+}
 code a.syntax-swift-type
 {
     color: #ff5840;
