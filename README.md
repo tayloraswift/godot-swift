@@ -10,7 +10,7 @@
 
 *Godot Swift* uses the experimental Swift [package plugins](https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md) feature, which is currently only available in recent [nightly Swift toolchains](https://swift.org/download/#snapshots). Because this feature is in active development, we *strongly recommend* using the following Swift toolchain version to avoid compilation issues:
 
-* **`DEVELOPMENT-SNAPSHOT-2021-04-18-a`**
+* **`DEVELOPMENT-SNAPSHOT-2021-05-18-a`**
 
 > **Note:** We recommend using [`swiftenv`](https://github.com/kylef/swiftenv) to manage multiple Swift toolchain installations. You can install a custom toolchain using `swiftenv` by downloading it from [swift.org](https://swift.org/download/#snapshots) (possibly under “*Older Snapshots*”), and adding it to the `~/.swiftenv/versions/` directory, even if the snapshot is not available in `swiftenv`’s own snapshot repository.
 
@@ -20,15 +20,15 @@
 
 > **Warning:** Although *Godot Swift* libraries should be compatible with later Godot versions, we *strongly recommend* using Godot 3.3.0 to avoid unrecognized-symbol errors at runtime.
 
-### [references, tutorials, and example programs](Examples/)
+### [references, tutorials, and example programs](examples/)
 
 * [**api reference**](https://kelvin13.github.io/godot-swift/)
 * [**types**](type-reference.md)
 
 
-1. [basic usage](Examples#basic-usage) ([sources](Examples/swift/basic-usage.swift))
-2. [advanced methods](Examples#advanced-methods) ([sources](Examples/swift/advanced-methods.swift))
-3. [advanced properties](Examples#advanced-properties) ([sources](Examples/swift/advanced-properties.swift))
-4. [signals](Examples#signals) ([sources](Examples/swift/signals.swift))
-5. [life cycle management](Examples#life-cycle-management) ([sources](Examples/swift/life-cycle-management.swift))
-6. [using custom types](Examples#using-custom-types) ([sources](Examples/swift/custom-types.swift))
+1. [basic usage](examples#basic-usage) ([sources](examples/swift/basic-usage.swift))
+2. [advanced methods](examples#advanced-methods) ([sources](examples/swift/advanced-methods.swift))
+3. [advanced properties](examples#advanced-properties) ([sources](examples/swift/advanced-properties.swift))
+4. [signals](examples#signals) ([sources](examples/swift/signals.swift))
+5. [life cycle management](examples#life-cycle-management) ([sources](examples/swift/life-cycle-management.swift))
+6. [using custom types](examples#using-custom-types) ([sources](examples/swift/custom-types.swift))

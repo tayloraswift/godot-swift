@@ -1,0 +1,5 @@
+module GodotNativeHeaders 
+{
+    header "gdnative_api_struct.gen.h"
+    export *
+}

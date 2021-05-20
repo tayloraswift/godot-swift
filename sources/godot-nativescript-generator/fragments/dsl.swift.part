@@ -1,0 +1,224 @@
+// user-facing DSL
+infix operator <- : AssignmentPrecedence
+
+func <- <T>(_:T.Type, symbol:String) -> Godot.Library.Interface.Binding
+    where T:Godot.AnyNativeScript
+{
+    (T.self, symbol)
+}
+
+extension Godot
+{
+    @resultBuilder
+    enum Declarations<T> 
+    {
+        static 
+        func buildExpression(_ declaration:T) -> [T]
+        {
+            [declaration]
+        }
+        static 
+        func buildBlock(_ declarations:[T]...) -> [T]
+        {
+            .init(declarations.joined())
+        }
+    }
+}
+extension Godot.Library.Interface 
+{
+    static 
+    func buildExpression(_ binding:Binding) -> [Binding]
+    {
+        [binding]
+    }
+    static 
+    func buildBlock(_ bindings:[Binding]...) -> [Binding]
+    {
+        .init(bindings.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ bindings:[Binding]) -> Self 
+    {
+        let dictionary:[ObjectIdentifier: [Binding]] = 
+            .init(grouping: bindings) 
+            {
+                ObjectIdentifier.init($0.type)
+            }
+        // sort by type string to provide stability 
+        return .init(types: dictionary.values
+            .map 
+            {
+                ($0[0].type, $0.map(\.symbol))
+            }
+            .sorted 
+            {
+                String.init(reflecting: $0.type) < String.init(reflecting: $1.type)
+            })
+    }
+}
+
+extension Godot.NativeScriptInterface 
+{
+    enum Members 
+    {
+        case properties ([Property])
+        case methods    ([Method])
+        case signals    ([Signal])
+    }
+    
+    static 
+    func signals(@Godot.Declarations<Signal> _ declarations:() -> [Signal]) -> Members 
+    {
+        .signals(declarations())
+    }
+    static 
+    func methods(@Godot.Declarations<Method> _ declarations:() -> [Method]) -> Members 
+    {
+        .methods(declarations())
+    }
+    static 
+    func properties(@Godot.Declarations<Property> _ declarations:() -> [Property]) -> Members 
+    {
+        .properties(declarations())
+    }
+    
+    static 
+    func buildExpression(_ group:Members) -> [Members]
+    {
+        [group]
+    }
+    static 
+    func buildBlock(_ groups:[Members]...) -> [Members]
+    {
+        .init(groups.joined())
+    }
+    
+    static 
+    func buildFinalResult(_ groups:[Members]) -> Self 
+    {
+        return .init(
+            properties: groups.flatMap 
+            {
+                (group:Members) -> [Property] in
+                guard case .properties(let properties) = group 
+                else 
+                {
+                    return [] 
+                }
+                return properties
+            }, 
+            methods: groups.flatMap 
+            {
+                (group:Members) -> [Method] in
+                guard case .methods(let methods) = group 
+                else 
+                {
+                    return [] 
+                }
+                return methods
+            },
+            signals: groups.flatMap 
+            {
+                (group:Members) -> [Signal] in
+                guard case .signals(let signals) = group 
+                else 
+                {
+                    return []
+                }
+                return signals
+            })
+    }
+}
+
+func <- <T, Value>(property:KeyPath<T, Value>, symbol:String) 
+    -> Godot.NativeScriptInterface<T>.Property
+    where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+{
+    (
+        symbol:         symbol, 
+        annotations:   .init(type: Value.variantType), 
+        witness: 
+        (
+            get: 
+            {
+                (instance:T) -> Godot.Unmanaged.Variant in 
+                
+                .pass(retaining: instance[keyPath: property])
+            }, 
+            set: 
+            {
+                (_, _) in 
+                
+                Godot.print(error: "cannot assign to get-only property '\(symbol)'")
+            }
+        )
+    )
+} 
+func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String) 
+    -> Godot.NativeScriptInterface<T>.Property
+    where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+{
+    (
+        symbol:         symbol, 
+        annotations:   .init(type: Value.variantType), 
+        witness: 
+        (
+            get: 
+            {
+                (instance:T) -> Godot.Unmanaged.Variant in 
+                
+                .pass(retaining: instance[keyPath: property])
+            }, 
+            set: 
+            {
+                (instance:T, variant:Godot.Unmanaged.Variant) in 
+                
+                if let value:Value = variant.take(unretained: Value.self) 
+                {
+                    instance[keyPath: property] = value
+                }
+                else 
+                {
+                    Godot.print(error: .invalidArgument(
+                        variant.take(unretained: Godot.Variant?.self), 
+                        expected: Value.self))
+                }
+            }
+        )
+    )
+} 
+
+func <- <T, U>(accessor:KeyPath<T, U>, label:String) 
+    -> Godot.SignalInterface<T>.Argument
+    where U:Godot.VariantRepresentable
+{
+    (
+        annotations: .init(label: label, type: U.variantType), 
+        witness: 
+        {
+            (value:T) -> Godot.Unmanaged.Variant in
+            
+            .pass(retaining: value[keyPath: accessor])
+        } 
+    )
+} 
+
+extension Godot.SignalInterface
+{
+    static 
+    func buildExpression(_ argument:Argument) -> [Argument]
+    {
+        [argument]
+    }
+    static 
+    func buildBlock(_ arguments:[Argument]...) -> [Argument]
+    {
+        .init(arguments.joined())
+    }
+    static 
+    func buildFinalResult(_ arguments:[Argument]) -> Self 
+    {
+        .init(arguments: arguments)
+    }
+} 
