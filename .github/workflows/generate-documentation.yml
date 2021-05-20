@@ -13,10 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     # uses .swift-version
-    - uses: YOCKOW/Action-setup-swift@master
-    
-    # fix runpath issue 
-    - run: chrpath -r '$ORIGIN/../linux' $SWIFTENV_ROOT/versions/$(cat .swift-version)/usr/lib/swift/pm/libPackagePlugin.so
+    - uses: YOCKOW/Action-setup-swift@v1
       
     - run: Infrastructure/generate-documentation
     
