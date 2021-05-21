@@ -1,5 +1,5 @@
 /.entrapta
 /.build
 /.gyb
-#/documentation
+/documentation
 /Examples/game/libraries/
