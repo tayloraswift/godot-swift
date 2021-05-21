@@ -11,10 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    #- uses: actions/checkout@v2
-    #- uses: YOCKOW/Action-setup-swift@v1
+    - uses: sersoft-gmbh/SwiftyActions@v1
+      with:
+        branch-name: main
+        version-tag: swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a
     
-    - run: infrastructure/swift-setup 
     - run: infrastructure/generate-documentation
     
     - uses: JamesIves/github-pages-deploy-action@releases/v3
