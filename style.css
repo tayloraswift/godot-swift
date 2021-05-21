@@ -158,9 +158,9 @@ code .signature-punctuation:before, code .signature-punctuation:after
 {
     content: '\2009';
 }
-code .signature-operator:after, code .syntax-operator:after
+code .signature-punctuation:first-child:before, code .signature-punctuation:last-child:after
 {
-    content: '\00A0';
+    content: '';
 }
 
 a:focus 
@@ -278,12 +278,12 @@ nav li.github-icon-container .github-icon
     justify-content: flex-start;
     align-items: flex-start;
 }
-.topic-container-right 
+.topic-container-left 
 {
     width: 15em;
     margin-right: 2em;
 }
-.topic-container-left 
+.topic-container-right 
 {
     margin-top: 1.5em;
     width: 100%;
