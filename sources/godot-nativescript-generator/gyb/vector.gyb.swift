@@ -169,13 +169,41 @@ enum Vector
         """
         import protocol Numerics.Real
         
-        infix   operator ..  : RangeFormationPrecedence // interpolation
+        /// operator .. : RangeFormationPrecedence 
+        ///     Represents an interpolation range expression.
         
-        infix   operator <>  : MultiplicationPrecedence // dot/inner product
-        infix   operator >|< : MultiplicationPrecedence // cross product
-        infix   operator ><  : MultiplicationPrecedence // matrix product
+        /// operator <> : MultiplicationPrecedence 
+        ///     Represents a dot- or inner-product operation.
         
-        postfix operator *                              // matrix transpose
+        /// operator >|< : MultiplicationPrecedence 
+        ///     Represents a cross-product operation.
+        
+        /// operator >< : MultiplicationPrecedence 
+        ///     Represents a vector- or matrix-product operation.
+        
+        /// postfix operator * 
+        ///     Represents a transpose operation. This operator can be used to 
+        ///     express vectors and matrices as tuple literals.
+        
+        /// infix operator ~<  : ComparisonPrecedence 
+        ///     Represents a region membership test.
+        
+        /// infix operator ~~  : ComparisonPrecedence 
+        ///     Represents a region membership test.
+        
+        /// infix operator !~  : ComparisonPrecedence 
+        ///     Represents a region membership test.
+        
+        /// infix operator !>  : ComparisonPrecedence 
+        ///     Represents a region membership test.
+        
+        infix   operator ..  : RangeFormationPrecedence 
+        
+        infix   operator <>  : MultiplicationPrecedence 
+        infix   operator >|< : MultiplicationPrecedence 
+        infix   operator ><  : MultiplicationPrecedence 
+        
+        postfix operator *
         
         infix   operator ~<  : ComparisonPrecedence     // vector is inside sphere, exclusive
         infix   operator ~~  : ComparisonPrecedence     // vector is inside sphere, inclusive
