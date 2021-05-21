@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# this script is used by the github action in .github/workflows/generate-documentation.yml 
+
+git clone https://github.com/kylef/swiftenv.git ~/.swiftenv
+echo 'export SWIFTENV_ROOT="$HOME/.swiftenv"' >> ~/.bash_profile
+echo 'export PATH="$SWIFTENV_ROOT/bin:$PATH"' >> ~/.bash_profile
+echo 'eval "$(swiftenv init -)"' >> ~/.bash_profile
+
+source ~/.bash_profile
+
+swiftenv install "https://swift.org/builds/development/ubuntu2004/swift-$(cat .swift-version)/swift-$(cat .swift-version)-ubuntu20.04.tar.gz"

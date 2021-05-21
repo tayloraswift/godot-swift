@@ -14,13 +14,8 @@ jobs:
     - name: checkout
       uses: actions/checkout@v2.3.1
     
-    # - uses: sersoft-gmbh/SwiftyActions@v1
-    #   with:
-    #     platform:    ubuntu-20.04
-    #     branch-name: main
-    #     version-tag: swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a
-    # 
-    # - run: infrastructure/generate-documentation
+    - run: infrastructure/swift-setup
+    - run: infrastructure/generate-documentation
     
     - uses: JamesIves/github-pages-deploy-action@4.1.3
       with:
