@@ -214,8 +214,8 @@ enum Vector
         // else we cannot specialize on `Storage<_>` while keeping `T` generic.
         
         /// struct Vector<Storage, T> 
-        /// :   Swift.Hashable 
-        /// where Storage:Swift.SIMD, T:Swift.SIMDScalar, T == Storage.Scalar 
+        /// :   Hashable 
+        /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
@@ -224,7 +224,7 @@ enum Vector
             ///     An SIMD-backed vector mask.
             struct Mask
             {
-                /// var Vector.Mask.storage:Swift.SIMDMask<Storage.MaskStorage> 
+                /// var Vector.Mask.storage:SIMDMask<Storage.MaskStorage> 
                 ///     The SIMD backing storage of this vector mask.
                 var storage:SIMDMask<Storage.MaskStorage>
             }
@@ -249,7 +249,7 @@ enum Vector
             ///     vector mask is set. 
             /// - mask  :Mask 
             ///     A vector mask.
-            /// - ->    :Swift.Bool 
+            /// - ->    :Bool 
             ///     `true` if any element of `mask` is set; otherwise, `false`.
             static 
             func any(_ mask:Mask) -> Bool 
@@ -261,7 +261,7 @@ enum Vector
             ///     vector mask are set. 
             /// - mask  :Mask 
             ///     A vector mask.
-            /// - ->    :Swift.Bool 
+            /// - ->    :Bool 
             ///     `true` if all elements of `mask` are set; otherwise, `false`.
             static 
             func all(_ mask:Mask) -> Bool 
@@ -286,7 +286,7 @@ enum Vector
         extension Vector where T:AdditiveArithmetic 
         {
             /// init Vector.init(to:where:else:)
-            /// ?   where T:Swift.AdditiveArithmetic
+            /// ?   where T:AdditiveArithmetic
             ///     Creates a vector instance with one of the two given scalar values 
             ///     repeated in all elements, depending on the given mask.
             /// - value     :T 
@@ -296,7 +296,7 @@ enum Vector
             /// - empty     :T 
             ///     The scalar value to use where `mask` is clear.
             ///     
-            ///     The default value is [`Swift.AdditiveArithmetic`zero`].
+            ///     The default value is [`AdditiveArithmetic`zero`].
             init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
                 self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
@@ -366,11 +366,11 @@ enum Vector
         protocol VectorRangeExpression
         {
             /// associatedtype VectorRangeExpression.Storage 
-            /// where Storage:Swift.SIMD 
+            /// where Storage:SIMD 
             /// required 
             
             /// associatedtype VectorRangeExpression.T 
-            /// where T:Swift.SIMDScalar, T == Storage.Scalar  
+            /// where T:SIMDScalar, T == Storage.Scalar  
             /// required 
             
             associatedtype Storage  where Storage:SIMD 
@@ -387,7 +387,7 @@ enum Vector
             ///     is contained within the vector range expression.
             /// - element   :Bound 
             ///     The element to check for containment.
-            /// - ->        :Swift.Bool 
+            /// - ->        :Bool 
             ///     `true` if `element` is contained in this vector range; 
             ///     otherwise, `false`.
             func contains(_ element:Bound) -> Bool 
@@ -401,7 +401,7 @@ enum Vector
             ///     A vector range.
             /// - element   :Bound 
             ///     A value to match against `pattern`.
-            /// - ->        :Swift.Bool 
+            /// - ->        :Bool 
             ///     `true` if `element` is contained in the vector range `pattern`; 
             ///     otherwise, `false`.
             static 
@@ -448,8 +448,8 @@ enum Vector
             """
             /// struct Vector.Rectangle 
             /// :   VectorFiniteRangeExpression 
-            /// :   Swift.Hashable
-            /// ?   where T:Swift.Comparable 
+            /// :   Hashable
+            /// ?   where T:Comparable 
             ///     An *n*-dimensional half-open axis-aligned region from a lower 
             ///     bound up to, but not including, an upper bound.
             struct Rectangle:VectorFiniteRangeExpression, Hashable
@@ -469,7 +469,7 @@ enum Vector
                 ///     this half-open axis-aligned rectangle.
                 /// - element   :Vector<Storage, T> 
                 ///     The element to check for containment.
-                /// - ->        :Swift.Bool 
+                /// - ->        :Bool 
                 ///     `true` if `element` is contained in this half-open 
                 ///     axis-aligned rectangle; otherwise, `false`.
                 func contains(_ element:Vector<Storage, T>) -> Bool 
@@ -481,8 +481,8 @@ enum Vector
             
             /// struct Vector.ClosedRectangle 
             /// :   VectorFiniteRangeExpression 
-            /// :   Swift.Hashable
-            /// ?   where T:Swift.Comparable 
+            /// :   Hashable
+            /// ?   where T:Comparable 
             ///     An *n*-dimensional axis-aligned region from a lower 
             ///     bound up to, and including, an upper bound.
             struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
@@ -502,7 +502,7 @@ enum Vector
                 ///     this axis-aligned rectangle.
                 /// - element   :Vector<Storage, T> 
                 ///     The element to check for containment.
-                /// - ->        :Swift.Bool 
+                /// - ->        :Bool 
                 ///     `true` if `element` is contained in this 
                 ///     axis-aligned rectangle; otherwise, `false`.
                 func contains(_ element:Vector<Storage, T>) -> Bool 
@@ -513,7 +513,7 @@ enum Vector
             }
             
             /// static func Vector.(..<)(lhs:rhs:)
-            /// ?   where T:Swift.Comparable 
+            /// ?   where T:Comparable 
             ///     Returns a half-open axis-aligned rectangle with the given bounds.
             /// - lhs   :Self 
             ///     The lower bound.
@@ -527,7 +527,7 @@ enum Vector
                 .init(lowerBound: lhs, upperBound: rhs)
             }
             /// static func Vector.(...)(lhs:rhs:)
-            /// ?   where T:Swift.Comparable 
+            /// ?   where T:Comparable 
             ///     Returns an axis-aligned rectangle with the given bounds.
             /// - lhs   :Self 
             ///     The lower bound.
@@ -542,7 +542,7 @@ enum Vector
             }
             
             /// func Vector.clamped(to:)
-            /// ?   where T:Swift.Comparable 
+            /// ?   where T:Comparable 
             ///     Creates a new vector with each element clamped to the extents 
             ///     of the given axis-aligned rectangle.
             /// - rectangle :ClosedRectangle 
@@ -557,7 +557,7 @@ enum Vector
                     upperBound: rectangle.upperBound.storage))
             }
             /// mutating func Vector.clamp(to:)
-            /// ?   where T:Swift.Comparable 
+            /// ?   where T:Comparable 
             ///     Clamps each element of this vector to the extents 
             ///     of the given axis-aligned rectangle.
             /// - rectangle :ClosedRectangle 
@@ -588,7 +588,7 @@ enum Vector
             {
                 """
                 /// static func Vector.\(vended)(_:_:)
-                /// ?   where T:Swift.Comparable 
+                /// ?   where T:Comparable 
                 ///     Returns the result of an elementwise \(vended) operation.
                 /// - a :Self 
                 /// - b :Self 
@@ -610,7 +610,7 @@ enum Vector
             {
                 """
                 /// var Vector.\(vended):T { get }
-                /// ?   where T:Swift.Comparable 
+                /// ?   where T:Comparable 
                 ///     The value of the \(prose) element of this vector.
                 var \(vended):T 
                 {
@@ -639,7 +639,7 @@ enum Vector
         extension Vector where T:SignedInteger & FixedWidthInteger 
         {
             /// static func Vector.abs(clamping:)
-            /// ?   where T:Swift.SignedInteger & Swift.FixedWidthInteger
+            /// ?   where T:SignedInteger & FixedWidthInteger
             ///     Performs an elementwise absolute value operation on the 
             ///     given vector, clamping the result to the range of values 
             ///     representable by [[`T`]].
@@ -664,7 +664,7 @@ enum Vector
                 .max(~value, .abs(wrapping: value))
             }
             /// static func Vector.abs(wrapping:)
-            /// ?   where T:Swift.SignedInteger & Swift.FixedWidthInteger
+            /// ?   where T:SignedInteger & FixedWidthInteger
             ///     Performs an elementwise absolute value operation on the 
             ///     given vector, with two’s-complement wraparound if the resulting 
             ///     elements are not representable by [[`T`]].
@@ -692,7 +692,7 @@ enum Vector
         extension Vector where T:BinaryFloatingPoint 
         {
             /// static func Vector.abs(_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Performs an elementwise absolute value operation on the 
             ///     given vector.
             ///
@@ -740,7 +740,7 @@ enum Vector
                 ///     the given vector mask, and the vector mask obtained by 
                 ///     broadcasting the given boolean value.
                 /// - lhs   :Self 
-                /// - scalar:Swift.Bool  
+                /// - scalar:Bool  
                 /// - ->    :Self 
                 ///     A vector mask where each element contains the bitwise 
                 ///     result of the corresponding element of `lhs` *\(prose)* `scalar`.
@@ -753,7 +753,7 @@ enum Vector
                 ///     Returns the result of a bitwise *\(prose)* operation on 
                 ///     the vector mask obtained by broadcasting the given boolean 
                 ///     value, and the given vector mask.
-                /// - scalar:Swift.Bool  
+                /// - scalar:Bool  
                 /// - rhs   :Self 
                 /// - ->    :Self 
                 ///     A vector mask where each element contains the bitwise 
@@ -798,7 +798,7 @@ enum Vector
                 ///     broadcasting the given boolean value, storing the result 
                 ///     into `&lhs`.
                 /// - lhs   :inout Self 
-                /// - scalar:Swift.Bool  
+                /// - scalar:Bool  
                 static 
                 func \(vended)= (lhs:inout Self, scalar:Bool)  
                 {
@@ -817,12 +817,12 @@ enum Vector
             extension Vector where T:\(domain)
             {
                 /// static var Vector.zero:Self { get }
-                /// ?   where T:Swift.\(domain)
+                /// ?   where T:\(domain)
                 ///     A vector with all elements set to zero.
                 static 
                 var zero:Self   { .init(storage: .zero) }
                 /// static var Vector.one:Self { get }
-                /// ?   where T:Swift.\(domain)
+                /// ?   where T:\(domain)
                 ///     A vector with all elements set to one.
                 static 
                 var one:Self    { .init(storage:  .one) }
@@ -842,7 +842,7 @@ enum Vector
         extension Vector where T:FixedWidthInteger
         {
             /// var Vector.sum:T { get }
-            /// ?   where T:Swift.FixedWidthInteger 
+            /// ?   where T:FixedWidthInteger 
             ///     The sum of all elements of this vector, with two’s-complement 
             ///     wraparound if the result is not representable by [[`T`]].
             var sum:T 
@@ -853,7 +853,7 @@ enum Vector
         extension Vector where T:BinaryFloatingPoint
         {
             /// var Vector.sum:T { get }
-            /// ?   where T:Swift.BinaryFloatingPoint 
+            /// ?   where T:BinaryFloatingPoint 
             ///     The sum of all elements of this vector.
             var sum:T 
             {
@@ -885,7 +885,7 @@ enum Vector
             {
                 """
                 /// static func Vector.(\(vended))(lhs:rhs:)
-                /// ?   where T:Swift.FixedWidthInteger
+                /// ?   where T:FixedWidthInteger
                 ///     Returns the elementwise result of a \(prose) operation on 
                 ///     the given vectors.
                 /// - lhs   :Self 
@@ -899,7 +899,7 @@ enum Vector
                     .init(storage: lhs.storage \(base) rhs.storage)
                 }
                 /// static func Vector.(\(vended))(lhs:scalar:)
-                /// ?   where T:Swift.FixedWidthInteger
+                /// ?   where T:FixedWidthInteger
                 ///     Returns the elementwise result of a \(prose) operation on 
                 ///     the given vector, and the vector obtained by broadcasting 
                 ///     the given scalar.
@@ -914,7 +914,7 @@ enum Vector
                     .init(storage: lhs.storage \(base) scalar)
                 }
                 /// static func Vector.(\(vended))(scalar:rhs:)
-                /// ?   where T:Swift.FixedWidthInteger
+                /// ?   where T:FixedWidthInteger
                 ///     Returns the elementwise result of a \(prose) operation on 
                 ///     the vector obtained by broadcasting the given scalar, and 
                 ///     the given vector.
@@ -934,7 +934,7 @@ enum Vector
             {
                 """
                 /// static func Vector.(\(vended)=)(lhs:rhs:)
-                /// ?   where T:Swift.FixedWidthInteger
+                /// ?   where T:FixedWidthInteger
                 ///     Performs an elementwise \(prose) operation on 
                 ///     the given vectors, storing the result in `&lhs`.
                 /// - lhs   :inout Self 
@@ -945,7 +945,7 @@ enum Vector
                     lhs.storage \(base)= rhs.storage
                 }
                 /// static func Vector.(\(vended)=)(lhs:scalar:)
-                /// ?   where T:Swift.FixedWidthInteger
+                /// ?   where T:FixedWidthInteger
                 ///     Performs an elementwise \(prose) operation on 
                 ///     the given vector, and the vector obtained by broadcasting 
                 ///     the given scalar, storing the result in `&lhs`.
@@ -961,7 +961,7 @@ enum Vector
             // miscellaneous 
             """
             /// static prefix func Vector.(~)(rhs:)
-            /// ?   where T:Swift.FixedWidthInteger
+            /// ?   where T:FixedWidthInteger
             ///     Returns the elementwise result of a bitwise *not* operation 
             ///     on the given vector.
             /// - rhs   :Self 
@@ -975,7 +975,7 @@ enum Vector
             }
             
             /// static var Vector.leadingZeroBitCount:Self { get }
-            /// ?   where T:Swift.FixedWidthInteger
+            /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of leading 
             ///     zero bits in the corresponding element of this vector.
             var leadingZeroBitCount:Self 
@@ -983,7 +983,7 @@ enum Vector
                 .init(storage: self.storage.leadingZeroBitCount)
             }
             /// static var Vector.nonzeroBitCount:Self { get }
-            /// ?   where T:Swift.FixedWidthInteger
+            /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of non-zero 
             ///     bits in the corresponding element of this vector.
             var nonzeroBitCount:Self 
@@ -991,7 +991,7 @@ enum Vector
                 .init(storage: self.storage.nonzeroBitCount)
             }
             /// static var Vector.trailingZeroBitCount:Self { get }
-            /// ?   where T:Swift.FixedWidthInteger
+            /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of trailing 
             ///     zero bits in the corresponding element of this vector.
             var trailingZeroBitCount:Self 
@@ -1016,7 +1016,7 @@ enum Vector
             {
                 """
                 /// static func Vector.(\(vended))(lhs:rhs:)
-                /// ?   where T:Swift.BinaryFloatingPoint
+                /// ?   where T:BinaryFloatingPoint
                 ///     Returns the elementwise \(prose) of the given vectors.
                 /// - lhs   :Self 
                 /// - rhs   :Self 
@@ -1028,7 +1028,7 @@ enum Vector
                     .init(storage: lhs.storage \(base) rhs.storage)
                 }
                 /// static func Vector.(\(vended))(lhs:scalar:)
-                /// ?   where T:Swift.BinaryFloatingPoint
+                /// ?   where T:BinaryFloatingPoint
                 ///     Returns the elementwise \(prose) of the given vector, and 
                 ///     the vector obtained by broadcasting the given scalar.
                 /// - lhs   :Self 
@@ -1042,7 +1042,7 @@ enum Vector
                     .init(storage: lhs.storage \(base) scalar)
                 }
                 /// static func Vector.(\(vended))(scalar:rhs:)
-                /// ?   where T:Swift.BinaryFloatingPoint
+                /// ?   where T:BinaryFloatingPoint
                 ///     Returns the elementwise \(prose) of the vector obtained 
                 ///     by broadcasting the given scalar, and the given vector.
                 /// - scalar:Self 
@@ -1061,7 +1061,7 @@ enum Vector
             {
                 """
                 /// static func Vector.(\(vended)=)(lhs:rhs:)
-                /// ?   where T:Swift.BinaryFloatingPoint
+                /// ?   where T:BinaryFloatingPoint
                 ///     Stores the elementwise \(prose) of the given vectors in 
                 ///     `&lhs`.
                 /// - lhs   :inout Self 
@@ -1072,7 +1072,7 @@ enum Vector
                     lhs.storage \(base)= rhs.storage
                 }
                 /// static func Vector.(\(vended)=)(lhs:scalar:)
-                /// ?   where T:Swift.BinaryFloatingPoint
+                /// ?   where T:BinaryFloatingPoint
                 ///     Stores the elementwise \(prose) of the given vector and 
                 ///     the vector obtained by broadcasting `scalar` in `&lhs`.
                 /// - lhs   :inout Self 
@@ -1087,7 +1087,7 @@ enum Vector
             // miscellaneous
             """
             /// static prefix func Vector.(-)(rhs:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Negates the given vector. 
             /// - rhs   :Self 
             static prefix
@@ -1096,7 +1096,7 @@ enum Vector
                 .init(storage: -rhs.storage)
             }
             /// func Vector.addingProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Returns the elementwise sum of this vector, and the 
             ///     elementwise product of the two given vectors, in a single 
             ///     fused-multiply operation.
@@ -1110,7 +1110,7 @@ enum Vector
                 .init(storage: self.storage.addingProduct(a.storage, b.storage))
             }
             /// func Vector.addingProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Returns the elementwise sum of this vector, and the given 
             ///     vector scaled by the given scalar value, in a single 
             ///     fused-multiply operation.
@@ -1123,7 +1123,7 @@ enum Vector
                 .init(storage: self.storage.addingProduct(a.storage, b))
             }
             /// func Vector.addingProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Returns the elementwise sum of this vector, and the given 
             ///     vector scaled by the given scalar value, in a single 
             ///     fused-multiply operation.
@@ -1136,7 +1136,7 @@ enum Vector
                 .init(storage: self.storage.addingProduct(a, b.storage))
             }
             /// mutating func Vector.addProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Adds each element of the elementwise product of the two given 
             ///     vectors to the corresponding element of this vector, in a single 
             ///     fused-multiply operation.
@@ -1148,7 +1148,7 @@ enum Vector
                 self.storage.addProduct(a.storage, b.storage)
             }
             /// mutating func Vector.addProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Adds each element of the given vector scaled by the given scalar 
             ///     value to the corresponding element of this vector, in a single 
             ///     fused-multiply operation.
@@ -1160,7 +1160,7 @@ enum Vector
                 self.storage.addProduct(a.storage, b)
             }
             /// mutating func Vector.addProduct(_:_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Adds each element of the given vector scaled by the given scalar 
             ///     value to the corresponding element of this vector, in a single 
             ///     fused-multiply operation.
@@ -1173,11 +1173,11 @@ enum Vector
             }
             
             /// func Vector.rounded(_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Returns this vector, rounded according to the given rounding rule. 
-            /// - rule  :Swift.FloatingPointRoundingRule 
+            /// - rule  :FloatingPointRoundingRule 
             ///     The rounding rule to use. The default value is
-            ///     [`Swift.FloatingPointRoundingRule`toNearestOrAwayFromZero`].
+            ///     [`FloatingPointRoundingRule`toNearestOrAwayFromZero`].
             /// - ->    :Self 
             ///     A vector where each element is obtained by rounding the corresponding 
             ///     element of this vector according to `rule`.
@@ -1186,11 +1186,11 @@ enum Vector
                 .init(storage: self.storage.rounded(rule))
             }
             /// mutating func Vector.round(_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Rounds each element of this vector according to the given rounding rule. 
-            /// - rule  :Swift.FloatingPointRoundingRule 
+            /// - rule  :FloatingPointRoundingRule 
             ///     The rounding rule to use. The default value is
-            ///     [`Swift.FloatingPointRoundingRule`toNearestOrAwayFromZero`].
+            ///     [`FloatingPointRoundingRule`toNearestOrAwayFromZero`].
             mutating 
             func round(_ rule:FloatingPointRoundingRule = .toNearestOrAwayFromZero) 
             {
@@ -1198,7 +1198,7 @@ enum Vector
             }
             
             /// static func Vector.sqrt(_:)
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Returns the elementwise square root of the given vector.
             /// - vector:Self 
             ///     A vector.
@@ -1211,8 +1211,8 @@ enum Vector
             }
             
             /// struct Vector.LineSegment 
-            /// :   Swift.Hashable
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// :   Hashable
+            /// ?   where T:BinaryFloatingPoint
             ///     A pair of vectors, which can be linearly interpolated.
             /// 
             ///     Create a line segment using the [`(Vector).(..)(_:_:)`] 
@@ -1245,7 +1245,7 @@ enum Vector
             }
             
             /// static func Vector.(..)(_:_:) 
-            /// ?   where T:Swift.BinaryFloatingPoint
+            /// ?   where T:BinaryFloatingPoint
             ///     Creates a line segment from two endpoints. 
             /// 
             ///     There are no restrictions on the endpoint vectors.
@@ -1271,7 +1271,7 @@ enum Vector
             {
                 """
                 /// static func Vector.\(function)(_:)
-                /// ?   where Storage:Swift.SIMD.Transposable, T:Numerics.Real
+                /// ?   where Storage:SIMD.Transposable, T:Numerics.Real
                 ///     Returns the elementwise `\(function)` of the given vector. 
                 /// 
                 ///     **Note:** This function is not SIMD-vectorized; it is 
@@ -1301,7 +1301,7 @@ enum Vector
             {
                 """
                 /// static func Vector.(<>)(lhs:rhs:) 
-                /// ?   where T:Swift.\(domain)
+                /// ?   where T:\(domain)
                 """
                 if domain == "FixedWidthInteger"
                 {
@@ -1333,7 +1333,7 @@ enum Vector
                     """
                     
                     /// var Vector.norm:T { get }
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     The scalar norm of this vector.
                     /// 
                     ///     Calling this property is equivalent to writing the 
@@ -1343,7 +1343,7 @@ enum Vector
                         (self <> self).squareRoot() 
                     }
                     /// func Vector.normalized()
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Returns a unit-length vector in the same direction 
                     ///     as this vector. 
                     /// 
@@ -1356,7 +1356,7 @@ enum Vector
                         self / self.norm 
                     }
                     /// mutating func Vector.normalize()
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Normalizes this vector to a unit-length vector in 
                     ///     the same direction.
                     /// 
@@ -1368,7 +1368,7 @@ enum Vector
                     }
                     
                     /// static func Vector.(~<)(lhs:radius:)
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Returns a boolean value indicating if the given vector 
                     ///     is contained by the sphere with the given radius, 
                     ///     centered on the origin, *not* including the sphere 
@@ -1380,7 +1380,7 @@ enum Vector
                     ///     A vector to test for sphere membership.
                     /// - radius:T 
                     ///     The radius of the sphere to test for membership in.
-                    /// - ->    :Swift.Bool 
+                    /// - ->    :Bool 
                     ///     `true` if `lhs` is strictly inside the specified 
                     ///     sphere; `false` otherwise.
                     static 
@@ -1389,7 +1389,7 @@ enum Vector
                         lhs <> lhs <  radius * radius 
                     }
                     /// static func Vector.(~~)(lhs:radius:)
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Returns a boolean value indicating if the given vector 
                     ///     is contained by the sphere with the given radius, 
                     ///     centered on the origin, *including* the sphere 
@@ -1407,7 +1407,7 @@ enum Vector
                     ///     A vector to test for sphere membership.
                     /// - radius:T 
                     ///     The radius of the sphere to test for membership in.
-                    /// - ->    :Swift.Bool 
+                    /// - ->    :Bool 
                     ///     `true` if `lhs` is inside the specified sphere, or on 
                     ///     its boundary; `false` otherwise.
                     static 
@@ -1416,7 +1416,7 @@ enum Vector
                         lhs <> lhs <= radius * radius 
                     }
                     /// static func Vector.(!~)(lhs:radius:)
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Returns a boolean value indicating if the given vector 
                     ///     is outside of the sphere with the given radius, 
                     ///     centered on the origin, or on the sphere 
@@ -1434,7 +1434,7 @@ enum Vector
                     ///     A vector to test for sphere membership.
                     /// - radius:T 
                     ///     The radius of the sphere to test for membership in.
-                    /// - ->    :Swift.Bool 
+                    /// - ->    :Bool 
                     ///     `true` if `lhs` is outside the specified sphere, or on 
                     ///     its boundary; `false` otherwise.
                     static 
@@ -1443,7 +1443,7 @@ enum Vector
                         lhs <> lhs >= radius * radius 
                     }
                     /// static func Vector.(!>)(lhs:radius:)
-                    /// ?   where T:Swift.\(domain)
+                    /// ?   where T:\(domain)
                     ///     Returns a boolean value indicating if the given vector 
                     ///     is strictly outside of the sphere with the given radius, 
                     ///     centered on the origin.
@@ -1454,7 +1454,7 @@ enum Vector
                     ///     A vector to test for sphere membership.
                     /// - radius:T 
                     ///     The radius of the sphere to test for membership in.
-                    /// - ->    :Swift.Bool 
+                    /// - ->    :Bool 
                     ///     `true` if `lhs` is strictly outside the specified 
                     ///     sphere; `false` otherwise.
                     static 
@@ -1471,7 +1471,7 @@ enum Vector
         extension Vector where Storage == SIMD2<T>, T:BinaryFloatingPoint 
         {
             /// static func Vector.(>|<)(lhs:rhs:) 
-            /// ?   where Storage == Swift.SIMD2<T>, T:Swift.BinaryFloatingPoint
+            /// ?   where Storage == SIMD2<T>, T:BinaryFloatingPoint
             ///     Returns the two-dimensional cross product of the given 
             ///     vectors.
             /// 
@@ -1495,7 +1495,7 @@ enum Vector
         extension Vector where Storage == SIMD3<T>, T:BinaryFloatingPoint 
         {
             /// static func Vector.(>|<)(lhs:rhs:) 
-            /// ?   where Storage == Swift.SIMD3<T>, T:Swift.BinaryFloatingPoint
+            /// ?   where Storage == SIMD3<T>, T:BinaryFloatingPoint
             ///     Returns the three-dimensional cross product of the given 
             ///     vectors.
             /// - lhs   :Self 
@@ -1515,10 +1515,10 @@ enum Vector
         
         // linear aggregates
         
-        /// extension Swift.SIMD 
+        /// extension SIMD 
         
-        /// protocol Swift.SIMD.Transposable
-        /// :   Swift.SIMD 
+        /// protocol SIMD.Transposable
+        /// :   SIMD 
         ///     An SIMD backing storage type which supports arbitrary elementwise 
         ///     transformations. 
         /// 
@@ -1527,23 +1527,23 @@ enum Vector
         ///     know what you are doing.
         protocol _SIMDTransposable:SIMD 
         {
-            /// associatedtype Swift.SIMD.Transposable.Transpose 
+            /// associatedtype SIMD.Transposable.Transpose 
             /// required 
             ///     A type representing the transposed form of this vector storage 
             ///     type. 
             /// 
             ///     **Note:** When conforming additional types to [`Transposable`], 
             ///     we recommend setting this `associatedtype` to a tuple type with 
-            ///     *n* elements of type [`(Swift.SIMD).Scalar`].
+            ///     *n* elements of type [`(SIMD).Scalar`].
             associatedtype Transpose
             
-            /// associatedtype Swift.SIMD.Transposable.Square 
+            /// associatedtype SIMD.Transposable.Square 
             /// required 
             ///     A square matrix type which a type conforming to [`Transposable`] 
             ///     supports extracting the diagonal of. 
             associatedtype Square 
             
-            /// func Swift.SIMD.Transposable.map(_:)
+            /// func SIMD.Transposable.map(_:)
             /// required 
             ///     Applies the given transformation individually to each element 
             ///     in this vector storage instance.
@@ -1554,13 +1554,32 @@ enum Vector
             ///     vector storage transformed by `transform`.
             func map(_ transform:(Scalar) -> Scalar) -> Self 
             
+            /// static func SIMD.Transposable.transpose(_:) 
+            /// required
+            /// - column:Self 
+            /// - ->    :Transpose 
             static 
             func transpose(_ column:Self) -> Transpose 
+            
+            /// static func SIMD.Transposable.transpose(_:) 
+            /// required
+            /// - row   :Transpose 
+            /// - ->    :Self
             static 
             func transpose(_ row:Transpose) -> Self
             
+            /// static func SIMD.Transposable.diagonal(trimming:)
+            /// required 
+            /// - matrix:Square 
+            /// - ->    :Self
             static 
             func diagonal(trimming matrix:Square) -> Self 
+            
+            /// static func SIMD.Transposable.diagonal(padding:with:)
+            /// required 
+            /// - diagonal  :Self 
+            /// - fill      :Scalar 
+            /// - ->        :Square
             static 
             func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
         }
@@ -1680,34 +1699,6 @@ enum Vector
                 determinant = row.2 <> A.2
                 
                 return (row.0 / determinant, row.1 / determinant, row.2 / determinant)*
-                
-                /*
-                let a:Vector<Self, Scalar> = .init(
-                    A.1.y * A.2.z - A.2.y * A.1.z,
-                    A.2.y * A.0.z - A.0.y * A.2.z,
-                    A.0.y * A.1.z - A.1.y * A.0.z)
-                let b:Vector<Self, Scalar> = .init(
-                    A.1.z * A.2.x - A.2.z * A.1.x,
-                    A.2.z * A.0.x - A.0.z * A.2.x,
-                    A.0.z * A.1.x - A.1.z * A.0.x)
-                let c:Vector<Self, Scalar> = .init(
-                    A.1.x * A.2.y - A.2.x * A.1.y,
-                    A.2.x * A.0.y - A.0.x * A.2.y,
-                    A.0.x * A.1.y - A.1.x * A.0.y)
-                
-                let a:Vector<Self, Scalar> = .init(
-                    A.1.y * A.2.z - A.2.y * A.1.z,
-                    A.2.y * A.0.z - A.0.y * A.2.z,
-                    A.0.y * A.1.z - A.1.y * A.0.z)
-                let b:Vector<Self, Scalar> = .init(
-                    A.2.x * A.1.z - A.1.x * A.2.z,
-                    A.0.x * A.2.z - A.2.x * A.0.z,
-                    A.1.x * A.0.z - A.0.x * A.1.z)
-                let c:Vector<Self, Scalar> = .init(
-                    A.1.x * A.2.y - A.2.x * A.1.y,
-                    A.2.x * A.0.y - A.0.x * A.2.y,
-                    A.0.x * A.1.y - A.1.x * A.0.y)
-                */
             }
         }
         """
@@ -1744,7 +1735,7 @@ enum Vector
             """
             
             /// struct Vector.Diagonal
-            /// :   Swift.Hashable 
+            /// :   Hashable 
             ///     An *n*\\ ×\\ *n* diagonal matrix. 
             /// 
             ///     Use this type to perform efficient matrix row- and column-scaling. 
@@ -1773,8 +1764,8 @@ enum Vector
         for n:Int in 2 ... 4 
         {
             """
-            /// typealias Vector\(n)<T> = Vector<Swift.SIMD\(n), T>
-            /// where T:Swift.SIMDScalar
+            /// typealias Vector\(n)<T> = Vector<SIMD\(n), T>
+            /// where T:SIMDScalar
             typealias Vector\(n)<T> = Vector<SIMD\(n)<T>, T> where T:SIMDScalar
             """
         }

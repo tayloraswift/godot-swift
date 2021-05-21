@@ -33,8 +33,6 @@ while [ "$1" != "" ] ; do
     shift 
 done 
 
-echo $(which swift)
-
 # compile GodotNativeScriptGenerator tool 
 SWIFTPM_ENABLE_PLUGINS=1 swift build -c debug \
     -Xswiftc -DENABLE_ARC_SANITIZER \
