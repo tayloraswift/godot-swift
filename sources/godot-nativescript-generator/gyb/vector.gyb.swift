@@ -113,6 +113,7 @@ enum Vector
         ///     A vector mask where each element is set if the corresponding 
         ///     element of `lhs` is \(prose) the corresponding element 
         ///     of `rhs`.
+        /// #   (1:vector-comparison-usage)
         static 
         func \(comparator) (lhs:Self, rhs:Self) -> Mask 
         {
@@ -127,6 +128,7 @@ enum Vector
         /// - ->    :Mask 
         ///     A vector mask where each element is set if the corresponding 
         ///     element of `lhs` is \(prose) `scalar`.
+        /// #   (1:vector-comparison-usage)
         static 
         func \(comparator) (lhs:Self, scalar:T) -> Mask 
         {
@@ -141,6 +143,7 @@ enum Vector
         /// - ->    :Mask 
         ///     A vector mask where each element is set if `scalar` is \(prose) 
         ///     the corresponding element of `rhs`.
+        /// #   (1:vector-comparison-usage)
         static 
         func \(comparator) (scalar:T, rhs:Self) -> Mask 
         {
@@ -215,13 +218,38 @@ enum Vector
         
         /// struct Vector<Storage, T> 
         /// :   Hashable 
+        /// :   CustomStringConvertible where Storage:SIMD.Transposable
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
+        /// #   [Fixed-length vectors](vector-fixed-length-specializations)
+        /// #   [Matrix types](vector-matrix-types)
+        /// #   [Creating vectors](vector-initializer-usage)
+        /// #   [Transforming vectors](vector-map)
+        /// #   [Vector constants](vector-constants)
+        /// #   [Matrix constants](matrix-constants)
+        /// #   [Vector range types](vector-range-types)
+        /// #   [Creating vector ranges](vector-range-creation)
+        /// #   [Using vector ranges](vector-range-usage)
+        /// #   [Interpolating vectors](vector-interpolation-usage)
+        /// #   [Horizontal operations](vector-horizontal-operations)
+        /// #   [Normalizing vectors](vector-normalization-usage)
+        /// #   [Rounding vectors](vector-rounding-usage)
+        /// #   [Elementwise arithmetic](vector-elementwise-arithmetic)
+        /// #   [Elementwise binary operations](vector-elementwise-binary-operations)
+        /// #   [Bitwise operations](vector-bitwise-operations)
+        /// #   [Elementary functions](vector-elementwise-elementary-functions)
+        /// #   [Computing cross products](vector-cross-products)
+        /// #   [Linear operations](vector-linear-operations)
+        /// #   [Working with binary representation](vector-binary-representation-usage)
+        /// #   [Using vector masks](vector-mask-usage)
+        /// #   [Comparing vectors](vector-comparison-usage)
+        /// #   [Testing for region membership](vector-region-test-usage)
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
         {
             /// struct Vector.Mask 
             ///     An SIMD-backed vector mask.
+            /// #   (0:vector-mask-usage)
             struct Mask
             {
                 /// var Vector.Mask.storage:SIMDMask<Storage.MaskStorage> 
@@ -237,6 +265,7 @@ enum Vector
             ///     Creates a vector instance with the given SIMD value.
             /// - storage   :Storage 
             ///     An SIMD value.
+            /// #   (vector-initializer-usage)
             init(storage:Storage)
             {
                 self.storage = storage
@@ -251,6 +280,7 @@ enum Vector
             ///     A vector mask.
             /// - ->    :Bool 
             ///     `true` if any element of `mask` is set; otherwise, `false`.
+            /// #   (1:vector-mask-usage)
             static 
             func any(_ mask:Mask) -> Bool 
             {
@@ -263,6 +293,7 @@ enum Vector
             ///     A vector mask.
             /// - ->    :Bool 
             ///     `true` if all elements of `mask` are set; otherwise, `false`.
+            /// #   (1:vector-mask-usage)
             static 
             func all(_ mask:Mask) -> Bool 
             {
@@ -278,6 +309,7 @@ enum Vector
             ///     repeated in all elements.
             /// - value     :T 
             ///     A scalar value.
+            /// #   (vector-initializer-usage)
             init(repeating value:T) 
             {
                 self.init(storage: .init(repeating: value))
@@ -297,6 +329,7 @@ enum Vector
             ///     The scalar value to use where `mask` is clear.
             ///     
             ///     The default value is [`AdditiveArithmetic`zero`].
+            /// #   (vector-initializer-usage)
             init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
                 self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
@@ -312,6 +345,7 @@ enum Vector
             ///     The new scalar value. 
             /// - mask      :Mask 
             ///     The vector mask used to conditionally assign `scalar`.
+            /// #   (2:vector-mask-usage)
             mutating 
             func replace(with scalar:T, where mask:Mask) 
             {
@@ -324,6 +358,7 @@ enum Vector
             ///     A vector containing the new elements. 
             /// - mask      : Mask 
             ///     The vector mask used to conditionally assign elements of `other`.
+            /// #   (2:vector-mask-usage)
             mutating 
             func replace(with other:Self, where mask:Mask) 
             {
@@ -340,6 +375,7 @@ enum Vector
             ///     vector, and `scalar`.
             /// - ->        :Self 
             ///     The new vector.
+            /// #   (2:vector-mask-usage)
             func replacing(with scalar:T, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: scalar, where: mask.storage))
@@ -354,6 +390,7 @@ enum Vector
             ///     vector, and the elements of `other`.
             /// - ->        :Self 
             ///     The new vector.
+            /// #   (2:vector-mask-usage)
             func replacing(with other:Self, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: other.storage, where: mask.storage))
@@ -363,6 +400,7 @@ enum Vector
         // `Comparable`-related functionality
         /// protocol VectorRangeExpression 
         ///     A type representing an *n*-dimensional axis-aligned region.
+        /// #   (1:vector-range-types)
         protocol VectorRangeExpression
         {
             /// associatedtype VectorRangeExpression.Storage 
@@ -404,6 +442,7 @@ enum Vector
             /// - ->        :Bool 
             ///     `true` if `element` is contained in the vector range `pattern`; 
             ///     otherwise, `false`.
+            /// #   (0:vector-region-test-usage)
             static 
             func ~= (pattern:Self, element:Bound) -> Bool 
             {
@@ -414,6 +453,7 @@ enum Vector
         /// protocol VectorFiniteRangeExpression
         /// :   VectorRangeExpression 
         ///     A type representing an *n*-dimensional axis-aligned rectangle.
+        /// #   (2:vector-range-types)
         protocol VectorFiniteRangeExpression:VectorRangeExpression 
         {
             /// init VectorFiniteRangeExpression.init(lowerBound:upperBound:)
@@ -452,6 +492,7 @@ enum Vector
             /// ?   where T:Comparable 
             ///     An *n*-dimensional half-open axis-aligned region from a lower 
             ///     bound up to, but not including, an upper bound.
+            /// #   (0:vector-range-types)
             struct Rectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.Rectangle.lowerBound:Vector<Storage, T>
@@ -485,6 +526,7 @@ enum Vector
             /// ?   where T:Comparable 
             ///     An *n*-dimensional axis-aligned region from a lower 
             ///     bound up to, and including, an upper bound.
+            /// #   (0:vector-range-types)
             struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.ClosedRectangle.lowerBound:Vector<Storage, T>
@@ -521,6 +563,7 @@ enum Vector
             ///     The upper bound.
             /// - ->    :Rectangle 
             ///     A half-open axis-aligned rectangle.
+            /// #   (0:vector-range-creation)
             static 
             func ..< (lhs:Self, rhs:Self) -> Rectangle
             {
@@ -535,6 +578,7 @@ enum Vector
             ///     The upper bound.
             /// - ->    :ClosedRectangle 
             ///     An axis-aligned rectangle.
+            /// #   (1:vector-range-creation)
             static 
             func ... (lhs:Self, rhs:Self) -> ClosedRectangle
             {
@@ -550,6 +594,7 @@ enum Vector
             /// - ->        :Self 
             ///     A new vector, where each element is contained within the 
             ///     corresponding lanewise bounds of `rectangle`.
+            /// #   (0:vector-range-usage)
             func clamped(to rectangle:ClosedRectangle) -> Self 
             {
                 .init(storage: self.storage.clamped(
@@ -562,6 +607,7 @@ enum Vector
             ///     of the given axis-aligned rectangle.
             /// - rectangle :ClosedRectangle 
             ///     An axis-aligned rectangle.
+            /// #   (0:vector-range-usage)
             mutating 
             func clamp(to rectangle:ClosedRectangle) 
             {
@@ -595,6 +641,7 @@ enum Vector
                 /// - ->:Self 
                 ///     A vector where each element is the \(prose) of the corresponding 
                 ///     elements of `a` and `b`.
+                /// #   (0:vector-elementwise-elementary-functions)
                 static 
                 func \(vended)(_ a:Self, _ b:Self) -> Self
                 {
@@ -612,6 +659,7 @@ enum Vector
                 /// var Vector.\(vended):T { get }
                 /// ?   where T:Comparable 
                 ///     The value of the \(prose) element of this vector.
+                /// #   (0:vector-horizontal-operations)
                 var \(vended):T 
                 {
                     self.storage.\(base)()
@@ -657,6 +705,7 @@ enum Vector
             ///     A vector where each element contains the absolute value of 
             ///     the corresponding element of `value`, or `T.max` if the 
             ///     original element was `T.min`.
+            /// #   (0:vector-elementwise-elementary-functions)
             static 
             func abs(clamping value:Self) -> Self 
             {
@@ -683,6 +732,7 @@ enum Vector
             ///     A vector where each element contains the absolute value of 
             ///     the corresponding element of `value`, or `T.min` if the 
             ///     original element was `T.min`.
+            /// #   (0:vector-elementwise-elementary-functions)
             static 
             func abs(wrapping value:Self) -> Self 
             {
@@ -704,6 +754,7 @@ enum Vector
             ///     A vector where each element contains the absolute value of 
             ///     the corresponding element of `value`, or `T.nan` if the original 
             ///     element was `T.nan`.
+            /// #   (0:vector-elementwise-elementary-functions)
             static 
             func abs(_ value:Self) -> Self 
             {
@@ -819,18 +870,28 @@ enum Vector
                 /// static var Vector.zero:Self { get }
                 /// ?   where T:\(domain)
                 ///     A vector with all elements set to zero.
+                /// #   (0:vector-constants)
                 static 
                 var zero:Self   { .init(storage: .zero) }
                 /// static var Vector.one:Self { get }
                 /// ?   where T:\(domain)
                 ///     A vector with all elements set to one.
+                /// #   (1:vector-constants)
                 static 
                 var one:Self    { .init(storage:  .one) }
             }
             extension Vector.Diagonal where T:\(domain)
             {
+                /// static var Vector.Diagonal.zero:Self { get }
+                /// ?   where T:\(domain)
+                ///     The zero matrix.
+                /// #   (0:matrix-constants)
                 static 
                 var zero:Self       { Vector<Storage, T>.diagonal(.zero) }
+                /// static var Vector.Diagonal.identity:Self { get }
+                /// ?   where T:\(domain)
+                ///     The identity matrix.
+                /// #   (1:matrix-constants)
                 static 
                 var identity:Self   { Vector<Storage, T>.diagonal(.one)  }
             }
@@ -845,6 +906,7 @@ enum Vector
             /// ?   where T:FixedWidthInteger 
             ///     The sum of all elements of this vector, with two’s-complement 
             ///     wraparound if the result is not representable by [[`T`]].
+            /// #   (1:vector-horizontal-operations)
             var sum:T 
             {
                 self.storage.wrappedSum()
@@ -855,6 +917,7 @@ enum Vector
             /// var Vector.sum:T { get }
             /// ?   where T:BinaryFloatingPoint 
             ///     The sum of all elements of this vector.
+            /// #   (1:vector-horizontal-operations)
             var sum:T 
             {
                 self.storage.sum()
@@ -866,22 +929,22 @@ enum Vector
         """
         Source.block 
         {
-            let operators:[(vended:String, base:String, prose:String)] =
+            let operators:[(vended:String, base:String, prose:String, topic:String)] =
             [
-                ("|", "|", "bitwise *or*"),
-                ("&", "&", "bitwise *and*"),
-                ("^", "^", "bitwise *xor*"),
+                ("|", "|",      "bitwise *or*",             "vector-bitwise-operations"),
+                ("&", "&",      "bitwise *and*",            "vector-bitwise-operations"),
+                ("^", "^",      "bitwise *xor*",            "vector-bitwise-operations"),
                 
-                ("&<<", "&<<", "masked left-shift"),
-                ("&>>", "&>>", "masked right-shift"),
+                ("&<<", "&<<",  "masked left-shift",        "vector-elementwise-binary-operations"),
+                ("&>>", "&>>",  "masked right-shift",       "vector-elementwise-binary-operations"),
                 
-                ("+", "&+", "wrapping addition"),
-                ("-", "&-", "wrapping subtraction"),
-                ("*", "&*", "wrapping multiplication"),
-                ("/", "/",  "division"),
-                ("%", "%",  "remainder"),
+                ("+", "&+",     "wrapping addition",        "vector-elementwise-arithmetic"),
+                ("-", "&-",     "wrapping subtraction",     "vector-elementwise-arithmetic"),
+                ("*", "&*",     "wrapping multiplication",  "vector-elementwise-arithmetic"),
+                ("/", "/",      "division",                 "vector-elementwise-arithmetic"),
+                ("%", "%",      "remainder",                "vector-elementwise-arithmetic"),
             ]
-            for (vended, base, prose):(String, String, String) in operators
+            for (vended, base, prose, topic):(String, String, String, String) in operators
             {
                 """
                 /// static func Vector.(\(vended))(lhs:rhs:)
@@ -893,6 +956,7 @@ enum Vector
                 /// - ->    :Self 
                 ///     The elementwise result of a \(prose) operation on 
                 ///     `lhs` and `rhs`.
+                /// #   (1:\(topic))
                 static 
                 func \(vended) (lhs:Self, rhs:Self) -> Self 
                 {
@@ -908,6 +972,7 @@ enum Vector
                 /// - ->    :Self 
                 ///     The elementwise result of a \(prose) operation on 
                 ///     `lhs` and `scalar`.
+                /// #   (1:\(topic))
                 static 
                 func \(vended) (lhs:Self, scalar:T) -> Self 
                 {
@@ -923,6 +988,7 @@ enum Vector
                 /// - ->    :Self 
                 ///     The elementwise result of a \(prose) operation on 
                 ///     `scalar` and `rhs`.
+                /// #   (1:\(topic))
                 static 
                 func \(vended) (scalar:T, rhs:Self) -> Self 
                 {
@@ -930,7 +996,7 @@ enum Vector
                 }
                 """
             }
-            for (vended, base, prose):(String, String, String) in operators
+            for (vended, base, prose, topic):(String, String, String, String) in operators
             {
                 """
                 /// static func Vector.(\(vended)=)(lhs:rhs:)
@@ -939,6 +1005,7 @@ enum Vector
                 ///     the given vectors, storing the result in `&lhs`.
                 /// - lhs   :inout Self 
                 /// - rhs   :Self 
+                /// #   (1:\(topic))
                 static 
                 func \(vended)= (lhs:inout Self, rhs:Self)  
                 {
@@ -951,6 +1018,7 @@ enum Vector
                 ///     the given scalar, storing the result in `&lhs`.
                 /// - lhs   :inout Self 
                 /// - scalar:T 
+                /// #   (1:\(topic))
                 static 
                 func \(vended)= (lhs:inout Self, scalar:T)  
                 {
@@ -968,6 +1036,7 @@ enum Vector
             /// - ->    :Self 
             ///     A vector where each element contains the result of a
             ///     bitwise *not* operation on the corresponding element of `rhs`.
+            /// #   (0:vector-bitwise-operations)
             static prefix
             func ~ (self:Self) -> Self 
             {
@@ -978,6 +1047,7 @@ enum Vector
             /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of leading 
             ///     zero bits in the corresponding element of this vector.
+            /// #   (0:vector-binary-representation-usage)
             var leadingZeroBitCount:Self 
             {
                 .init(storage: self.storage.leadingZeroBitCount)
@@ -986,6 +1056,7 @@ enum Vector
             /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of non-zero 
             ///     bits in the corresponding element of this vector.
+            /// #   (0:vector-binary-representation-usage)
             var nonzeroBitCount:Self 
             {
                 .init(storage: self.storage.nonzeroBitCount)
@@ -994,6 +1065,7 @@ enum Vector
             /// ?   where T:FixedWidthInteger
             ///     A vector where each element contains the number of trailing 
             ///     zero bits in the corresponding element of this vector.
+            /// #   (0:vector-binary-representation-usage)
             var trailingZeroBitCount:Self 
             {
                 .init(storage: self.storage.leadingZeroBitCount)
@@ -1022,6 +1094,7 @@ enum Vector
                 /// - rhs   :Self 
                 /// - ->    :Self 
                 ///     The elementwise \(prose) of `lhs` and `rhs`.
+                /// #   (1:vector-elementwise-arithmetic)
                 static 
                 func \(vended) (lhs:Self, rhs:Self) -> Self 
                 {
@@ -1036,6 +1109,7 @@ enum Vector
                 /// - ->    :Self 
                 ///     The elementwise \(prose) of `lhs` and the vector obtained 
                 ///     by broadcasting `scalar`.
+                /// #   (1:vector-elementwise-arithmetic)
                 static 
                 func \(vended) (lhs:Self, scalar:T) -> Self 
                 {
@@ -1050,6 +1124,7 @@ enum Vector
                 /// - ->    :Self 
                 ///     The elementwise \(prose) of the vector obtained 
                 ///     by broadcasting `scalar`, and `rhs`.
+                /// #   (1:vector-elementwise-arithmetic)
                 static 
                 func \(vended) (scalar:T, rhs:Self) -> Self 
                 {
@@ -1066,6 +1141,7 @@ enum Vector
                 ///     `&lhs`.
                 /// - lhs   :inout Self 
                 /// - rhs   :Self 
+                /// #   (1:vector-elementwise-arithmetic)
                 static 
                 func \(vended)= (lhs:inout Self, rhs:Self)  
                 {
@@ -1077,6 +1153,7 @@ enum Vector
                 ///     the vector obtained by broadcasting `scalar` in `&lhs`.
                 /// - lhs   :inout Self 
                 /// - scalar:T 
+                /// #   (1:vector-elementwise-arithmetic)
                 static 
                 func \(vended)= (lhs:inout Self, scalar:T)  
                 {
@@ -1090,6 +1167,7 @@ enum Vector
             /// ?   where T:BinaryFloatingPoint
             ///     Negates the given vector. 
             /// - rhs   :Self 
+            /// #   (0:vector-elementwise-arithmetic)
             static prefix
             func - (rhs:Self) -> Self 
             {
@@ -1105,6 +1183,7 @@ enum Vector
             /// - ->:Self 
             ///     The elementwise sum of this vector, and the elementwise 
             ///     product of `a` and `b`.
+            /// #   (2:vector-elementwise-arithmetic)
             func addingProduct(_ a:Self, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b.storage))
@@ -1118,6 +1197,7 @@ enum Vector
             /// - b :T 
             /// - ->:Self 
             ///     The elementwise sum of this vector, and `a` scaled by `b`.
+            /// #   (2:vector-elementwise-arithmetic)
             func addingProduct(_ a:Self, _ b:T) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a.storage, b))
@@ -1131,6 +1211,7 @@ enum Vector
             /// - b :Self 
             /// - ->:Self 
             ///     The elementwise sum of this vector, and `b` scaled by `a`.
+            /// #   (2:vector-elementwise-arithmetic)
             func addingProduct(_ a:T, _ b:Self) -> Self 
             {
                 .init(storage: self.storage.addingProduct(a, b.storage))
@@ -1142,6 +1223,7 @@ enum Vector
             ///     fused-multiply operation.
             /// - a :Self 
             /// - b :Self 
+            /// #   (2:vector-elementwise-arithmetic)
             mutating 
             func addProduct(_ a:Self, _ b:Self) 
             {
@@ -1154,6 +1236,7 @@ enum Vector
             ///     fused-multiply operation.
             /// - a :Self 
             /// - b :T 
+            /// #   (2:vector-elementwise-arithmetic)
             mutating 
             func addProduct(_ a:Self, _ b:T) 
             {
@@ -1166,6 +1249,7 @@ enum Vector
             ///     fused-multiply operation.
             /// - a :T 
             /// - b :Self 
+            /// #   (2:vector-elementwise-arithmetic)
             mutating 
             func addProduct(_ a:T, _ b:Self) 
             {
@@ -1181,6 +1265,7 @@ enum Vector
             /// - ->    :Self 
             ///     A vector where each element is obtained by rounding the corresponding 
             ///     element of this vector according to `rule`.
+            /// #   (0:vector-rounding-usage)
             func rounded(_ rule:FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> Self 
             {
                 .init(storage: self.storage.rounded(rule))
@@ -1191,6 +1276,7 @@ enum Vector
             /// - rule  :FloatingPointRoundingRule 
             ///     The rounding rule to use. The default value is
             ///     [`FloatingPointRoundingRule`toNearestOrAwayFromZero`].
+            /// #   (0:vector-rounding-usage)
             mutating 
             func round(_ rule:FloatingPointRoundingRule = .toNearestOrAwayFromZero) 
             {
@@ -1204,6 +1290,7 @@ enum Vector
             ///     A vector.
             /// - ->    :Self 
             ///     The elementwise square root of `vector`.
+            /// #   (0:vector-elementwise-elementary-functions)
             static 
             func sqrt(_ vector:Self) -> Self 
             {
@@ -1217,6 +1304,7 @@ enum Vector
             /// 
             ///     Create a line segment using the [`(Vector).(..)(_:_:)`] 
             ///     operator. 
+            /// #   (1:vector-interpolation-usage)
             struct LineSegment:Hashable 
             {
                 /// var Vector.LineSegment.start:Vector<Storage, T>
@@ -1238,6 +1326,7 @@ enum Vector
                 /// - ->:Vector<Storage, T>
                 ///     A vector obtained by linearly interpolating the endpoints 
                 ///     of this line segment by `t`. 
+                /// #   (2:vector-interpolation-usage)
                 func callAsFunction(_ t:T) -> Vector<Storage, T>
                 {
                     (self.start * (1 - t)).addingProduct(self.end, t)
@@ -1255,6 +1344,7 @@ enum Vector
             ///     The ending point.
             /// - ->    :LineSegment 
             ///     A line segment.
+            /// #   (0:vector-interpolation-usage)
             static 
             func .. (_ start:Self, _ end:Self) -> LineSegment
             {
@@ -1280,6 +1370,7 @@ enum Vector
                 ///     A vector. 
                 /// - ->    :Self 
                 ///     The elementwise `\(function)` of `vector`.
+                /// #   (1:vector-elementwise-elementary-functions)
                 static 
                 func \(function)(_ vector:Self) -> Self 
                 {
@@ -1322,6 +1413,7 @@ enum Vector
                 /// - rhs   :Self
                 /// - ->    :T 
                 ///     The dot product of `lhs` and `rhs`.
+                /// #   (0:vector-linear-operations)
                 static 
                 func <> (lhs:Self, rhs:Self) -> T 
                 {
@@ -1338,6 +1430,7 @@ enum Vector
                     /// 
                     ///     Calling this property is equivalent to writing the 
                     ///     code `(self <> self).squareRoot()`.
+                    /// #   (0:vector-normalization-usage)
                     var norm:T 
                     {
                         (self <> self).squareRoot() 
@@ -1351,6 +1444,7 @@ enum Vector
                     /// - ->:Self
                     ///     A unit-length vector obtained by dividing the elements 
                     ///     of this vector by [`norm`].
+                    /// #   (1:vector-normalization-usage)
                     func normalized() -> Self
                     {
                         self / self.norm 
@@ -1361,6 +1455,7 @@ enum Vector
                     ///     the same direction.
                     /// 
                     ///     The [`norm`] of this vector must be non-zero.
+                    /// #   (1:vector-normalization-usage)
                     mutating 
                     func normalize() 
                     {
@@ -1383,6 +1478,7 @@ enum Vector
                     /// - ->    :Bool 
                     ///     `true` if `lhs` is strictly inside the specified 
                     ///     sphere; `false` otherwise.
+                    /// #   (1:vector-region-test-usage)
                     static 
                     func ~< (lhs:Self, radius:T) -> Bool 
                     {
@@ -1410,6 +1506,7 @@ enum Vector
                     /// - ->    :Bool 
                     ///     `true` if `lhs` is inside the specified sphere, or on 
                     ///     its boundary; `false` otherwise.
+                    /// #   (1:vector-region-test-usage)
                     static 
                     func ~~ (lhs:Self, radius:T) -> Bool 
                     {
@@ -1437,6 +1534,7 @@ enum Vector
                     /// - ->    :Bool 
                     ///     `true` if `lhs` is outside the specified sphere, or on 
                     ///     its boundary; `false` otherwise.
+                    /// #   (1:vector-region-test-usage)
                     static 
                     func !~ (lhs:Self, radius:T) -> Bool 
                     {
@@ -1457,6 +1555,7 @@ enum Vector
                     /// - ->    :Bool 
                     ///     `true` if `lhs` is strictly outside the specified 
                     ///     sphere; `false` otherwise.
+                    /// #   (1:vector-region-test-usage)
                     static 
                     func !> (lhs:Self, radius:T) -> Bool 
                     {
@@ -1486,6 +1585,7 @@ enum Vector
             ///     The second vector.
             /// - ->    :T 
             ///     The magnitude of the cross product of `lhs` and `rhs`.
+            /// #   (0:vector-cross-products)
             static 
             func >|< (lhs:Self, rhs:Self) -> T
             {
@@ -1504,6 +1604,7 @@ enum Vector
             ///     The second vector.
             /// - ->    :T 
             ///     The cross product of `lhs` and `rhs`.
+            /// #   (0:vector-cross-products)
             static 
             func >|< (lhs:Self, rhs:Self) -> Self
             {
@@ -1569,6 +1670,7 @@ enum Vector
             func transpose(_ row:Transpose) -> Self
             
             /// static func SIMD.Transposable.diagonal(trimming:)
+            ///     Extracts the diagonal from a square matrix.
             /// required 
             /// - matrix:Square 
             /// - ->    :Self
@@ -1576,6 +1678,7 @@ enum Vector
             func diagonal(trimming matrix:Square) -> Self 
             
             /// static func SIMD.Transposable.diagonal(padding:with:)
+            ///     Creates a square matrix from a diagonal and a fill value.
             /// required 
             /// - diagonal  :Self 
             /// - fill      :Scalar 
@@ -1583,10 +1686,29 @@ enum Vector
             static 
             func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
         }
+        /// protocol SIMD.MatrixAlgebra 
+        /// :   SIMD.Transposable 
+        ///     An SIMD backing storage type which supports computing the determinant 
+        ///     and inverse of an appropriately-sized matrix type.
+        /// 
+        ///     You can conform additional types to this protocol to add linear algebra 
+        ///     support for additional matrix sizes. Only do this if you really 
+        ///     know what you are doing.
         protocol _SIMDMatrixAlgebra:SIMD.Transposable 
         {
+            /// static func SIMD.MatrixAlgebra.determinant(_:)
+            /// required 
+            ///     Computes the determinant of the given matrix.
+            /// - matrix:Square 
+            /// - ->    :Scalar 
             static 
             func determinant(_ matrix:Square) -> Scalar 
+            
+            /// static func SIMD.MatrixAlgebra.inverse(_:)
+            /// required 
+            ///     Computes the inverse of the given matrix.
+            /// - matrix:Square 
+            /// - ->    :Square 
             static 
             func inverse(_ matrix:Square) -> Square 
         }
@@ -1600,12 +1722,19 @@ enum Vector
         for n:Int in 2 ... 4 
         {
             """
+            /// extension SIMD\(n) 
+            /// :   SIMD.Transposable 
             extension SIMD\(n):SIMD.Transposable 
             """
             Source.block 
             {
                 """
+                /// typealias SIMD\(n).Transpose = (\(repeatElement("Scalar", count: n).joined(separator: ", ")))
+                /// ?:  SIMD.Transposable 
                 typealias Transpose = (\(repeatElement("Scalar", count: n).joined(separator: ", ")))
+                
+                /// typealias SIMD\(n).Square = (\(repeatElement("Vector<Self, Scalar>", count: n).joined(separator: ", ")))
+                /// ?:  SIMD.Transposable 
                 typealias Square    = 
                 """
                 Source.block(delimiters: ("(", ")"))
@@ -1614,6 +1743,10 @@ enum Vector
                 }
                 """
                 
+                /// func SIMD\(n).map(_:) 
+                /// ?:  SIMD.Transposable 
+                /// - transform :(Scalar) -> Scalar 
+                /// - ->        :Self 
                 func map(_ transform:(Scalar) -> Scalar) -> Self 
                 {
                     .init(\(components.cartesian.prefix(n)
@@ -1621,17 +1754,28 @@ enum Vector
                         .joined(separator: ", ")))
                 }
                 
+                /// static func SIMD\(n).transpose(_:) 
+                /// ?:  SIMD.Transposable 
+                /// - row   :Transpose
+                /// - ->    :Self 
                 static 
                 func transpose(_ row:Transpose) -> Self
                 {
                     .init(\((0 ..< n).map{ "row.\($0)" }.joined(separator: ", ")))
                 } 
+                /// static func SIMD\(n).transpose(_:) 
+                /// - column:Self
+                /// - ->    :Transpose
                 static 
                 func transpose(_ column:Self) -> Transpose 
                 {
                     (\(components.cartesian.prefix(n).map{ "column.\($0)" }.joined(separator: ", ")))
                 } 
                 
+                /// static func SIMD\(n).Transposable.diagonal(trimming:)
+                /// ?:  SIMD.Transposable 
+                /// - matrix:Square 
+                /// - ->    :Self
                 static 
                 func diagonal(trimming matrix:Square) -> Self 
                 {
@@ -1639,6 +1783,11 @@ enum Vector
                         .map{ "matrix.\($0.0).\($0.1)" }
                         .joined(separator: ", ")))
                 }
+                /// static func SIMD\(n).Transposable.diagonal(padding:with:)
+                /// ?:  SIMD.Transposable 
+                /// - diagonal  :Self 
+                /// - fill      :Scalar 
+                /// - ->        :Square
                 static 
                 func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
                 """
@@ -1660,13 +1809,24 @@ enum Vector
             }
         }
         """
+        /// extension SIMD2 
+        /// :   SIMD.MatrixAlgebra 
+        /// where Scalar:BinaryFloatingPoint 
         extension SIMD2:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
         {
+            /// static func SIMD2.determinant(_:)
+            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// - A     :Square 
+            /// - ->    :Scalar 
             static 
             func determinant(_ A:Square) -> Scalar 
             {
                 A.0 >|< A.1
             }
+            /// static func SIMD2.inverse(_:)
+            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// - A     :Square 
+            /// - ->    :Square 
             static 
             func inverse(_ A:Square) -> Square 
             {
@@ -1679,13 +1839,24 @@ enum Vector
                 return (column.0 / determinant, column.1 / determinant)
             }
         }
+        /// extension SIMD3 
+        /// :   SIMD.MatrixAlgebra 
+        /// where Scalar:BinaryFloatingPoint 
         extension SIMD3:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
         {
+            /// static func SIMD3.determinant(_:)
+            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// - A     :Square 
+            /// - ->    :Scalar 
             static 
             func determinant(_ A:Square) -> Scalar 
             {
                 A.0 >|< A.1 <> A.2
             }
+            /// static func SIMD3.inverse(_:)
+            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// - A     :Square 
+            /// - ->    :Square 
             static 
             func inverse(_ A:Square) -> Square
             {
@@ -1706,9 +1877,28 @@ enum Vector
         """
         extension Vector where Storage:SIMD.Transposable
         {
-            typealias Row       = Storage.Transpose 
+            /// typealias Vector.Row    = Storage.Transpose 
+            /// ?   where Storage:SIMD.Transposable
+            ///     A 1\\ ×\\ *n* matrix, where each column is an instance of [`T`].
+            /// #   (0:vector-matrix-types)
+            typealias Row       = Storage.Transpose
+             
+            /// typealias Vector.Matrix = Storage.Square  
+            /// ?   where Storage:SIMD.Transposable
+            ///     An *n*\\ ×\\ *n* matrix, where each column is an instance of [`Self`].
+            /// #   (2:vector-matrix-types)
             typealias Matrix    = Storage.Square
             
+            /// func Vector.map(_:)
+            /// ?   where Storage:SIMD.Transposable
+            ///     Returns a vector where each element is obtained by applying the 
+            ///     given transformation over the corresponding element of this vector. 
+            /// - transform :(T) -> T
+            ///     An elementwise transformation. 
+            /// - ->        :Self 
+            ///     A vector instance containing the elements of this vector 
+            ///     transformed by `transform`.
+            /// #   (0:vector-map)
             func map(_ transform:(T) -> T) -> Self 
             {
                 .init(storage: self.storage.map(transform))
@@ -1716,6 +1906,9 @@ enum Vector
         }
         extension Vector:CustomStringConvertible where Storage:SIMD.Transposable
         {
+            /// var Vector.description:String { get }
+            /// ?:  CustomStringConvertible where Storage:SIMD.Transposable
+            ///     A textual representation of this vector.
             var description:String 
             {
                 "Vector\\(Storage.transpose(self.storage))"
@@ -1728,6 +1921,9 @@ enum Vector
             for m:Int in 2 ... 4 
             {
                 """
+                /// typealias Vector.Matrix\(m) = (\(repeatElement("Self", count: m).joined(separator: ", "))) 
+                ///     An *n*\\ ×\\ \(m) matrix, where each column is an instance of [`Self`].
+                /// #   (1:vector-matrix-types)
                 typealias Matrix\(m) = (\(repeatElement("Self", count: m).joined(separator: ", ")))
                 """
             }
@@ -1739,17 +1935,26 @@ enum Vector
             ///     An *n*\\ ×\\ *n* diagonal matrix. 
             /// 
             ///     Use this type to perform efficient matrix row- and column-scaling. 
+            /// #   (3:vector-matrix-types)
             struct Diagonal:Hashable 
             {
                 fileprivate 
                 var diagonal:Vector<Storage, T> 
             }
             
+            /// static func Vector.diagonal(_:)
+            ///     Boxes an *n*-element vector as an *n*\\ ×\\ *n* diagonal matrix. 
+            /// - diagonal  :Self 
+            /// - ->        :Diagonal
             static 
             func diagonal(_ diagonal:Self) -> Diagonal  
             {
                 .init(diagonal: diagonal)
             }
+            /// static func Vector.diagonal(_:)
+            ///     Unboxes an *n*-element vector from an *n*\\ ×\\ *n* diagonal matrix. 
+            /// - diagonal  :Diagonal
+            /// - ->        :Self
             static 
             func diagonal(_ diagonal:Diagonal) -> Self  
             {
@@ -1766,6 +1971,8 @@ enum Vector
             """
             /// typealias Vector\(n)<T> = Vector<SIMD\(n), T>
             /// where T:SIMDScalar
+            ///     A \(n)-element vector.
+            /// #   (0:vector-fixed-length-specializations)
             typealias Vector\(n)<T> = Vector<SIMD\(n)<T>, T> where T:SIMDScalar
             """
         }
