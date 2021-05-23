@@ -57,6 +57,20 @@ enum Vector
         return Source.fragment
         {
             """
+            /// init Vector.init(\(repeatElement("_:", count: n).joined()))
+            /// ?   where Storage == SIMD\(n)<T>
+            ///     Creates a \(n)-element vector from scalar arguments. 
+            /// 
+            ///     operator is the preferred form of expressing vector literals.
+            """
+            for component:String in components 
+            {
+                """
+                /// - \(component):T
+                """
+            }
+            """
+            /// #   (3:vector-initializer-usage)
             init(\(components.map{ "_ \($0):T" }.joined(separator: ", "))) 
             {
                 self.init(storage: .init(\(components.joined(separator: ", "))))
@@ -218,15 +232,16 @@ enum Vector
         
         /// struct Vector<Storage, T> 
         /// :   Hashable 
-        /// :   CustomStringConvertible where Storage:SIMD.Transposable
+        /// :   CustomStringConvertible 
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
         /// #   [Fixed-length vectors](vector-fixed-length-specializations)
         /// #   [Matrix types](vector-matrix-types)
         /// #   [Creating vectors](vector-initializer-usage)
+        /// #   [Transposing vectors](vector-transposition-usage)
+        /// #   [Transposing matrices](vector-matrix-transposition-usage)
         /// #   [Transforming vectors](vector-map)
         /// #   [Vector constants](vector-constants)
-        /// #   [Matrix constants](matrix-constants)
         /// #   [Vector range types](vector-range-types)
         /// #   [Creating vector ranges](vector-range-creation)
         /// #   [Using vector ranges](vector-range-usage)
@@ -239,7 +254,15 @@ enum Vector
         /// #   [Bitwise operations](vector-bitwise-operations)
         /// #   [Elementary functions](vector-elementwise-elementary-functions)
         /// #   [Computing cross products](vector-cross-products)
-        /// #   [Linear operations](vector-linear-operations)
+        /// #   [Computing dot products](vector-dot-products)
+        /// #   [Computing outer products](vector-outer-products)
+        /// #   [Computing matrix-vector products](vector-matrix-vector-products)
+        /// #   [Computing matrix-matrix products](vector-matrix-matrix-products)
+        /// #   [Working with diagonal elements of a matrix](vector-matrix-diagonal-usage)
+        /// #   [Working with diagonal matrices](vector-diagonal-usage)
+        /// #   [Scaling the rows of a matrix](vector-matrix-row-scaling)
+        /// #   [Scaling the columns of a matrix](vector-matrix-column-scaling)
+        /// #   [Getting the inverse of a matrix](vector-matrix-inverse-usage)
         /// #   [Working with binary representation](vector-binary-representation-usage)
         /// #   [Using vector masks](vector-mask-usage)
         /// #   [Comparing vectors](vector-comparison-usage)
@@ -265,10 +288,20 @@ enum Vector
             ///     Creates a vector instance with the given SIMD value.
             /// - storage   :Storage 
             ///     An SIMD value.
-            /// #   (vector-initializer-usage)
+            /// #   (1:vector-initializer-usage)
             init(storage:Storage)
             {
                 self.storage = storage
+            }
+        }
+        extension Vector:CustomStringConvertible 
+        {
+            /// var Vector.description:String { get }
+            /// ?:  CustomStringConvertible 
+            ///     A textual representation of this vector.
+            var description:String 
+            {
+                "(\\(self.storage.indices.map{ "\\(self.storage[$0])" }.joined(separator: ", ")))*"
             }
         }
         extension Vector 
@@ -309,7 +342,7 @@ enum Vector
             ///     repeated in all elements.
             /// - value     :T 
             ///     A scalar value.
-            /// #   (vector-initializer-usage)
+            /// #   (0:vector-initializer-usage)
             init(repeating value:T) 
             {
                 self.init(storage: .init(repeating: value))
@@ -329,7 +362,7 @@ enum Vector
             ///     The scalar value to use where `mask` is clear.
             ///     
             ///     The default value is [`AdditiveArithmetic`zero`].
-            /// #   (vector-initializer-usage)
+            /// #   (0:vector-initializer-usage)
             init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
                 self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
@@ -1413,7 +1446,7 @@ enum Vector
                 /// - rhs   :Self
                 /// - ->    :T 
                 ///     The dot product of `lhs` and `rhs`.
-                /// #   (0:vector-linear-operations)
+                /// #   (0:vector-dot-products)
                 static 
                 func <> (lhs:Self, rhs:Self) -> T 
                 {
@@ -1566,52 +1599,45 @@ enum Vector
             }
         }
         """
-        // cross product 
-        extension Vector where Storage == SIMD2<T>, T:BinaryFloatingPoint 
+        /// func (>|<)<T>(lhs:rhs:) 
+        /// where T:BinaryFloatingPoint
+        ///     Returns the two-dimensional cross product of the given 
+        ///     vectors.
+        /// 
+        ///     Calling this operator is roughly equivalent to computing the 
+        ///     three-dimensional cross product of `lhs` and `rhs`, extended 
+        ///     with a *z*-coordinate of zero, and taking the *z*-coordinate 
+        ///     of the result. However, this operator computes the result using 
+        ///     fewer operations than the three-dimensional implementation.
+        /// - lhs   :Vector2<T> 
+        ///     The first vector.
+        /// - rhs   :Vector2<T> 
+        ///     The second vector.
+        /// - ->    :T 
+        ///     The magnitude of the cross product of `lhs` and `rhs`.
+        /// #   (0:vector-cross-products)
+        func >|< <T>(lhs:Vector2<T>, rhs:Vector2<T>) -> T
+            where T:BinaryFloatingPoint 
         {
-            /// static func Vector.(>|<)(lhs:rhs:) 
-            /// ?   where Storage == SIMD2<T>, T:BinaryFloatingPoint
-            ///     Returns the two-dimensional cross product of the given 
-            ///     vectors.
-            /// 
-            ///     Calling this operator is roughly equivalent to computing the 
-            ///     three-dimensional cross product of `lhs` and `rhs`, extended 
-            ///     with a *z*-coordinate of zero, and taking the *z*-coordinate 
-            ///     of the result. However, this operator computes the result using 
-            ///     fewer operations than the three-dimensional implementation.
-            /// - lhs   :Self 
-            ///     The first vector.
-            /// - rhs   :Self 
-            ///     The second vector.
-            /// - ->    :T 
-            ///     The magnitude of the cross product of `lhs` and `rhs`.
-            /// #   (0:vector-cross-products)
-            static 
-            func >|< (lhs:Self, rhs:Self) -> T
-            {
-                lhs.x * rhs.y - rhs.x * lhs.y
-            }
+            lhs.x * rhs.y - rhs.x * lhs.y
         }
-        extension Vector where Storage == SIMD3<T>, T:BinaryFloatingPoint 
+        /// func (>|<)<T>(lhs:rhs:) 
+        /// where T:BinaryFloatingPoint
+        ///     Returns the three-dimensional cross product of the given 
+        ///     vectors.
+        /// - lhs   :Vector3<T> 
+        ///     The first vector.
+        /// - rhs   :Vector3<T> 
+        ///     The second vector.
+        /// - ->    :T 
+        ///     The cross product of `lhs` and `rhs`.
+        /// #   (0:vector-cross-products)
+        func >|< <T>(lhs:Vector3<T>, rhs:Vector3<T>) -> Vector3<T>
+            where T:BinaryFloatingPoint 
         {
-            /// static func Vector.(>|<)(lhs:rhs:) 
-            /// ?   where Storage == SIMD3<T>, T:BinaryFloatingPoint
-            ///     Returns the three-dimensional cross product of the given 
-            ///     vectors.
-            /// - lhs   :Self 
-            ///     The first vector.
-            /// - rhs   :Self 
-            ///     The second vector.
-            /// - ->    :T 
-            ///     The cross product of `lhs` and `rhs`.
-            /// #   (0:vector-cross-products)
-            static 
-            func >|< (lhs:Self, rhs:Self) -> Self
-            {
-                lhs[.yzx] * rhs[.zxy] 
-                - 
-                rhs[.yzx] * lhs[.zxy]
-            }
+            lhs[.yzx] * rhs[.zxy] 
+            - 
+            rhs[.yzx] * lhs[.zxy]
         }
         
         // linear aggregates
@@ -1904,16 +1930,6 @@ enum Vector
                 .init(storage: self.storage.map(transform))
             }
         }
-        extension Vector:CustomStringConvertible where Storage:SIMD.Transposable
-        {
-            /// var Vector.description:String { get }
-            /// ?:  CustomStringConvertible where Storage:SIMD.Transposable
-            ///     A textual representation of this vector.
-            var description:String 
-            {
-                "Vector\\(Storage.transpose(self.storage))"
-            }
-        }
         extension Vector 
         """
         Source.block 
@@ -1946,6 +1962,7 @@ enum Vector
             ///     Boxes an *n*-element vector as an *n*\\ ×\\ *n* diagonal matrix. 
             /// - diagonal  :Self 
             /// - ->        :Diagonal
+            /// #   (0:vector-diagonal-usage)
             static 
             func diagonal(_ diagonal:Self) -> Diagonal  
             {
@@ -1955,6 +1972,7 @@ enum Vector
             ///     Unboxes an *n*-element vector from an *n*\\ ×\\ *n* diagonal matrix. 
             /// - diagonal  :Diagonal
             /// - ->        :Self
+            /// #   (0:vector-diagonal-usage)
             static 
             func diagonal(_ diagonal:Diagonal) -> Self  
             {
@@ -1985,6 +2003,12 @@ enum Vector
         {
             let components:ArraySlice<String> = components.cartesian.prefix(n)
             """
+            /// postfix func (*)<T>(row:)
+            /// where T:SIMDScalar 
+            ///     Creates a \(n)-element vector from a \(n)-element tuple.
+            /// - row   :Vector\(n)<T>.Row 
+            /// - ->    :Vector\(n)<T>
+            /// #   (2:vector-initializer-usage)
             postfix 
             func * <T>(row:Vector\(n)<T>.Row) -> Vector\(n)<T>
                 where T:SIMDScalar
@@ -1992,6 +2016,12 @@ enum Vector
                 .init(storage: SIMD\(n)<T>.transpose(row))
             } 
             
+            /// postfix func (*)<T>(column:)
+            /// where T:SIMDScalar 
+            ///     Converts a \(n)-element vector to a \(n)-element tuple.
+            /// - column:Vector\(n)<T>
+            /// - ->    :Vector\(n)<T>.Row 
+            /// #   (0:vector-transposition-usage)
             postfix 
             func * <T>(column:Vector\(n)<T>) -> Vector\(n)<T>.Row
                 where T:SIMDScalar
@@ -2002,9 +2032,15 @@ enum Vector
             for m:Int in 2 ... 4 
             {
                 """
+                /// postfix func (*)<T>(columns:)
+                /// where T:SIMDScalar
+                ///     Transposes a \(n)\\ ×\\ \(m) matrix, returning a \(m)\\ ×\\ \(n) matrix.
+                /// - columns   :Vector\(n)<T>.Matrix\(m)
+                /// - ->        :Vector\(m)<T>.Matrix\(n)
+                /// #   (0:vector-matrix-transposition-usage)
                 postfix 
                 func * <T>(columns:Vector\(n)<T>.Matrix\(m)) -> Vector\(m)<T>.Matrix\(n)
-                    where T:SIMDScalar
+                    where T:SIMDScalar 
                 """
                 Source.block 
                 {
@@ -2035,45 +2071,59 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.(><)(column:row:)
+                    ///     Computes the outer product of a column vector, and a row vector, 
+                    ///     returning an *n*\\ ×\\ \(m) matrix.
+                    /// - column:Self 
+                    /// - row   :Vector\(m)<T>.Row 
+                    /// - ->    :Matrix\(m)
+                    /// #   (\(m):vector-outer-products)
                     static 
-                    func >< (lhs:Self, rhs:Vector\(m)<T>.Row) -> Self.Matrix\(m) 
+                    func >< (column:Self, row:Vector\(m)<T>.Row) -> Self.Matrix\(m) 
                     """
                     Source.block 
                     {
-                        "(\((0 ..< m).map{ "lhs * rhs.\($0)" }.joined(separator: ", ")))"
+                        "(\((0 ..< m).map{ "column * row.\($0)" }.joined(separator: ", ")))"
                     }
                 }
             }
             
             for n:Int in 2 ... 4 
             {
-                let components:ArraySlice<String> = components.cartesian.prefix(n)
                 """
                 // matrix-vector product
-                extension Vector where T:\(domain), Storage == SIMD\(n)<T>
+                """
+                let components:ArraySlice<String> = components.cartesian.prefix(n)
+                """
+                @available(*, unavailable, message: "outer product of row vector `lhs` and column vector `rhs` is better expressed as the inner product `lhs* <> rhs`")
+                func >< <T>(lhs:Vector\(n)<T>.Row, rhs:Vector\(n)<T>) -> T
+                    where T:\(domain)
+                {
+                    fatalError()
+                }
+                
+                /// func (><)<Column, T>(matrix:vector:)
+                /// where Column:SIMD, Column.Scalar == T, T:\(domain)
+                ///     Computes the matrix product of an *n*\\ ×\\ \(n) matrix, and 
+                ///     an \(n)-element column vector, returning an *n*-element column vector.
+                /// 
+                ///     **Note:** This operation is vectorized in the vertical direction, 
+                ///     which means it is most efficient when the `matrix` type has more 
+                ///     rows than columns.
+                /// - matrix:Vector<Column, T>.Matrix\(n)
+                /// - vector:Vector\(n)<T>
+                /// - ->    :Vector<Column, T> 
+                /// #   (\(n):vector-matrix-vector-products)
+                func >< <Column, T>(matrix:Vector<Column, T>.Matrix\(n), vector:Vector\(n)<T>) 
+                    -> Vector<Column, T> 
+                    where Column:SIMD, Column.Scalar == T, T:\(domain)
                 """
                 Source.block 
                 {
-                    """
-                    @available(*, unavailable, message: "outer product of row vector `lhs` and column vector `rhs` is better expressed as the inner product `lhs* <> rhs`")
-                    static 
-                    func >< (lhs:Self.Row, rhs:Self) -> T
-                    {
-                        fatalError()
-                    }
-                    
-                    static 
-                    func >< <Column>(lhs:Vector<Column, T>.Matrix\(n), rhs:Self) 
-                        -> Vector<Column, T> 
-                        where Column.Scalar == T
-                    """
-                    Source.block 
-                    {
-                        components.enumerated().map
-                        { 
-                            "(lhs.\($0.0) * rhs.\($0.1) as Vector<Column, T>)" 
-                        }.joined(separator: "\n+\n")
-                    }
+                    components.enumerated().map
+                    { 
+                        "(matrix.\($0.0) * vector.\($0.1) as Vector<Column, T>)" 
+                    }.joined(separator: "\n+\n")
                 }
                 """
                 // matrix-matrix product 
@@ -2081,24 +2131,49 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
-                    func >< <T>(lhs:Vector\(n)<T>.Row, rhs:Vector\(n)<T>.Matrix\(m)) 
+                    /// func (><)<T>(row:matrix:)
+                    /// where T:\(domain)
+                    ///     Computes the matrix product of a 1\\ ×\\ \(n) row vector, and 
+                    ///     a \(n)\\ ×\\ \(m) matrix, returning a 1\\ ×\\ \(m) row vector.
+                    /// 
+                    ///     **Note:** This operation is less efficient than a 
+                    ///     similarly-sized matrix-vector multiplication. Consider 
+                    ///     rewriting linear algebra expressions that use this operation 
+                    ///     in order to take full advantage of hardware acceleration.
+                    /// - row   :Vector\(n)<T>.Row
+                    /// - matrix:Vector\(n)<T>.Matrix\(m)
+                    /// - ->    :Vector\(m)<T>.Row
+                    /// #   (\(n)\(m):vector-matrix-matrix-products)
+                    func >< <T>(row:Vector\(n)<T>.Row, matrix:Vector\(n)<T>.Matrix\(m)) 
                         -> Vector\(m)<T>.Row
                         where T:\(domain)
                     """
                     Source.block 
                     {
                         """
-                        let lhs:Vector\(n)<T> = lhs*
-                        return (\((0 ..< m).map{ "lhs <> rhs.\($0)" }.joined(separator: ", ")))
+                        let row:Vector\(n)<T> = row*
+                        return (\((0 ..< m).map{ "row <> matrix.\($0)" }.joined(separator: ", ")))
                         """
                     }
                 }
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// func (><)<Column, T>(lhs:rhs:)
+                    /// where Column:SIMD, Column.Scalar == T, T:\(domain) 
+                    ///     Computes the matrix product of an *n*\\ ×\\ \(n) matrix, 
+                    ///     and a \(n)\\ ×\\ \(m) matrix, returning an *n*\\ ×\\ \(m) matrix.
+                    /// 
+                    ///     **Note:** This operation is vectorized in the vertical direction 
+                    ///     along its left-hand-operand, which means it is most efficient 
+                    ///     when the `lhs` matrix has more rows than columns.
+                    /// - lhs:Vector<Column, T>.Matrix\(n)
+                    /// - rhs:Vector\(n)<T>.Matrix\(m)
+                    /// - -> :Vector<Column, T>.Matrix\(m) 
+                    /// #   (1\(n)\(m):vector-matrix-matrix-products)
                     func >< <Column, T>(lhs:Vector<Column, T>.Matrix\(n), rhs:Vector\(n)<T>.Matrix\(m)) 
                         -> Vector<Column, T>.Matrix\(m) 
-                        where Column.Scalar == T, T:\(domain)
+                        where Column:SIMD, Column.Scalar == T, T:\(domain)
                     """
                     Source.block 
                     {
@@ -2118,21 +2193,33 @@ enum Vector
                     fatalError()
                 }
             }
-            extension Vector.Diagonal where T:\(domain)
             """
-            Source.block 
+            for m:Int in 2 ... 4 
             {
-                for m:Int in 2 ... 4 
+                """
+                /// func (><)<Column, T>(diagonal:rhs:)
+                /// where Column:SIMD, Column.Scalar == T, T:\(domain)
+                ///     Computes the matrix product of an *n*\\ ×\\ *n* diagonal 
+                ///     matrix, and an *n*\\ ×\\ \(m) matrix, returning 
+                ///     an *n*\\ ×\\ \(m) matrix.
+                /// 
+                ///     The result of this operation is the `rhs` matrix with 
+                ///     its rows scaled by the corresponding elements along the 
+                ///     diagonal of `diagonal`.
+                /// 
+                ///     **Note:** This operation is much more efficient than 
+                ///     performing a full matrix multiplication.
+                /// - diagonal  :Vector<Column, T>.Diagonal
+                /// - rhs       :Vector<Column, T>.Matrix\(m)
+                /// - ->        :Vector<Column, T>.Matrix\(m) 
+                /// #   (\(m):vector-matrix-row-scaling)
+                func >< <Column, T>(diagonal:Vector<Column, T>.Diagonal, rhs:Vector<Column, T>.Matrix\(m)) 
+                    -> Vector<Column, T>.Matrix\(m) 
+                    where Column:SIMD, Column.Scalar == T, T:\(domain)
+                """
+                Source.block
                 {
-                    """
-                    static 
-                    func >< (lhs:Self, rhs:Vector<Storage, T>.Matrix\(m)) 
-                        -> Vector<Storage, T>.Matrix\(m) 
-                    """
-                    Source.block
-                    {
-                        "(\((0 ..< m).map{ "lhs.diagonal * rhs.\($0)" }.joined(separator: ", ")))"
-                    }
+                    "(\((0 ..< m).map{ "diagonal.diagonal * rhs.\($0)" }.joined(separator: ", ")))"
                 }
             }
             """
@@ -2151,23 +2238,33 @@ enum Vector
             for m:Int in 2 ... 4 
             {
                 """
-                extension Vector.Diagonal where T:\(domain), Storage == SIMD\(m)<T>
+                /// func (><)<Column, T>(lhs:diagonal:)
+                /// where Column:SIMD, Column.Scalar == T, T:\(domain)
+                ///     Computes the matrix product of an *n*\\ ×\\ \(m) matrix, 
+                ///     and a \(m)\\ ×\\ \(m) diagonal matrix, returning an 
+                ///     *n*\\ ×\\ \(m) matrix.
+                /// 
+                ///     The result of this operation is the `lhs` matrix with 
+                ///     its columns scaled by the corresponding elements along the 
+                ///     diagonal of `diagonal`.
+                /// 
+                ///     **Note:** This operation is much more efficient than 
+                ///     performing a full matrix multiplication.
+                /// - lhs       :Vector<Column, T>.Matrix\(m)
+                /// - diagonal  :Vector\(m)<T>.Diagonal
+                /// - ->        :Vector<Column, T>.Matrix\(m) 
+                /// #   (\(m):vector-matrix-column-scaling)
+                func >< <Column, T>(lhs:Vector<Column, T>.Matrix\(m), diagonal:Vector\(m)<T>.Diagonal) 
+                    -> Vector<Column, T>.Matrix\(m) 
+                    where Column:SIMD, Column.Scalar == T, T:\(domain)
                 """
-                Source.block 
+                Source.block
                 {
                     """
-                    static 
-                    func >< (lhs:Vector<Storage, T>.Matrix\(m), rhs:Self) 
-                        -> Vector<Storage, T>.Matrix\(m) 
+                    (\(components.cartesian.prefix(m).enumerated()
+                        .map{ "lhs.\($0.0) * diagonal.diagonal.\($0.1)" }
+                        .joined(separator: ", ")))
                     """
-                    Source.block
-                    {
-                        """
-                        (\(components.cartesian.prefix(m).enumerated()
-                            .map{ "lhs.\($0.0) * rhs.diagonal.\($0.1)" }
-                            .joined(separator: ", ")))
-                        """
-                    }
                 }
             }
         }
@@ -2176,11 +2273,25 @@ enum Vector
         // matrix operations
         extension Vector where Storage:SIMD.Transposable
         {
+            /// static func Vector.diagonal(trimming:)
+            /// ?   where Storage:SIMD.Transposable 
+            ///     Extracts the diagonal from the given matrix.
+            /// - matrix:Matrix 
+            /// - ->    :Self 
+            /// #   (0:vector-matrix-diagonal-usage)
             static 
             func diagonal(trimming matrix:Matrix) -> Self 
             {
                 .init(storage: Storage.diagonal(trimming: matrix))
             } 
+            /// static func Vector.diagonal(padding:with:)
+            /// ?   where Storage:SIMD.Transposable 
+            ///     Returns a matrix with the elements of the given vector along 
+            ///     its diagonal, and the given fill value in all other cells.
+            /// - diagonal  :Self 
+            /// - fill      :T
+            /// - ->        :Matrix
+            /// #   (1:vector-matrix-diagonal-usage)
             static 
             func diagonal(padding diagonal:Self, with fill:T) -> Matrix 
             {
@@ -2189,6 +2300,13 @@ enum Vector
         }
         extension Vector where Storage:SIMD.Transposable, T:Numeric 
         {
+            /// static func Vector.diagonal(padding:)
+            /// ?   where Storage:SIMD.Transposable, T:Numeric 
+            ///     Returns a matrix with the elements of the given vector along 
+            ///     its diagonal, and zero in all other cells.
+            /// - diagonal  :Self 
+            /// - ->        :Matrix
+            /// #   (1:vector-matrix-diagonal-usage)
             static 
             func diagonal(padding diagonal:Self) -> Matrix 
             {
@@ -2201,6 +2319,13 @@ enum Vector
             """
             extension Vector where Storage:SIMD.Transposable, T:\(domain) 
             {
+                /// static func Vector.trace(_:)
+                /// ?   where Storage:SIMD.Transposable, T:\(domain) 
+                ///     Returns the sum of the elements along the diagonal of 
+                ///     the given matrix. 
+                /// - matrix:Matrix 
+                /// - ->    :T
+                /// #   (2:vector-matrix-diagonal-usage)
                 static 
                 func trace(_ matrix:Matrix) -> T 
                 {
@@ -2214,6 +2339,12 @@ enum Vector
             """
             extension Vector where T:\(domain) 
             {
+                /// static func Vector.trace(_:)
+                /// ?   where T:\(domain)
+                ///     Returns the sum of the elements of the given diagonal matrix. 
+                /// - diagonal  :Diagonal 
+                /// - ->        :T
+                /// #   (1:vector-diagonal-usage)
                 static 
                 func trace(_ diagonal:Diagonal) -> T 
                 {
@@ -2225,11 +2356,26 @@ enum Vector
         """
         extension Vector where Storage:SIMD.MatrixAlgebra 
         {
+            /// static func Vector.determinant(_:) 
+            /// ?   where Storage:SIMD.MatrixAlgebra 
+            ///     Computes the determinant of the given matrix.
+            /// - matrix:Matrix
+            /// - ->    :T 
+            /// #   (0:vector-matrix-inverse-usage)
             static 
             func determinant(_ matrix:Matrix) -> T 
             {
                 Storage.determinant(matrix)
             }
+            /// static func Vector.inverse(_:) 
+            /// ?   where Storage:SIMD.MatrixAlgebra 
+            ///     Computes the inverse of the given matrix.
+            /// - matrix:Matrix
+            ///     A matrix to compute the inverse of. 
+            /// - ->    :Matrix 
+            ///     The inverse of `matrix`. If `matrix` is singular 
+            ///     ([`determinant(_:)`] returns zero), the result is undefined.
+            /// #   (1:vector-matrix-inverse-usage)
             static 
             func inverse(_ matrix:Matrix) -> Matrix 
             {
