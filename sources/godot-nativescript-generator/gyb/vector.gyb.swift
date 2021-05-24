@@ -1,29 +1,24 @@
 enum Vector 
 {
     private static 
-    func permutations(_ n:Int) -> [[Int]] 
+    func permutations(_ n:Int, k:Int) -> [[Int]] 
     {
-        func permutations(_ n:Int, k:Int) -> [[Int]] 
+        if k <= 0 
         {
-            if k <= 0 
+            return [[]]
+        }
+        else 
+        {
+            return Self.permutations(n, k: k - 1).flatMap
             {
-                return [[]]
-            }
-            else 
-            {
-                return permutations(n, k: k - 1).flatMap
+                (body:[Int]) -> [[Int]] in 
+                (0 ..< n).map 
                 {
-                    (body:[Int]) -> [[Int]] in 
-                    (0 ..< n).map 
-                    {
-                        (head:Int) -> [Int] in 
-                        [head] + body
-                    }
+                    (next:Int) -> [Int] in 
+                    body + [next]
                 }
             }
         }
-        
-        return permutations(n, k: n)
     }
     
     private static 
@@ -61,6 +56,7 @@ enum Vector
             /// ?   where Storage == SIMD\(n)<T>
             ///     Creates a \(n)-element vector from scalar arguments. 
             /// 
+            ///     Using the [`(*)(row:)#(arity-\(n))`] 
             ///     operator is the preferred form of expressing vector literals.
             """
             for component:String in components 
@@ -70,7 +66,7 @@ enum Vector
                 """
             }
             """
-            /// #   (3:vector-initializer-usage)
+            /// #   (2:vector-initializer-usage)
             init(\(components.map{ "_ \($0):T" }.joined(separator: ", "))) 
             {
                 self.init(storage: .init(\(components.joined(separator: ", "))))
@@ -86,13 +82,13 @@ enum Vector
                     if count == 1 
                     {
                         let variable:String = components[index]
-                        let _:Void = containers.append("_ \(variable):T")
+                        let _:Void = containers.append("\(variable):T")
                         let _:Void = accessors.append(variable)
                     }
                     else 
                     {
                         let variable:String = components[index ..< index + count].joined()
-                        let _:Void = containers.append("_ \(variable):Vector\(count)<T>")
+                        let _:Void = containers.append("\(variable):Vector\(count)<T>")
                         
                         for component:String in components.prefix(count)
                         {
@@ -102,9 +98,29 @@ enum Vector
                     
                     let _:Void = index += count 
                 }
-                
                 """
-                init(\(containers.joined(separator: ", "))) 
+                /// init Vector.init(\(repeatElement("_:", count: containers.count).joined()))
+                /// ?   where Storage == SIMD\(n)<T> 
+                ///     Creates a \(n)-element vector by concatenating vector and scalar arguments.
+                """
+                if pattern == [n - 1, 1] 
+                {
+                    """
+                    ///
+                    ///     **Note:** Using the [`(Vector\(n - 1)).(||)(prefix:tail:)#(arity-\(n))`]
+                    ///     operator is the preferred form of appending a scalar value 
+                    ///     to a [[`Vector\(n - 1)<T>`]] instance.
+                    """
+                }
+                for container:String in containers 
+                {
+                    """
+                    /// - \(container)
+                    """
+                }
+                """
+                /// #   (3:vector-initializer-usage)
+                init(\(containers.map{ "_ \($0)" }.joined(separator: ", "))) 
                 {
                     self.init(\(accessors.joined(separator: ", ")))
                 }
@@ -188,31 +204,40 @@ enum Vector
         
         /// operator .. : RangeFormationPrecedence 
         ///     Represents an interpolation range expression.
+        /// #   (-1:)
         
         /// operator <> : MultiplicationPrecedence 
         ///     Represents a dot- or inner-product operation.
+        /// #   (3:)
         
         /// operator >|< : MultiplicationPrecedence 
         ///     Represents a cross-product operation.
+        /// #   (2:)
         
         /// operator >< : MultiplicationPrecedence 
         ///     Represents a vector- or matrix-product operation.
+        /// #   (4:)
         
         /// postfix operator * 
         ///     Represents a transpose operation. This operator can be used to 
         ///     express vectors and matrices as tuple literals.
+        /// #   (0:)
         
         /// infix operator ~<  : ComparisonPrecedence 
         ///     Represents a region membership test.
+        /// #   (5:)
         
         /// infix operator ~~  : ComparisonPrecedence 
         ///     Represents a region membership test.
+        /// #   (5:)
         
         /// infix operator !~  : ComparisonPrecedence 
         ///     Represents a region membership test.
+        /// #   (5:)
         
         /// infix operator !>  : ComparisonPrecedence 
         ///     Represents a region membership test.
+        /// #   (5:)
         
         infix   operator ..  : RangeFormationPrecedence 
         
@@ -235,12 +260,18 @@ enum Vector
         /// :   CustomStringConvertible 
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
-        /// #   [Fixed-length vectors](vector-fixed-length-specializations)
+        /// #   [Vector types](vector-fixed-length-specializations)
         /// #   [Matrix types](vector-matrix-types)
         /// #   [Creating vectors](vector-initializer-usage)
+        /// #   [Converting vectors between scalar types](vector-type-conversion-usage)
+        /// #   [Converting matrices between scalar types](vector-matrix-type-conversion-usage)
+        /// #   [Working with SIMD backing storage](vector-simd-storage-usage)
+        /// #   [Getting the string representation of a vector](vector-description-usage)
+        /// #   [Accessing vector elements](vector-element-access)
+        /// #   [Accessing vector swizzles](vector-swizzle-usage)
         /// #   [Transposing vectors](vector-transposition-usage)
         /// #   [Transposing matrices](vector-matrix-transposition-usage)
-        /// #   [Transforming vectors](vector-map)
+        /// #   [Transforming vectors](vector-transform-usage)
         /// #   [Vector constants](vector-constants)
         /// #   [Vector range types](vector-range-types)
         /// #   [Creating vector ranges](vector-range-creation)
@@ -267,12 +298,15 @@ enum Vector
         /// #   [Using vector masks](vector-mask-usage)
         /// #   [Comparing vectors](vector-comparison-usage)
         /// #   [Testing for region membership](vector-region-test-usage)
+        /// #   (0:math-types)
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
         {
             /// struct Vector.Mask 
             ///     An SIMD-backed vector mask.
+            /// #   [See also](vector-mask-usage)
             /// #   (0:vector-mask-usage)
+            /// #   (0:math-types)
             struct Mask
             {
                 /// var Vector.Mask.storage:SIMDMask<Storage.MaskStorage> 
@@ -282,16 +316,31 @@ enum Vector
             
             /// var Vector.storage:Storage 
             ///     The SIMD backing storage of this vector.
+            /// #   (1:vector-simd-storage-usage)
             var storage:Storage 
             
             /// init Vector.init(storage:)
-            ///     Creates a vector instance with the given SIMD value.
+            ///     Creates a vector instance with the given SIMD data.
             /// - storage   :Storage 
             ///     An SIMD value.
-            /// #   (1:vector-initializer-usage)
+            /// #   (0:vector-simd-storage-usage)
             init(storage:Storage)
             {
                 self.storage = storage
+            }
+            
+            /// subscript Vector[_:] { get set }
+            ///     Accesses the element at the specified index.
+            /// - index :Int 
+            ///     The index of the element to access. It must be in the range `0 ..< n`, 
+            ///     where `n` is the number of elements in this vector.
+            /// - ->    :T
+            /// #   (1:vector-element-access)
+            /// #   (arity-1)
+            subscript(index:Int) -> T 
+            {
+                _read   { yield  self.storage[index] }
+                _modify { yield &self.storage[index] }
             }
         }
         extension Vector:CustomStringConvertible 
@@ -299,6 +348,7 @@ enum Vector
             /// var Vector.description:String { get }
             /// ?:  CustomStringConvertible 
             ///     A textual representation of this vector.
+            /// #   (vector-description-usage)
             var description:String 
             {
                 "(\\(self.storage.indices.map{ "\\(self.storage[$0])" }.joined(separator: ", ")))*"
@@ -378,7 +428,7 @@ enum Vector
             ///     The new scalar value. 
             /// - mask      :Mask 
             ///     The vector mask used to conditionally assign `scalar`.
-            /// #   (2:vector-mask-usage)
+            /// #   (1:vector-transform-usage)
             mutating 
             func replace(with scalar:T, where mask:Mask) 
             {
@@ -391,7 +441,7 @@ enum Vector
             ///     A vector containing the new elements. 
             /// - mask      : Mask 
             ///     The vector mask used to conditionally assign elements of `other`.
-            /// #   (2:vector-mask-usage)
+            /// #   (1:vector-transform-usage)
             mutating 
             func replace(with other:Self, where mask:Mask) 
             {
@@ -408,7 +458,7 @@ enum Vector
             ///     vector, and `scalar`.
             /// - ->        :Self 
             ///     The new vector.
-            /// #   (2:vector-mask-usage)
+            /// #   (1:vector-transform-usage)
             func replacing(with scalar:T, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: scalar, where: mask.storage))
@@ -423,10 +473,31 @@ enum Vector
             ///     vector, and the elements of `other`.
             /// - ->        :Self 
             ///     The new vector.
-            /// #   (2:vector-mask-usage)
+            /// #   (1:vector-transform-usage)
             func replacing(with other:Self, where mask:Mask) -> Self
             {
                 .init(storage: self.storage.replacing(with: other.storage, where: mask.storage))
+            }
+            
+            /// func Vector.map(_:)
+            ///     Returns a vector where each element is obtained by applying the 
+            ///     given transformation over the corresponding element of this vector. 
+            /// - transform :(T) -> T
+            ///     An elementwise transformation. 
+            /// - ->        :Self 
+            ///     A vector instance containing the elements of this vector 
+            ///     transformed by `transform`.
+            /// #   (0:vector-transform-usage)
+            func map(_ transform:(T) -> T) -> Self 
+            {
+                .init(storage: withoutActuallyEscaping(transform) 
+                {
+                    (transform:@escaping (T) -> T) in 
+                    .init(self.storage.indices.lazy.map
+                    {
+                        transform(self.storage[$0])
+                    } as LazyMapSequence<Range<Int>, T>)
+                })
             }
         }
         
@@ -434,6 +505,7 @@ enum Vector
         /// protocol VectorRangeExpression 
         ///     A type representing an *n*-dimensional axis-aligned region.
         /// #   (1:vector-range-types)
+        /// #   (0:math-protocols)
         protocol VectorRangeExpression
         {
             /// associatedtype VectorRangeExpression.Storage 
@@ -487,6 +559,7 @@ enum Vector
         /// :   VectorRangeExpression 
         ///     A type representing an *n*-dimensional axis-aligned rectangle.
         /// #   (2:vector-range-types)
+        /// #   (0:math-protocols)
         protocol VectorFiniteRangeExpression:VectorRangeExpression 
         {
             /// init VectorFiniteRangeExpression.init(lowerBound:upperBound:)
@@ -525,7 +598,11 @@ enum Vector
             /// ?   where T:Comparable 
             ///     An *n*-dimensional half-open axis-aligned region from a lower 
             ///     bound up to, but not including, an upper bound.
+            /// 
+            ///     Create a rectangle using the [`(Vector).(..<)(lower:upper:)`] 
+            ///     operator. 
             /// #   (0:vector-range-types)
+            /// #   (5:math-types)
             struct Rectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.Rectangle.lowerBound:Vector<Storage, T>
@@ -559,7 +636,11 @@ enum Vector
             /// ?   where T:Comparable 
             ///     An *n*-dimensional axis-aligned region from a lower 
             ///     bound up to, and including, an upper bound.
+            /// 
+            ///     Create a closed rectangle using the [`(Vector).(...)(lower:upper:)`] 
+            ///     operator. 
             /// #   (0:vector-range-types)
+            /// #   (5:math-types)
             struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.ClosedRectangle.lowerBound:Vector<Storage, T>
@@ -587,35 +668,35 @@ enum Vector
                 }
             }
             
-            /// static func Vector.(..<)(lhs:rhs:)
+            /// static func Vector.(..<)(lower:upper:)
             /// ?   where T:Comparable 
             ///     Returns a half-open axis-aligned rectangle with the given bounds.
-            /// - lhs   :Self 
+            /// - lower :Self 
             ///     The lower bound.
-            /// - rhs   :Self 
+            /// - upper :Self 
             ///     The upper bound.
             /// - ->    :Rectangle 
             ///     A half-open axis-aligned rectangle.
             /// #   (0:vector-range-creation)
             static 
-            func ..< (lhs:Self, rhs:Self) -> Rectangle
+            func ..< (lower:Self, upper:Self) -> Rectangle
             {
-                .init(lowerBound: lhs, upperBound: rhs)
+                .init(lowerBound: lower, upperBound: upper)
             }
-            /// static func Vector.(...)(lhs:rhs:)
+            /// static func Vector.(...)(lower:upper:)
             /// ?   where T:Comparable 
             ///     Returns an axis-aligned rectangle with the given bounds.
-            /// - lhs   :Self 
+            /// - lower :Self 
             ///     The lower bound.
-            /// - rhs   :Self 
+            /// - upper :Self 
             ///     The upper bound.
             /// - ->    :ClosedRectangle 
             ///     An axis-aligned rectangle.
             /// #   (1:vector-range-creation)
             static 
-            func ... (lhs:Self, rhs:Self) -> ClosedRectangle
+            func ... (lower:Self, upper:Self) -> ClosedRectangle
             {
-                .init(lowerBound: lhs, upperBound: rhs)
+                .init(lowerBound: lower, upperBound: upper)
             }
             
             /// func Vector.clamped(to:)
@@ -1338,6 +1419,7 @@ enum Vector
             ///     Create a line segment using the [`(Vector).(..)(_:_:)`] 
             ///     operator. 
             /// #   (1:vector-interpolation-usage)
+            /// #   (6:math-types)
             struct LineSegment:Hashable 
             {
                 /// var Vector.LineSegment.start:Vector<Storage, T>
@@ -1359,7 +1441,6 @@ enum Vector
                 /// - ->:Vector<Storage, T>
                 ///     A vector obtained by linearly interpolating the endpoints 
                 ///     of this line segment by `t`. 
-                /// #   (2:vector-interpolation-usage)
                 func callAsFunction(_ t:T) -> Vector<Storage, T>
                 {
                     (self.start * (1 - t)).addingProduct(self.end, t)
@@ -1386,7 +1467,7 @@ enum Vector
             """
         }
         """
-        extension Vector where Storage:SIMD.Transposable, T:Numerics.Real 
+        extension Vector where T:Numerics.Real 
         """
         Source.block 
         {
@@ -1394,10 +1475,10 @@ enum Vector
             {
                 """
                 /// static func Vector.\(function)(_:)
-                /// ?   where Storage:SIMD.Transposable, T:Numerics.Real
+                /// ?   where T:Numerics.Real
                 ///     Returns the elementwise `\(function)` of the given vector. 
                 /// 
-                ///     **Note:** This function is not SIMD-vectorized; it is 
+                ///     **Note:** This operation is not hardware-vectorized; it is 
                 ///     implemented through scalar operations.
                 /// - vector:Self 
                 ///     A vector. 
@@ -1646,12 +1727,12 @@ enum Vector
         
         /// protocol SIMD.Transposable
         /// :   SIMD 
-        ///     An SIMD backing storage type which supports arbitrary elementwise 
-        ///     transformations. 
+        ///     An SIMD backing storage type which has a transposed representation.
         /// 
         ///     You can conform additional types to this protocol to add linear algebra 
         ///     support for 8-, 16-, etc. dimensional vectors. Only do this if you really 
         ///     know what you are doing.
+        /// #   (1:math-protocols)
         protocol _SIMDTransposable:SIMD 
         {
             /// associatedtype SIMD.Transposable.Transpose 
@@ -1669,17 +1750,6 @@ enum Vector
             ///     A square matrix type which a type conforming to [`Transposable`] 
             ///     supports extracting the diagonal of. 
             associatedtype Square 
-            
-            /// func SIMD.Transposable.map(_:)
-            /// required 
-            ///     Applies the given transformation individually to each element 
-            ///     in this vector storage instance.
-            /// - transform :(Scalar) -> Scalar
-            ///     An elementwise transformation. 
-            /// - ->        :Self 
-            ///     A vector storage instance containing the elements of the original 
-            ///     vector storage transformed by `transform`.
-            func map(_ transform:(Scalar) -> Scalar) -> Self 
             
             /// static func SIMD.Transposable.transpose(_:) 
             /// required
@@ -1720,6 +1790,7 @@ enum Vector
         ///     You can conform additional types to this protocol to add linear algebra 
         ///     support for additional matrix sizes. Only do this if you really 
         ///     know what you are doing.
+        /// #   (2:math-protocols)
         protocol _SIMDMatrixAlgebra:SIMD.Transposable 
         {
             /// static func SIMD.MatrixAlgebra.determinant(_:)
@@ -1768,17 +1839,6 @@ enum Vector
                     repeatElement("Vector<Self, Scalar>", count: n).joined(separator: ",\n")
                 }
                 """
-                
-                /// func SIMD\(n).map(_:) 
-                /// ?:  SIMD.Transposable 
-                /// - transform :(Scalar) -> Scalar 
-                /// - ->        :Self 
-                func map(_ transform:(Scalar) -> Scalar) -> Self 
-                {
-                    .init(\(components.cartesian.prefix(n)
-                        .map{ "transform(self.\($0))" }
-                        .joined(separator: ", ")))
-                }
                 
                 /// static func SIMD\(n).transpose(_:) 
                 /// ?:  SIMD.Transposable 
@@ -1841,7 +1901,7 @@ enum Vector
         extension SIMD2:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
         {
             /// static func SIMD2.determinant(_:)
-            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
             /// - A     :Square 
             /// - ->    :Scalar 
             static 
@@ -1850,7 +1910,7 @@ enum Vector
                 A.0 >|< A.1
             }
             /// static func SIMD2.inverse(_:)
-            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
             /// - A     :Square 
             /// - ->    :Square 
             static 
@@ -1871,7 +1931,7 @@ enum Vector
         extension SIMD3:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
         {
             /// static func SIMD3.determinant(_:)
-            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
             /// - A     :Square 
             /// - ->    :Scalar 
             static 
@@ -1880,7 +1940,7 @@ enum Vector
                 A.0 >|< A.1 <> A.2
             }
             /// static func SIMD3.inverse(_:)
-            /// ?:  SIMD.Transposable where Scalar:BinaryFloatingPoint
+            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
             /// - A     :Square 
             /// - ->    :Square 
             static 
@@ -1907,28 +1967,15 @@ enum Vector
             /// ?   where Storage:SIMD.Transposable
             ///     A 1\\ ×\\ *n* matrix, where each column is an instance of [`T`].
             /// #   (0:vector-matrix-types)
+            /// #   (2:math-types)
             typealias Row       = Storage.Transpose
              
             /// typealias Vector.Matrix = Storage.Square  
             /// ?   where Storage:SIMD.Transposable
             ///     An *n*\\ ×\\ *n* matrix, where each column is an instance of [`Self`].
             /// #   (2:vector-matrix-types)
+            /// #   (2:math-types)
             typealias Matrix    = Storage.Square
-            
-            /// func Vector.map(_:)
-            /// ?   where Storage:SIMD.Transposable
-            ///     Returns a vector where each element is obtained by applying the 
-            ///     given transformation over the corresponding element of this vector. 
-            /// - transform :(T) -> T
-            ///     An elementwise transformation. 
-            /// - ->        :Self 
-            ///     A vector instance containing the elements of this vector 
-            ///     transformed by `transform`.
-            /// #   (0:vector-map)
-            func map(_ transform:(T) -> T) -> Self 
-            {
-                .init(storage: self.storage.map(transform))
-            }
         }
         extension Vector 
         """
@@ -1940,6 +1987,7 @@ enum Vector
                 /// typealias Vector.Matrix\(m) = (\(repeatElement("Self", count: m).joined(separator: ", "))) 
                 ///     An *n*\\ ×\\ \(m) matrix, where each column is an instance of [`Self`].
                 /// #   (1:vector-matrix-types)
+                /// #   (3:math-types)
                 typealias Matrix\(m) = (\(repeatElement("Self", count: m).joined(separator: ", ")))
                 """
             }
@@ -1951,7 +1999,9 @@ enum Vector
             ///     An *n*\\ ×\\ *n* diagonal matrix. 
             /// 
             ///     Use this type to perform efficient matrix row- and column-scaling. 
+            /// #   [See also](vector-diagonal-usage)
             /// #   (3:vector-matrix-types)
+            /// #   (4:math-types)
             struct Diagonal:Hashable 
             {
                 fileprivate 
@@ -1991,6 +2041,7 @@ enum Vector
             /// where T:SIMDScalar
             ///     A \(n)-element vector.
             /// #   (0:vector-fixed-length-specializations)
+            /// #   (1:math-types)
             typealias Vector\(n)<T> = Vector<SIMD\(n)<T>, T> where T:SIMDScalar
             """
         }
@@ -2008,7 +2059,8 @@ enum Vector
             ///     Creates a \(n)-element vector from a \(n)-element tuple.
             /// - row   :Vector\(n)<T>.Row 
             /// - ->    :Vector\(n)<T>
-            /// #   (2:vector-initializer-usage)
+            /// #   (-1:vector-initializer-usage)
+            /// #   (arity-\(n))
             postfix 
             func * <T>(row:Vector\(n)<T>.Row) -> Vector\(n)<T>
                 where T:SIMDScalar
@@ -2402,11 +2454,21 @@ enum Vector
                 {
                     """
                     
-                    // homogenization 
+                    /// static func Vector.(||)(prefix:tail:)
+                    /// ?   where Storage == SIMD\(n)<T>
+                    ///     Appends the given scalar value to the given \(n)-element 
+                    ///     vector instance, returning a \(n + 1)-element vector.
+                    /// - prefix:Self 
+                    /// - tail  :T 
+                    /// - ->    :Vector\(n + 1)<T> 
+                    ///     A \(n + 1)-element vector with `prefix` in its first 
+                    ///     \(n) positions, and `tail` in its last position.
+                    /// #   (-2:vector-initializer-usage)
+                    /// #   (arity-\(n + 1))
                     static 
-                    func || (body:Self, tail:T) -> Vector\(n + 1)<T> 
+                    func || (prefix:Self, tail:T) -> Vector\(n + 1)<T> 
                     {
-                        .init(body, tail)
+                        .init(prefix, tail)
                     }
                     """
                 }
@@ -2419,20 +2481,52 @@ enum Vector
             Source.block
             {
                 """
+                /// init Vector.init<U>(clamping:)
+                /// where U:FixedWidthInteger 
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts an integer vector with elements of type [[`U`]] to an 
+                ///     integer vector with elements of type [[`T`]], with each element 
+                ///     clamped to the range of values representable by [[`T`]].
+                /// - other :Vector\(n)<U> 
+                /// #   (0:vector-type-conversion-usage)
                 init<U>(clamping other:Vector\(n)<U>) where U:FixedWidthInteger 
                 {
                     self.init(storage: .init(clamping: other.storage))
                 }
+                /// init Vector.init<U>(truncatingIfNeeded:)
+                /// where U:FixedWidthInteger 
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts an integer vector with elements of type [[`U`]] to an 
+                ///     integer vector with elements of type [[`T`]], with each element 
+                ///     truncated to the bit width of [[`T`]].
+                /// - other :Vector\(n)<U> 
+                /// #   (1:vector-type-conversion-usage)
                 init<U>(truncatingIfNeeded other:Vector\(n)<U>) where U:FixedWidthInteger 
                 {
                     self.init(storage: .init(truncatingIfNeeded: other.storage))
                 }
                 
+                /// init Vector.init<U>(_:)
+                /// where U:BinaryFloatingPoint 
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a floating point vector with elements of type [[`U`]] to an 
+                ///     integer vector with elements of type [[`T`]].
+                /// - other :Vector\(n)<U> 
+                /// #   (2:vector-type-conversion-usage)
                 init<U>(_ other:Vector\(n)<U>) 
                     where U:BinaryFloatingPoint
                 {
                     self.init(storage: .init(other.storage))
                 }
+                /// init Vector.init<U>(_:rounding:)
+                /// where U:BinaryFloatingPoint 
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a floating point vector with elements of type [[`U`]] to an 
+                ///     integer vector with elements of type [[`T`]], with each element 
+                ///     rounded according to the given floating point rounding rule.
+                /// - other :Vector\(n)<U> 
+                /// - rule  :FloatingPointRoundingRule
+                /// #   (3:vector-type-conversion-usage)
                 init<U>(_ other:Vector\(n)<U>, rounding rule:FloatingPointRoundingRule) 
                     where U:BinaryFloatingPoint
                 {
@@ -2443,6 +2537,15 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(clamping:)
+                    /// where U:FixedWidthInteger 
+                    /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                    ///     Converts an integer matrix with elements of type [[`U`]] to an 
+                    ///     integer matrix with elements of type [[`T`]], with each element 
+                    ///     clamped to the range of values representable by [[`T`]].
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - ->    :Matrix\(m) 
+                    /// #   (0:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(clamping other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
                         where U:FixedWidthInteger 
@@ -2454,6 +2557,15 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(truncatingIfNeeded:)
+                    /// where U:FixedWidthInteger 
+                    /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                    ///     Converts an integer matrix with elements of type [[`U`]] to an 
+                    ///     integer matrix with elements of type [[`T`]], with each element 
+                    ///     truncated to the bit width of [[`T`]].
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - ->    :Matrix\(m) 
+                    /// #   (1:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(truncatingIfNeeded other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
                         where U:FixedWidthInteger 
@@ -2465,6 +2577,14 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(_:)
+                    /// where U:BinaryFloatingPoint 
+                    /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                    ///     Converts a floating point matrix with elements of type [[`U`]] to an 
+                    ///     integer matrix with elements of type [[`T`]].
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - ->    :Matrix\(m) 
+                    /// #   (2:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
                         where U:BinaryFloatingPoint 
@@ -2476,6 +2596,16 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(_:rounding:)
+                    /// where U:BinaryFloatingPoint 
+                    /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                    ///     Converts a floating point matrix with elements of type [[`U`]] to an 
+                    ///     integer matrix with elements of type [[`T`]], with each element 
+                    ///     rounded according to the given floating point rounding rule.
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - rule  :FloatingPointRoundingRule
+                    /// - ->    :Matrix\(m) 
+                    /// #   (3:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(_ other:Vector\(n)<U>.Matrix\(m), rounding rule:FloatingPointRoundingRule) 
                         -> Matrix\(m) 
@@ -2492,10 +2622,24 @@ enum Vector
             Source.block
             {
                 """
+                /// init Vector.init<U>(_:)
+                /// where U:FixedWidthInteger 
+                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                ///     Converts an integer vector with elements of type [[`U`]] to a 
+                ///     floating point vector with elements of type [[`T`]].
+                /// - other :Vector\(n)<U> 
+                /// #   (4:vector-type-conversion-usage)
                 init<U>(_ other:Vector\(n)<U>) where U:FixedWidthInteger
                 {
                     self.init(storage: .init(other.storage))
                 }
+                /// init Vector.init<U>(_:)
+                /// where U:BinaryFloatingPoint 
+                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                ///     Converts a floating point vector with elements of type [[`U`]] to a 
+                ///     floating point vector with elements of type [[`T`]].
+                /// - other :Vector\(n)<U> 
+                /// #   (5:vector-type-conversion-usage)
                 init<U>(_ other:Vector\(n)<U>) where U:BinaryFloatingPoint
                 {
                     self.init(storage: .init(other.storage))
@@ -2505,6 +2649,14 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(_:)
+                    /// where U:FixedWidthInteger
+                    /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                    ///     Converts an integer matrix with elements of type [[`U`]] to a
+                    ///     floating point matrix with elements of type [[`T`]].
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - ->    :Matrix\(m) 
+                    /// #   (4:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
                         where U:FixedWidthInteger 
@@ -2516,6 +2668,14 @@ enum Vector
                 for m:Int in 2 ... 4 
                 {
                     """
+                    /// static func Vector.cast<U>(_:)
+                    /// where U:BinaryFloatingPoint
+                    /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                    ///     Converts a floating point matrix with elements of type [[`U`]] to a
+                    ///     floating point matrix with elements of type [[`T`]].
+                    /// - other :Vector\(n)<U>.Matrix\(m) 
+                    /// - ->    :Matrix\(m) 
+                    /// #   (5:vector-matrix-type-conversion-usage)
                     static 
                     func cast<U>(_ other:Vector\(n)<U>.Matrix\(m)) -> Matrix\(m) 
                         where U:BinaryFloatingPoint 
@@ -2531,6 +2691,28 @@ enum Vector
             """
             Source.block 
             {
+                // only emit one doccomment per component, since they all have the same form 
+                if n == 4 
+                {
+                    for (cardinal, (i, c)):(String, (Int, String)) in 
+                        zip(["first", "second", "third", "fourth"], components.enumerated()) 
+                    {
+                        """
+                        /// var Vector.\(c):T { get set }
+                        """
+                        for n:Int in max(1 + i, 2) ... 4 
+                        {
+                            """
+                            /// ?   where Storage == SIMD\(n)<T>
+                            """
+                        }
+                        """
+                        ///     The \(cardinal) element of this vector.
+                        /// #   (0:vector-element-access)
+                        
+                        """
+                    }
+                }
                 for c:String in components
                 {
                     """
@@ -2546,6 +2728,76 @@ enum Vector
                 """
                 for m:Int in 2 ... 4 
                 {
+                    // only emit one doccomment per arity, since these all have 
+                    // the same form 
+                    if n == 2 
+                    {
+                        """
+                        /// subscript Vector<Index>[_:] { get }
+                        /// where Index:FixedWidthInteger & SIMDScalar 
+                        """
+                        for n:Int in 2 ... 4 
+                        {
+                            """
+                            /// ?   where Storage == SIMD\(n)<T> 
+                            """
+                        }
+                        """
+                        ///     Loads the elements of this vector at the given indices 
+                        ///     as a \(m)-element vector.
+                        /// 
+                        ///     **Note:** unlike the [`[_:]#(arity-1)`] subscript, 
+                        ///     this subscript will never trap, because all possible 
+                        ///     values of its `selector` parameter are valid.
+                        /// - selector  :Vector\(m)<Index>
+                        ///     An integer vector specifying the index of the element 
+                        ///     to load from this vector, for each element of the result.
+                        /// 
+                        ///     It is acceptable for the index vector to specify 
+                        ///     out-of-range indices, in which case, the indices 
+                        ///     are interpreted modulo *n*, where *n* is the 
+                        ///     number of elements in this vector. 
+                        /// - ->        :Vector\(m)<T>
+                        /// #   (2:vector-swizzle-usage)
+                        /// #   (arity-\(m))
+                        
+                        /// subscript Vector<Index>[_:] { get }
+                        /// where Index:FixedWidthInteger & SIMDScalar 
+                        """
+                        for n:Int in 2 ... 4 
+                        {
+                            """
+                            /// ?   where Storage == SIMD\(n)<T> 
+                            """
+                        }
+                        """
+                        ///     Loads the specified vector swizzle from this vector.
+                        /// 
+                        ///     This subscript is shorthand for passing the 
+                        ///     [`(VectorSwizzle\(m)).selector`] value of `swizzle`
+                        ///     to the [`[_:]#(arity-\(m))`] subscript.
+                        ///     
+                        ///     **Note:** This subscript will never trap, even if 
+                        ///     the specified vector swizzle references elements 
+                        ///     not present in [[`Self`]].
+                        /// - swizzle   :VectorSwizzle\(m)
+                        ///     The vector swizzle to extract.
+                        /// 
+                        ///     It is acceptable for the vector swizzle to specify 
+                        ///     elements that are not present in [[`Self`]], in 
+                        ///     which case, this vector instance is interpreted 
+                        ///     as an infinite-length vector with the missing elements 
+                        ///     filled in by cycling through the existing elements. 
+                        /// 
+                        ///     For example, if [[`Self`]] is [[`Vector3<T>`]], 
+                        ///     then the swizzle 
+                        ///     [`(VectorSwizzle\(m)).\(String.init(repeating: "w", count: m))`]
+                        ///     refers to the same elements as 
+                        ///     [`(VectorSwizzle\(m)).\(String.init(repeating: "x", count: m))`].
+                        /// - ->        :Vector\(m)<T>
+                        /// #   (1:vector-swizzle-usage)
+                        """
+                    }
                     """
                     subscript<Index>(selector:Vector\(m)<Index>) -> Vector\(m)<T>
                         where Index:FixedWidthInteger & SIMDScalar 
@@ -2564,19 +2816,39 @@ enum Vector
                     """
                 }
             }
+        }
+        """
+        
+        // swizzle constants 
+        """
+        for n:Int in 2 ... 4 
+        {
             """
-            // swizzle constants
+            /// struct VectorSwizzle\(n)
+            /// :   Hashable 
+            ///     A type providing \(n)-element vector swizzle constants.
+            /// #   (0:vector-swizzle-usage)
+            /// #   (10:math-types)
             struct VectorSwizzle\(n):Hashable 
             """
             Source.block 
             {
-                "var selector:Vector\(n)<UInt8>"
+                """
+                /// var VectorSwizzle\(n).selector:Vector\(n)<UInt8> 
+                ///     The index vector containing the indices specified by 
+                ///     this vector swizzle.
+                var selector:Vector\(n)<UInt8>
+                """
                 
-                for permutation:[Int] in Self.permutations(n)
+                for permutation:[Int] in Self.permutations(4, k: n)
                 {
-                    let name:String     = permutation.map{ components[$0] }.joined()
+                    let name:String     = permutation.map{ components.cartesian[$0] }.joined()
                     let indices:String  = permutation.map(String.init(_:)).joined(separator: ", ")
-                    "static let \(name):Self = .init(selector: (\(indices))*)"
+                    """
+                    /// static let VectorSwizzle\(n).\(name):Self 
+                    /// #   (0:)
+                    static let \(name):Self = .init(selector: (\(indices))*)
+                    """
                 }
             }
         }
@@ -2593,10 +2865,18 @@ enum Vector
             Source.block 
             {
                 """
+                /// static var VectorFiniteRangeExpression.zero:Self { get }
+                /// ?   where T:\(domain)
+                ///     A finite vector range with zero in both its bounds.
+                static 
                 var zero:Self 
                 {
                     .init(lowerBound: .zero, upperBound: .zero)
                 }
+                /// var VectorFiniteRangeExpression.size:Vector<Storage, T> { get }
+                /// ?   where T:\(domain)
+                ///     The dimensions of this finite vector range, obtained 
+                ///     by subtracting [`lowerBound`] from [`upperBound`].
                 var size:Vector<Storage, T> 
                 {
                     self.upperBound - self.lowerBound
@@ -2605,9 +2885,13 @@ enum Vector
                 if domain == "BinaryFloatingPoint"
                 {
                     """
+                    /// var VectorFiniteRangeExpression.midpoint:Vector<Storage, T> { get }
+                    /// ?   where T:\(domain)
+                    ///     The midpoint of this finite vector range, obtained 
+                    ///     by interpolating halfway between [`lowerBound`] and [`upperBound`].
                     var midpoint:Vector<Storage, T> 
                     {
-                        0.5 * (self.lowerBound + self.upperBound)
+                        (self.lowerBound .. self.upperBound)(0.5)
                     }
                     """
                 }
@@ -2625,6 +2909,15 @@ enum Vector
             Source.block
             {
                 """
+                /// init VectorFiniteRangeExpression.init<Other, U>(clamping:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a finite integer vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite integer vector range with 
+                ///     bounds with elements of type [[`T`]], with each element of 
+                ///     each bound clamped to the range of values representable 
+                ///     by [[`T`]].
+                /// - other :Other
                 init<Other:VectorFiniteRangeExpression, U>(clamping other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -2632,6 +2925,14 @@ enum Vector
                         lowerBound: .init(clamping: other.lowerBound),
                         upperBound: .init(clamping: other.upperBound))
                 }
+                /// init VectorFiniteRangeExpression.init<Other, U>(truncatingIfNeeded:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a finite integer vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite integer vector range with 
+                ///     bounds with elements of type [[`T`]], with each element of 
+                ///     each bound truncated to the bit width of [[`T`]].
+                /// - other :Other
                 init<Other:VectorFiniteRangeExpression, U>(truncatingIfNeeded other:Other)
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -2640,6 +2941,13 @@ enum Vector
                         upperBound: .init(truncatingIfNeeded: other.upperBound))
                 }
                 
+                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a finite floating point vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite integer vector range with 
+                ///     bounds with elements of type [[`T`]].
+                /// - other :Other
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
                 {
@@ -2647,6 +2955,16 @@ enum Vector
                         lowerBound: .init(other.lowerBound),
                         upperBound: .init(other.upperBound))
                 }
+                /// init VectorFiniteRangeExpression.init<Other, U>(_:rounding:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
+                ///     Converts a finite floating point vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite integer vector range with 
+                ///     bounds with elements of type [[`T`]], with each element of 
+                ///     each bound rounded according to the given floating point 
+                ///     rounding rule.
+                /// - other :Other
+                /// - rule  :FloatingPointRoundingRule
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other, 
                     rounding rule:FloatingPointRoundingRule) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
@@ -2663,6 +2981,13 @@ enum Vector
             Source.block
             {
                 """
+                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
+                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                ///     Converts a finite integer vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite floating point vector range with 
+                ///     bounds with elements of type [[`T`]].
+                /// - other :Other
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -2670,6 +2995,13 @@ enum Vector
                         lowerBound: .init(other.lowerBound),
                         upperBound: .init(other.upperBound))
                 }
+                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
+                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
+                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
+                ///     Converts a finite floating point vector range with bounds with 
+                ///     elements of type [[`U`]] to a finite floating point vector range with 
+                ///     bounds with elements of type [[`T`]].
+                /// - other :Other
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
                 {
@@ -2682,61 +3014,121 @@ enum Vector
         }
         """
         
-        // quaternion 
+        /// struct Quaternion<T>
+        /// :   Hashable 
+        /// where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
+        ///     An SIMD-backed quaternion.
+        /// #   (20:math-types)
         struct Quaternion<T>:Hashable 
-            where T:SIMDScalar & Numerics.Real & BinaryFloatingPoint
+            where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
         {
+            /// var Quaternion.composite:Vector4<T> { get }
+            ///     A 4-element vector with the [`real`] part of this quaternion 
+            ///     in its [`(Vector4).w`] position, and the [`imaginary`] part 
+            ///     of this quaternion in its [`(VectorSwizzle3).xyz`] positions.
             private(set)
             var composite:Vector4<T> 
             
+            /// var Quaternion.real:T { get }
+            ///     The real part of this quaternion.
             var real:T 
             {
                 self.composite.w
             } 
+            /// var Quaternion.imaginary:Vector3<T> { get }
+            ///     The imaginary part of this quaternion.
             var imaginary:Vector3<T> 
             {
                 self.composite[.xyz]
             }
             
+            /// static var Quaternion.identity:Self { get }
+            ///     The identity quaternion, which has zero in its imaginary parts, 
+            ///     and a value of one in its real part.
             static 
             var identity:Self
             {
                 .init(composite: (0, 0, 0, 1)*)
             }
             
+            /// init Quaternion.init(composite:)
+            ///     Creates a quaternion from a 4-element composite value. 
+            /// - composite:Vector4<T>
+            ///     A composite value. The [`(VectorSwizzle3).xyz`] elements 
+            ///     provide the imaginary part, and the [`(Vector4).w`] element 
+            ///     provides the real part.
             init(composite:Vector4<T>) 
             {
                 self.composite = composite
             }
             
+            /// init Quaternion.init(from:to:)
+            ///     Creates a quaternion representing a 3D rotation between two 
+            ///     points on the unit sphere. 
+            /// 
+            ///     Both `start` and `end` should be unit vectors 
+            ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
+            ///     be meaningful.
+            /// - start :Vector3<T> 
+            ///     A unit vector representing the starting point of a 3D rotation.
+            /// - end   :Vector3<T> 
+            ///     A unit vector representing the ending point of a 3D rotation.
             init(from start:Vector3<T>, to end:Vector3<T>) 
             {
                 let a:T         = (2 * (1 + start <> end)).squareRoot()
                 self.composite  = start >|< end / a || 0.5 * a
             }
             
+            /// init Quaternion.init(axis:angle:)
+            ///     Creates a quaternion representing a 3D rotation of the given angle 
+            ///     about the given axis. 
+            /// 
+            ///     The `axis` vector should be a unit vector 
+            ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
+            ///     be meaningful.
+            /// - axis  :Vector3<T> 
+            ///     A unit vector specifying a rotation axis.
+            /// - angle :T
+            ///     The rotation angle, *in radians*.
             init(axis:Vector3<T>, angle:T)
             {
                 let half:T      = 0.5 * angle 
                 self.composite  = T.sin(half) * axis || T.cos(half)
             }
             
+            /// init Quaternion.init<U>(_:)
+            /// where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
+            ///     Creates a quaternion from a quaternion of another 
+            ///     floating point type.
+            /// - other:Quaternion<U>
             init<U>(_ other:Quaternion<U>) 
                 where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
             {
                 self.init(composite: .init(other.composite))
             }
             
+            /// func Quaternion.normalized() 
+            ///     Returns this quaternion, normalized to unit length.
+            /// - ->:Self
             func normalized() -> Self
             {
                 .init(composite: self.composite.normalized())
             }
+            /// mutating func Quaternion.normalize() 
+            ///     Normalizes this quaternion to unit length.
             mutating 
             func normalize() 
             {
                 self.composite.normalize()
             }
             
+            /// static postfix func Quaternion.(*)(_:)
+            ///     Returns the conjugate of the given quaternion.
+            /// - quaternion:Self
+            /// - ->        :Self 
+            ///     The conjugate of `quaternion`. Its [`imaginary`] part is 
+            ///     the negative of the imaginary part of the original quaternion, 
+            ///     and its [`real`] part remains unchanged.
             static 
             postfix func * (_ quaternion:Self) -> Self
             {
