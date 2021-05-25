@@ -273,27 +273,54 @@ nav li.github-icon-container .github-icon
 .topic 
 {
     border-top: solid 1px #cccccc;
+}
+.topic:first-child 
+{
+    border-top: none;
+}
+
+.rivers .topic
+{
+    margin-bottom: 2em;
+}
+.rivers .topic:first-child h2
+{
+    margin-top: 1.25em;
+}
+.rivers h2
+{
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+.rivers .topic-container-symbol 
+{
+    margin-left: 2em;
+    margin-bottom: 1em;
+}
+
+.topics .topic 
+{
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
     align-items: flex-start;
 }
-.topic-container-left 
+.topics .topic-container-left 
 {
     width: 15em;
     margin-right: 2em;
 }
-.topic-container-right 
+.topics .topic-container-right 
 {
     margin-top: 1.5em;
     width: 100%;
 }
-.topic-container-symbol 
+.topics .topic-container-symbol 
 {
     margin-left: 2em;
     margin-bottom: 2em;
 }
-.topic-container-symbol p 
+.topics .topic-container-symbol p, .rivers .topic-container-symbol p 
 {
     margin-top: 0.5em;
     margin-bottom: 0.5em;
