@@ -288,7 +288,9 @@ enum Vector
         /// #   [Computing dot products](vector-dot-products)
         /// #   [Computing outer products](vector-outer-products)
         /// #   [Computing matrix-vector products](vector-matrix-vector-products)
-        /// #   [Computing matrix-matrix products](vector-matrix-matrix-products)
+        /// #   [Computing matrix-matrix products (two outputs)](vector-matrix-matrix-2-products)
+        /// #   [Computing matrix-matrix products (three outputs)](vector-matrix-matrix-3-products)
+        /// #   [Computing matrix-matrix products (four outputs)](vector-matrix-matrix-4-products)
         /// #   [Working with diagonal elements of a matrix](vector-matrix-diagonal-usage)
         /// #   [Working with diagonal matrices](vector-diagonal-usage)
         /// #   [Scaling the rows of a matrix](vector-matrix-row-scaling)
@@ -482,6 +484,11 @@ enum Vector
             /// func Vector.map(_:)
             ///     Returns a vector where each element is obtained by applying the 
             ///     given transformation over the corresponding element of this vector. 
+            /// 
+            ///     This method decomposes into scalar operations. Some operations, 
+            ///     such as [`sqrt(_:)`], have SIMD-accelerated implementations 
+            ///     which may be faster than calling this method with the 
+            ///     corresponding scalar function.
             /// - transform :(T) -> T
             ///     An elementwise transformation. 
             /// - ->        :Self 
@@ -2195,7 +2202,7 @@ enum Vector
                     /// - row   :Vector\(n)<T>.Row
                     /// - matrix:Vector\(n)<T>.Matrix\(m)
                     /// - ->    :Vector\(m)<T>.Row
-                    /// #   (\(n)\(m):vector-matrix-matrix-products)
+                    /// #   (\(m)\(n)0:vector-matrix-matrix-\(m)-products)
                     func >< <T>(row:Vector\(n)<T>.Row, matrix:Vector\(n)<T>.Matrix\(m)) 
                         -> Vector\(m)<T>.Row
                         where T:\(domain)
@@ -2222,7 +2229,7 @@ enum Vector
                     /// - lhs:Vector<Column, T>.Matrix\(n)
                     /// - rhs:Vector\(n)<T>.Matrix\(m)
                     /// - -> :Vector<Column, T>.Matrix\(m) 
-                    /// #   (1\(n)\(m):vector-matrix-matrix-products)
+                    /// #   (\(m)\(n)1:vector-matrix-matrix-\(m)-products)
                     func >< <Column, T>(lhs:Vector<Column, T>.Matrix\(n), rhs:Vector\(n)<T>.Matrix\(m)) 
                         -> Vector<Column, T>.Matrix\(m) 
                         where Column:SIMD, Column.Scalar == T, T:\(domain)

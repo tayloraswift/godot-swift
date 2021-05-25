@@ -2305,44 +2305,52 @@ extension Godot
             /// extension Bool
             /// :   Godot.Variant
             /// #   (0:godot-core-types)
+            /// #   (0:)
             
             /// extension Int64
             /// :   Godot.Variant
             /// #   (1:godot-core-types)
+            /// #   (1:)
             
             /// extension Float64
             /// :   Godot.Variant
             /// #   (2:godot-core-types)
+            /// #   (2:)
             
             /// class Godot.String
             /// :   Godot.Variant 
             /// final 
             ///     The [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) type.
             /// #   (10:godot-core-types)
+            /// #   (10:)
             
             /// class Godot.List
             /// :   Godot.Variant 
             /// final 
             ///     The [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) type.
             /// #   (12:godot-core-types)
+            /// #   (12:)
             
             /// class Godot.Map
             /// :   Godot.Variant 
             /// final 
             ///     The [`Godot::Dictionary`](https://docs.godotengine.org/en/stable/classes/class_dictionary.html) type.
             /// #   (13:godot-core-types)
+            /// #   (13:)
             
             /// class Godot.NodePath
             /// :   Godot.Variant 
             /// final 
             ///     The [`Godot::NodePath`](https://docs.godotengine.org/en/stable/classes/class_nodepath.html) type.
             /// #   (-2:godot-core-types)
+            /// #   (-2:)
             
             /// class Godot.ResourceIdentifier
             /// :   Godot.Variant 
             /// final 
             ///     The [`Godot::RID`](https://docs.godotengine.org/en/stable/classes/class_rid.html) type.
             /// #   (-1:godot-core-types)
+            /// #   (-1:)
             
             /// struct Godot.Plane3<T> 
             /// :   Swift.Hashable
@@ -2351,11 +2359,13 @@ extension Godot
             /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
             ///     The [`Godot::Plane`](https://docs.godotengine.org/en/stable/classes/class_plane.html) type.
             /// #   (20:godot-core-types)
+            /// #   (20:)
             
             /// enum Godot.Transform2<T>
             /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
             ///     A namespace for 2-dimensional transforms.
             /// #   (30:godot-core-types)
+            /// #   (30:)
 
             /// struct Godot.Transform2.Affine
             /// :   Swift.Equatable
@@ -2363,11 +2373,13 @@ extension Godot
             /// :   Godot.Variant where T == Swift.Float32
             ///     The [`Godot::Transform2D`](https://docs.godotengine.org/en/stable/classes/class_transform2d.html) type.
             /// #   (31:godot-core-types)
+            /// #   (31:)
             
             /// enum Godot.Transform3<T>
             /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
             ///     A namespace for 3-dimensional transforms.
             /// #   (32:godot-core-types)
+            /// #   (32:)
             
             /// struct Godot.Transform3.Affine
             /// :   Swift.Equatable
@@ -2375,6 +2387,7 @@ extension Godot
             /// :   Godot.Variant where T == Swift.Float32
             ///     The [`Godot::Transform`](https://docs.godotengine.org/en/stable/classes/class_transform.html) type.
             /// #   (33:godot-core-types)
+            /// #   (33:)
             
             /// struct Godot.Transform3.Linear
             /// :   Swift.Equatable
@@ -2382,6 +2395,7 @@ extension Godot
             /// :   Godot.Variant where T == Swift.Float32
             ///     The [`Godot::Basis`](https://docs.godotengine.org/en/stable/classes/class_basis.html) type.
             /// #   (34:godot-core-types)
+            /// #   (34:)
             
             """
             for documentation:String in classes.map(\.documentation)
