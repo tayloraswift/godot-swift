@@ -565,6 +565,9 @@ enum Vector
         /// protocol VectorFiniteRangeExpression
         /// :   VectorRangeExpression 
         ///     A type representing an *n*-dimensional axis-aligned rectangle.
+        /// #   [Creating a finite range expression](vectorfiniterangeexpression-required-init)
+        /// #   [Converting finite range expressions between scalar types](vectorfiniterangeexpression-type-conversion-usage)
+        /// #   [Getting the bounds of a finite range expression](vectorfiniterangeexpression-required-property)
         /// #   (2:vector-range-types)
         /// #   (0:math-protocols)
         protocol VectorFiniteRangeExpression:VectorRangeExpression 
@@ -576,11 +579,13 @@ enum Vector
             ///     The lower bound.
             /// - upperBound    :Bound 
             ///     The upper bound.
+            /// #   (vectorfiniterangeexpression-required-init)
             init(lowerBound:Bound, upperBound:Bound)
             
             /// var VectorFiniteRangeExpression.lowerBound:Bound 
             /// required 
             ///     The lower bound of this vector range.
+            /// #   (vectorfiniterangeexpression-required-property)
             var lowerBound:Bound 
             {
                 get 
@@ -588,6 +593,7 @@ enum Vector
             /// var VectorFiniteRangeExpression.upperBound:Bound 
             /// required 
             ///     The upper bound of this vector range.
+            /// #   (vectorfiniterangeexpression-required-property)
             var upperBound:Bound 
             {
                 get 
@@ -1857,6 +1863,7 @@ enum Vector
                     .init(\((0 ..< n).map{ "row.\($0)" }.joined(separator: ", ")))
                 } 
                 /// static func SIMD\(n).transpose(_:) 
+                /// ?:  SIMD.Transposable 
                 /// - column:Self
                 /// - ->    :Transpose
                 static 
@@ -1865,7 +1872,7 @@ enum Vector
                     (\(components.cartesian.prefix(n).map{ "column.\($0)" }.joined(separator: ", ")))
                 } 
                 
-                /// static func SIMD\(n).Transposable.diagonal(trimming:)
+                /// static func SIMD\(n).diagonal(trimming:)
                 /// ?:  SIMD.Transposable 
                 /// - matrix:Square 
                 /// - ->    :Self
@@ -1876,7 +1883,7 @@ enum Vector
                         .map{ "matrix.\($0.0).\($0.1)" }
                         .joined(separator: ", ")))
                 }
-                /// static func SIMD\(n).Transposable.diagonal(padding:with:)
+                /// static func SIMD\(n).diagonal(padding:with:)
                 /// ?:  SIMD.Transposable 
                 /// - diagonal  :Self 
                 /// - fill      :Scalar 
@@ -2925,6 +2932,7 @@ enum Vector
                 ///     each bound clamped to the range of values representable 
                 ///     by [[`T`]].
                 /// - other :Other
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(clamping other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -2940,6 +2948,7 @@ enum Vector
                 ///     bounds with elements of type [[`T`]], with each element of 
                 ///     each bound truncated to the bit width of [[`T`]].
                 /// - other :Other
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(truncatingIfNeeded other:Other)
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -2955,6 +2964,7 @@ enum Vector
                 ///     elements of type [[`U`]] to a finite integer vector range with 
                 ///     bounds with elements of type [[`T`]].
                 /// - other :Other
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
                 {
@@ -2972,6 +2982,7 @@ enum Vector
                 ///     rounding rule.
                 /// - other :Other
                 /// - rule  :FloatingPointRoundingRule
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other, 
                     rounding rule:FloatingPointRoundingRule) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
@@ -2995,6 +3006,7 @@ enum Vector
                 ///     elements of type [[`U`]] to a finite floating point vector range with 
                 ///     bounds with elements of type [[`T`]].
                 /// - other :Other
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
                 {
@@ -3009,6 +3021,7 @@ enum Vector
                 ///     elements of type [[`U`]] to a finite floating point vector range with 
                 ///     bounds with elements of type [[`T`]].
                 /// - other :Other
+                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
                 init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
                     where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
                 {
