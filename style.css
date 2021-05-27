@@ -58,11 +58,17 @@ h3
 .topic-blurb 
 {
 }
-.topic-relationships 
+p.topic-relationships 
 {
-    line-height: 140%;
+    line-height:    140%;
+    margin-top:     0.5em;
+    margin-bottom:  0.5em;
 }
-.topic-relationships, .topic-symbol-relationships
+p.topic-relationships:last-child 
+{
+    margin-bottom: 1em;
+}
+p.topic-relationships, p.topic-symbol-relationships
 {
     font-size: 1.05em;
     color: #555555;
