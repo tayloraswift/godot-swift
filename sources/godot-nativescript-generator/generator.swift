@@ -7,6 +7,7 @@ extension Main.Generator
             Source.text(from: "fragments", "external.swift.part")
             Source.text(from: "fragments", "runtime.swift.part")
             Source.text(from: "fragments", "variant.swift.part")
+            Source.text(from: "fragments", "aggregate.swift.part")
             
             Source.section(name: "variant-raw.swift.part")
             {
@@ -31,6 +32,7 @@ extension Main.Generator
         {
             Source.text(from: "fragments", "dsl.swift.part")
             
+            Source.text(from: "fragments", "quaternion.swift.part")
             Vector.swift 
         }
     }

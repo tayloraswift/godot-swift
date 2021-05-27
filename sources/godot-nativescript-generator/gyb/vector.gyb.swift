@@ -267,7 +267,9 @@ enum Vector
         /// struct Vector<Storage, T> 
         /// :   Hashable 
         /// :   CustomStringConvertible 
-        /// :   Godot.ArrayElement where Storage:Godot.ArrayElementStorage 
+        /// :   Godot.ArrayElement          where Storage:Godot.ArrayElementStorage 
+        /// :   Godot.VariantRepresentable  where Storage:Godot.VectorStorage
+        /// :   Godot.Variant               where Storage:Godot.VectorStorage, T == Float32 
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
         /// #   [Vector types](vector-fixed-length-specializations)
@@ -617,7 +619,9 @@ enum Vector
             """
             /// struct Vector.Rectangle 
             /// :   VectorFiniteRangeExpression 
-            /// :   Hashable
+            /// :   Hashable 
+            /// :   Godot.VariantRepresentable  where Storage:Godot.RectangleStorage
+            /// :   Godot.Variant               where Storage:Godot.RectangleStorage, T == Float32 
             /// ?   where T:Comparable 
             ///     An *n*-dimensional half-open axis-aligned region from a lower 
             ///     bound up to, but not including, an upper bound.
@@ -656,6 +660,7 @@ enum Vector
             /// struct Vector.ClosedRectangle 
             /// :   VectorFiniteRangeExpression 
             /// :   Hashable
+            /// :   Godot.VariantRepresentable where Storage:Godot.RectangleStorage
             /// ?   where T:Comparable 
             ///     An *n*-dimensional axis-aligned region from a lower 
             ///     bound up to, and including, an upper bound.
@@ -3042,130 +3047,6 @@ enum Vector
                 """
             }
         }
-        """
-        
-        /// struct Quaternion<T>
-        /// :   Hashable 
-        /// where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
-        ///     An SIMD-backed quaternion.
-        /// #   (20:math-types)
-        struct Quaternion<T>:Hashable 
-            where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
-        {
-            /// var Quaternion.composite:Vector4<T> { get }
-            ///     A 4-element vector with the [`real`] part of this quaternion 
-            ///     in its [`(Vector4).w`] position, and the [`imaginary`] part 
-            ///     of this quaternion in its [`(VectorSwizzle3).xyz`] positions.
-            private(set)
-            var composite:Vector4<T> 
-            
-            /// var Quaternion.real:T { get }
-            ///     The real part of this quaternion.
-            var real:T 
-            {
-                self.composite.w
-            } 
-            /// var Quaternion.imaginary:Vector3<T> { get }
-            ///     The imaginary part of this quaternion.
-            var imaginary:Vector3<T> 
-            {
-                self.composite[.xyz]
-            }
-            
-            /// static var Quaternion.identity:Self { get }
-            ///     The identity quaternion, which has zero in its imaginary parts, 
-            ///     and a value of one in its real part.
-            static 
-            var identity:Self
-            {
-                .init(composite: (0, 0, 0, 1)*)
-            }
-            
-            /// init Quaternion.init(composite:)
-            ///     Creates a quaternion from a 4-element composite value. 
-            /// - composite:Vector4<T>
-            ///     A composite value. The [`(VectorSwizzle3).xyz`] elements 
-            ///     provide the imaginary part, and the [`(Vector4).w`] element 
-            ///     provides the real part.
-            init(composite:Vector4<T>) 
-            {
-                self.composite = composite
-            }
-            
-            /// init Quaternion.init(from:to:)
-            ///     Creates a quaternion representing a 3D rotation between two 
-            ///     points on the unit sphere. 
-            /// 
-            ///     Both `start` and `end` should be unit vectors 
-            ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
-            ///     be meaningful.
-            /// - start :Vector3<T> 
-            ///     A unit vector representing the starting point of a 3D rotation.
-            /// - end   :Vector3<T> 
-            ///     A unit vector representing the ending point of a 3D rotation.
-            init(from start:Vector3<T>, to end:Vector3<T>) 
-            {
-                let a:T         = (2 * (1 + start <> end)).squareRoot()
-                self.composite  = start >|< end / a || 0.5 * a
-            }
-            
-            /// init Quaternion.init(axis:angle:)
-            ///     Creates a quaternion representing a 3D rotation of the given angle 
-            ///     about the given axis. 
-            /// 
-            ///     The `axis` vector should be a unit vector 
-            ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
-            ///     be meaningful.
-            /// - axis  :Vector3<T> 
-            ///     A unit vector specifying a rotation axis.
-            /// - angle :T
-            ///     The rotation angle, *in radians*.
-            init(axis:Vector3<T>, angle:T)
-            {
-                let half:T      = 0.5 * angle 
-                self.composite  = T.sin(half) * axis || T.cos(half)
-            }
-            
-            /// init Quaternion.init<U>(_:)
-            /// where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
-            ///     Creates a quaternion from a quaternion of another 
-            ///     floating point type.
-            /// - other:Quaternion<U>
-            init<U>(_ other:Quaternion<U>) 
-                where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
-            {
-                self.init(composite: .init(other.composite))
-            }
-            
-            /// func Quaternion.normalized() 
-            ///     Returns this quaternion, normalized to unit length.
-            /// - ->:Self
-            func normalized() -> Self
-            {
-                .init(composite: self.composite.normalized())
-            }
-            /// mutating func Quaternion.normalize() 
-            ///     Normalizes this quaternion to unit length.
-            mutating 
-            func normalize() 
-            {
-                self.composite.normalize()
-            }
-            
-            /// static postfix func Quaternion.(*)(_:)
-            ///     Returns the conjugate of the given quaternion.
-            /// - quaternion:Self
-            /// - ->        :Self 
-            ///     The conjugate of `quaternion`. Its [`imaginary`] part is 
-            ///     the negative of the imaginary part of the original quaternion, 
-            ///     and its [`real`] part remains unchanged.
-            static 
-            postfix func * (_ quaternion:Self) -> Self
-            {
-                .init(composite: quaternion.composite * (-1, -1, -1, +1)*)
-            }
-        }
-        """
     }
     
     @Source.Code 

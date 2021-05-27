@@ -13,6 +13,18 @@ enum VariantVector
             typealias VectorElement     = _GodotVectorElement
             typealias VectorStorage     = _GodotVectorStorage
         }
+        /// protocol Godot.VectorElement 
+        /// :   SIMDScalar 
+        ///     A unification protocol providing support for converting qualifying 
+        ///     instances of [`Vector`] to and from their GDScript representations.
+        /// 
+        ///     All types conforming to [`BinaryFloatingPoint`] support the 
+        ///     functionality required to conform to this protocol. 
+        /// 
+        ///     Conformances for [`Float16`], [`Float32`], and [`Float64`] have 
+        ///     already been provided. You can add support for additional 
+        ///     [`BinaryFloatingPoint`] types by explicitly declaring the conformance 
+        ///     in user code.
         protocol _GodotVectorElement:SIMDScalar 
         """
         Source.block 
@@ -37,6 +49,10 @@ enum VariantVector
             }
         }
         """
+        /// protocol Godot.VectorStorage 
+        /// :   SIMD
+        ///     A unification protocol providing support for converting qualifying 
+        ///     instances of [[`Vector`]] to and from their GDScript representations.
         protocol _GodotVectorStorage:SIMD where Scalar:SIMDScalar 
         {
             associatedtype VectorAggregate:Godot.RawAggregate
@@ -82,6 +98,9 @@ enum VariantVector
         for n:Int in 2 ... 4 
         {
             """
+            /// extension SIMD\(n)
+            /// :   Godot.VectorStorage 
+            /// where Scalar:Godot.VectorElement
             extension SIMD\(n):Godot.VectorStorage where Scalar:Godot.VectorElement
             {
                 typealias VectorAggregate = Scalar.Vector\(n)Aggregate
@@ -98,33 +117,37 @@ enum VariantVector
             }
             """
         }
-        for n:Int in 2 ... 3 
-        {
-            """
-            extension SIMD\(n):Godot.RectangleStorage where Scalar:Godot.RectangleElement
-            {
-                typealias RectangleAggregate = Scalar.Rectangle\(n)Aggregate
-            }
-            """
-        }
         for type:String in ["Float16", "Float32", "Float64"] 
         {
-            "extension \(type):Godot.VectorElement {}"
+            """
+            /// extension \(type)
+            /// :   Godot.VectorElement
+            extension \(type):Godot.VectorElement {}
+            """
         }
         """
         extension Vector:Godot.VariantRepresentable 
             where Storage:Godot.VectorStorage
         {
+            /// static var Vector.variantType:Godot.VariantType { get }
+            /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
             static 
             var variantType:Godot.VariantType 
             {
                 Storage.VectorAggregate.variantType
             }
+            /// static func Vector.takeUnretained(_:)
+            /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
+            /// - value :Godot.Unmanaged.Variant 
+            /// - ->    :Self? 
             static 
             func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
             {
                 Storage.VectorAggregate.unpacked(variant: value).map(Storage.generalize(_:))
             }
+            /// func Vector.passRetained()
+            /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
+            /// - ->    :Godot.Unmanaged.Variant 
             func passRetained() -> Godot.Unmanaged.Variant 
             {
                 Storage.VectorAggregate.variant(packing: Storage.specialize(self))
