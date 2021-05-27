@@ -1,11 +1,93 @@
-protocol _GrammarParseable 
+enum Grammar 
 {
-    typealias Terminal          = _GrammarParseableTerminal
-    typealias CharacterClass    = _GrammarParseableCharacterClass
+    typealias Parsable = _GrammarParsable
     
-    init(parsing:String, from position:inout String.Index) throws 
+    struct ParsingError:Swift.Error, CustomStringConvertible 
+    {
+        let source:String, 
+            problem:Range<String.Index>, 
+            expected:Any.Type
+        
+        var description:String 
+        {
+            let head:Substring? = 
+                self.source[..<self.problem.lowerBound].split(separator: "\n").last 
+            let body:Substring  = 
+                self.source[self.problem]
+            let tail:Substring? = 
+                self.source[self.problem.upperBound...].split(separator: "\n").first 
+            return 
+                """
+                could not parse substring 
+                '''
+                \(head.map(String.init(_:)) ?? "")
+                \(body)
+                \(String.init(repeating: "~", count: body.count))
+                \(tail.map(String.init(_:)) ?? "")
+                '''
+                as expected type `\(self.expected)`
+                """
+        }
+    }
+    
+    struct Input 
+    {
+        let string:String 
+        var index:String.Index 
+        
+        init(_ string:String)
+        {
+            self.string = string 
+            self.index  = string.startIndex
+        }
+        
+        mutating 
+        func next() -> Character?
+        {
+            guard self.index != self.string.endIndex
+            else 
+            {
+                return nil 
+            }
+            defer 
+            {
+                self.index = self.string.index(after: self.index)
+            }
+            return self.string[self.index]
+        }
+        
+        func expected(_ type:Any.Type, from start:String.Index? = nil) -> ParsingError 
+        {
+            if let start:String.Index = start 
+            {
+                return .init(source: self.string, 
+                    problem:    start ..< self.index, 
+                    expected:   type)
+            }
+            else if self.index == self.string.startIndex 
+            {
+                return .init(source: self.string, 
+                    problem:    self.string.startIndex ..< self.index, 
+                    expected:   type)
+            }
+            else 
+            {
+                return .init(source: self.string, 
+                    problem:    self.string.index(before: self.index) ..< self.index, 
+                    expected:   type)
+            }
+        }
+    }
 }
-protocol _GrammarParseableTerminal:Grammar.Parseable
+
+protocol _GrammarParsable 
+{
+    typealias Terminal          = _GrammarParsableTerminal
+    typealias CharacterClass    = _GrammarParsableCharacterClass
+    
+    init(parsing input:inout Grammar.Input) throws 
+}
+protocol _GrammarParsableTerminal:Grammar.Parsable
 {
     static 
     var token:String 
@@ -15,108 +97,74 @@ protocol _GrammarParseableTerminal:Grammar.Parseable
     
     init()
 }
-protocol _GrammarParseableCharacterClass:Grammar.Parseable
+protocol _GrammarParsableCharacterClass:Grammar.Parsable
 {
-    init?(character:Character)
+    init?(_ character:Character)
 }
 
-enum Grammar 
+extension Grammar.Parsable.CharacterClass 
 {
-    typealias Parseable = _GrammarParseable
-    
-    enum ParsingError:Swift.Error 
+    init(parsing input:inout Grammar.Input) throws 
     {
-        case unexpectedEOS(expected:Parseable.Type)
-        case unexpected(String, expected:Parseable.Type)
+        guard   let character:Character = input.next(),
+                let value:Self          = Self.init(character) 
+        else 
+        {
+            throw input.expected(Self.self)
+        }
+        self = value
     }
 }
 
-extension Grammar.Parseable.CharacterClass 
+extension Grammar.Parsable.Terminal
 {
-    init(parsing string:String, from position:inout String.Index) throws 
+    init(parsing input:inout Grammar.Input) throws 
     {
-        guard position < string.endIndex
-        else 
+        let start:String.Index = input.index
+        for expected:Character in Self.token 
         {
-            throw Grammar.ParsingError.unexpectedEOS(expected: Self.self)
-        }
-        
-        let character:Character = string[position]
-        guard let element:Self  = .init(character: character) 
-        else 
-        {
-            throw Grammar.ParsingError.unexpected(.init(character), expected: Self.self)
-        }
-        
-        string.formIndex(after: &position)
-        self = element
-    }
-}
-
-extension Grammar.Parseable.Terminal
-{
-    init(parsing string:String, from position:inout String.Index) throws 
-    {
-        let start:String.Index = position
-        for character:Character in Self.token 
-        {
-            guard position < string.endIndex 
+            guard   let character:Character = input.next(), 
+                        character == expected 
             else 
             {
-                throw Grammar.ParsingError.unexpectedEOS(expected: Self.self)
+                throw input.expected(Self.self, from: start)
             }
-            
-            guard character == string[position] 
-            else 
-            {
-                throw Grammar.ParsingError.unexpected(.init(string[start ... position]), expected: Self.self)
-            }
-            
-            string.formIndex(after: &position)
         }
         self.init()
     }
 }
 
-extension Optional:Grammar.Parseable where Wrapped:Grammar.Parseable 
+extension Optional:Grammar.Parsable where Wrapped:Grammar.Parsable 
 {
-    // need to write it like this because swift gets confused by failable 
-    // inits on Optional<T>
-    private static 
-    func parse(_ string:String, from position:inout String.Index) -> Self 
+    init(parsing input:inout Grammar.Input)  
     {
-        let reset:String.Index = position 
-        do 
+        let reset:String.Index = input.index 
+        if let wrapped:Wrapped = try? Wrapped.init(parsing: &input)
         {
-            return .some(try .init(parsing: string, from: &position))
+            self = wrapped 
         }
-        catch 
+        else 
         {
-            position = reset 
-            return nil 
+            input.index = reset 
+            self = nil 
         }
-    }
-    
-    init(parsing string:String, from position:inout String.Index)
-    {
-        self = .parse(string, from: &position)
     }
     
     // can’t be declared as protocol extension because then it would have to 
     // be marked `throws`
     init(parsing string:String)
     {
-        var index:String.Index = string.startIndex
-        self = .parse(string, from: &index)
+        var input:Grammar.Input = .init(string)
+        self = Self.init(parsing: &input)
     }
 }
 
-extension Array:Grammar.Parseable where Element:Grammar.Parseable
+extension Array:Grammar.Parsable where Element:Grammar.Parsable
 {
-    init(parsing string:String, from position:inout String.Index)
+    init(parsing input:inout Grammar.Input)
     {
         self.init()
-        while let next:Element = .init(parsing: string, from: &position) 
+        while let next:Element = .init(parsing: &input) 
         {
             self.append(next)
         }
@@ -124,38 +172,23 @@ extension Array:Grammar.Parseable where Element:Grammar.Parseable
     
     init(parsing string:String)
     {
-        var index:String.Index = string.startIndex 
-        self.init(parsing: string, from: &index)
-        if index == string.endIndex 
+        var input:Grammar.Input = .init(string)
+        self.init(parsing: &input)
+        if input.index != input.string.endIndex 
         {
-            return 
+            print("warning: unparsed trailing characters '\(input.string[input.index...])'") 
         }
-        
-        let parsed:Int = string.distance(from: string.startIndex, to: index)
-        let count:Int  = string.count 
-        
-        let display:String 
-        if count > 32 
-        {
-            display = string 
-        }
-        else 
-        {
-            display = "\(String.init(string.prefix(32))) ... "
-        }
-        
-        print("warning: did not fully parse '\(display)' (consumed \(parsed) of \(count) characters)")
     }
 }
 
-struct List<Head, Body>:Grammar.Parseable where Head:Grammar.Parseable, Body:Grammar.Parseable
+struct List<Head, Body>:Grammar.Parsable where Head:Grammar.Parsable, Body:Grammar.Parsable
 {
     let head:Head,
         body:Body
     
-    init(parsing string:String, from position:inout String.Index) throws 
+    init(parsing input:inout Grammar.Input) throws 
     {
-        self.head = try .init(parsing: string, from: &position)
-        self.body = try .init(parsing: string, from: &position)
+        self.head = try .init(parsing: &input)
+        self.body = try .init(parsing: &input)
     }
 } 

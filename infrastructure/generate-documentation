@@ -62,7 +62,7 @@ cd entrapta/
 check   "failed to build entrapta" \
         swift build -c release
 
-sources="../../.gyb/entrapta.swift ../../.gyb/vector.swift.part"
+sources="../../.gyb/classes.swift ../../.gyb/common.swift ../../.gyb/entrapta.swift"
 
 if [ -z $local ]; then 
     .build/release/entrapta $sources --directory ../../documentation/ --url-prefix https://kelvin13.github.io/godot-swift --github https://github.com/kelvin13/godot-swift --title Godot\ Swift\ Documentation --theme eternia

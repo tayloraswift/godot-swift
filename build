@@ -95,8 +95,16 @@ def main():
     parser.add_argument('-i', '--install', type = str, 
         default = None, 
         help    = 'installation directory')
+    parser.add_argument('--use-cached-interface',action = 'store_true', 
+        help    = 'use cached library interface')
     
     options = parser.parse_args()
+    
+    # emit settings.json
+    os.makedirs('.godot-swift', exist_ok = True)
+    with open(os.path.join('.godot-swift', 'settings.json'), 'w') as file:
+        json.dump({'update_interface': not options.use_cached_interface}, file)
+    
     flags   = (argument for flag in (
         (
             '-DENABLE_ARC_SANITIZER', 

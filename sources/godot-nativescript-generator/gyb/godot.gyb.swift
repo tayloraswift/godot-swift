@@ -1161,6 +1161,17 @@ extension Godot
             default:                    break
             } 
             
+            
+            /* switch node.symbol 
+            {
+            case "Object", "Reference", "Node", "Spatial", "InputEventMouseButton", "InputEventKey", "InputEventMouse", "InputEventWithModifiers", "InputEvent", "Resource", "GlobalConstants":
+                break 
+            default: 
+                continue 
+            } */
+            
+            
+            
             if let parent:String = parent
             {
                 guard let parent:Class.Node = nodes[parent]?.node
@@ -1354,7 +1365,19 @@ extension Godot
         
         return Source.fragment 
         {
-            "extension Godot"
+            """
+            /// struct Godot.VariantType
+            /// :   Hashable 
+            ///     The [`Godot::Variant::Type`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-type) enumeration.
+            /// #   (10:godot-variant-usage)
+            
+            /// struct Godot.VariantOperator
+            /// :   Hashable 
+            ///     The [`Godot::Variant::Operator`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-operator) enumeration.
+            /// #   (10:godot-variant-usage)
+            
+            extension Godot
+            """
             Source.block 
             {
                 for (name, constants):(String, [(name:String, value:Int)]) in 
@@ -1363,12 +1386,24 @@ extension Godot
                     ("VariantOperator", operators),
                 ]
                 {
-                    "struct \(name):Hashable"
+                    """
+                    struct \(name):Hashable
+                    """
                     Source.block 
                     {
                         """
+                        /// let Godot.\(name).value:Int 
+                        ///     The numeric type code for this enumeration case.
                         let value:Int
-                        
+                        """
+                        for constant:(name:String, value:Int) in constants 
+                        {
+                            """
+                            /// static let Godot.\(name).\(constant.name):Self 
+                            
+                            """
+                        }
+                        """
                         static 
                         let \(constants.map 
                         {
@@ -1403,12 +1438,19 @@ extension Godot
                 Source.block 
                 {
                     """
+                    /// case Godot.Error.unknown(code:)
+                    ///     A game engine error whose code is unrecognized by Godot Swift.
+                    /// - code  :Int 
+                    ///     The error code.
                     case unknown(code:Int)
                     
                     """
                     for name:Words in errors.map(\.name)
                     {
-                        "case \(name.camelcased)"
+                        """
+                        /// case Godot.Error.\(name.camelcased)
+                        case \(name.camelcased)
+                        """
                     }
                 }
             }
@@ -1490,372 +1532,6 @@ extension Godot
         Source.section(name: "global.swift.part")
         {
             Self.constants(descriptors: descriptors)
-        }
-        
-        Source.section(name: "raw.swift.part")
-        {
-            for (name, type, unpacked):(String, String, String) in 
-            [
-                ("vector2",         "vector2",              "Vector2<Float32>"), 
-                ("vector3",         "vector3",              "Vector3<Float32>"), 
-                ("color",           "vector4",              "Vector4<Float32>"), 
-                ("quat",            "quaternion",           "Quaternion<Float32>"), 
-                ("plane",           "plane3",               "Godot.Plane3<Float32>"), 
-                ("rect2",           "rectangle2",           "Vector2<Float32>.Rectangle"), 
-                ("aabb",            "rectangle3",           "Vector3<Float32>.Rectangle"), 
-                ("transform2d",     "affine2",              "Godot.Transform2<Float32>.Affine"), 
-                ("transform",       "affine3",              "Godot.Transform3<Float32>.Affine"), 
-                ("basis",           "linear3",              "Godot.Transform3<Float32>.Linear"), 
-                ("rid",             "resourceIdentifier",   "Godot.ResourceIdentifier"), 
-            ]
-            {
-                """
-                extension godot_\(name):Godot.RawValue 
-                {
-                    static 
-                    var variantType:Godot.VariantType 
-                    {
-                        .\(type)
-                    }
-                    static 
-                    func unpacked(variant:Godot.Unmanaged.Variant) -> \(unpacked)? 
-                    {
-                        variant.load(where: Self.variantType)
-                        {
-                            Godot.api.1.0.godot_variant_as_\(name)($0).unpacked
-                        } 
-                    }
-                    static 
-                    func variant(packing value:\(unpacked)) -> Godot.Unmanaged.Variant
-                    {
-                        withUnsafePointer(to: Self.init(packing: value)) 
-                        {
-                            .init(value: $0, Godot.api.1.0.godot_variant_new_\(name))
-                        }
-                    }
-                }
-                """
-            }
-            for (name, type):(String, String) in 
-            [
-                ("node_path",           "nodePath"), 
-                ("string",              "string"), 
-                ("array",               "list"), 
-                ("dictionary",          "map"), 
-                ("pool_byte_array",     "uint8Array"), 
-                ("pool_int_array",      "int32Array"),
-                ("pool_real_array",     "float32Array"),
-                ("pool_string_array",   "stringArray"),
-                ("pool_vector2_array",  "vector2Array"),
-                ("pool_vector3_array",  "vector3Array"),
-                ("pool_color_array",    "vector4Array"),
-            ]
-            {
-                """
-                extension godot_\(name):Godot.RawReference
-                {
-                    mutating 
-                    func `deinit`()
-                    {
-                        Godot.api.1.0.godot_\(name)_destroy(&self)
-                    }
-                    
-                    static 
-                    var variantType:Godot.VariantType 
-                    {
-                        .\(type)
-                    }
-                }
-                """
-            }
-            
-            // generate variant hooks for pool arrays 
-            for (swift, godot, array, storage):(String, String?, String, String?) in 
-            [
-                ("UInt8",                   nil,                "pool_byte_array",      nil),
-                ("Int32",                   nil,                "pool_int_array",       nil),
-                ("Float32",                 nil,                "pool_real_array",      nil),
-                ("String",                  "godot_string",     "pool_string_array",    nil),
-                ("Vector<Self, Scalar>",    "godot_vector2",    "pool_vector2_array",   "SIMD2"),
-                ("Vector<Self, Scalar>",    "godot_vector3",    "pool_vector3_array",   "SIMD3"),
-                ("Vector<Self, Scalar>",    "godot_color",      "pool_color_array",     "SIMD4"),
-            ]
-            {
-                let type:String = storage == nil ? "Self" : swift
-                if let storage:String = storage 
-                {
-                    "extension \(storage):Godot.ArrayElementStorage where Scalar == Float32"
-                }
-                else 
-                {
-                    "extension \(swift):Godot.ArrayElement"
-                }
-                Source.block 
-                {
-                    """
-                    typealias RawArrayReference = godot_\(array)
-                    
-                    static 
-                    func downcast(array value:Godot.Unmanaged.Variant) -> RawArrayReference?
-                    {
-                        value.load(where: RawArrayReference.variantType, 
-                            Godot.api.1.0.godot_variant_as_\(array))
-                    }
-                    static 
-                    func upcast(array value:RawArrayReference) -> Godot.Unmanaged.Variant
-                    {
-                        withUnsafePointer(to: value) 
-                        {
-                            .init(value: $0, Godot.api.1.0.godot_variant_new_\(array))
-                        }
-                    }
-                    static 
-                    func convert(array godot:RawArrayReference) -> [\(type)]
-                    """
-                    Source.block
-                    {
-                        """
-                        guard let lock:UnsafeMutablePointer<godot_\(array)_read_access> = 
-                            withUnsafePointer(to: godot, Godot.api.1.0.godot_\(array)_read)
-                        else 
-                        {
-                            fatalError("received nil pointer from `godot_\(array)_read(_:)`")
-                        }
-                        defer 
-                        {
-                            Godot.api.1.0.godot_\(array)_read_access_destroy(lock)
-                        }
-                        let count:Int = .init(
-                            withUnsafePointer(to: godot, Godot.api.1.0.godot_\(array)_size))
-                        return .init(unsafeUninitializedCapacity: count) 
-                        """
-                        Source.block
-                        {
-                            """
-                            guard let source:UnsafePointer<\(godot ?? "Self")> = 
-                                Godot.api.1.0.godot_\(array)_read_access_ptr(lock)
-                            else 
-                            {
-                                fatalError("received nil pointer from `godot_\(array)_read_access_ptr(_:)`")
-                            }
-                            """
-                            if let _:String = godot
-                            {
-                                """
-                                if let base:UnsafeMutablePointer<\(type)> = $0.baseAddress 
-                                {
-                                    for i:Int in 0 ..< count 
-                                    {
-                                        (base + i).initialize(to: source[i].unpacked)
-                                    }
-                                }
-                                """
-                            }
-                            else 
-                            {
-                                """
-                                $0.baseAddress?.initialize(from: source, count: count)
-                                """
-                            }
-                            """
-                            $1 = count 
-                            """
-                        }
-                    }
-                    """
-                    static 
-                    func convert(array swift:[\(type)]) -> RawArrayReference
-                    """
-                    Source.block 
-                    {
-                        """
-                        var array:godot_\(array) = .init(with: Godot.api.1.0.godot_\(array)_new)
-                        Godot.api.1.0.godot_\(array)_resize(&array, .init(swift.count))
-                        
-                        guard let lock:UnsafeMutablePointer<godot_\(array)_write_access> = 
-                            Godot.api.1.0.godot_\(array)_write(&array)
-                        else 
-                        {
-                            fatalError("received nil pointer from `godot_\(array)_write(_:)`")
-                        }
-                        defer 
-                        {
-                            Godot.api.1.0.godot_\(array)_write_access_destroy(lock)
-                        }
-                        
-                        guard let destination:UnsafeMutablePointer<\(godot ?? "Self")> = 
-                            Godot.api.1.0.godot_\(array)_write_access_ptr(lock)
-                        else 
-                        {
-                            fatalError("received nil pointer from `godot_\(array)_write_access_ptr(_:)`")
-                        }
-                        """
-                        if let _:String = godot
-                        {
-                            "for (i, element):(Int, \(type)) in swift.enumerated()"
-                            Source.block
-                            {
-                                if swift == "String" 
-                                {
-                                    "destination[i].deinit() // is this needed?"
-                                }
-                                "destination[i] = .init(packing: element)"
-                            }
-                        }
-                        else 
-                        {
-                            """
-                            swift.withUnsafeBufferPointer 
-                            {
-                                guard let base:UnsafePointer<Self> = $0.baseAddress
-                                else 
-                                {
-                                    return 
-                                }
-                                destination.initialize(from: base, count: swift.count)
-                            }
-                            """
-                        }
-                        """
-                        return array
-                        """
-                    }
-                }
-            }
-            
-            // vector conformances 
-            """
-            // huge amount of meaningless boilerplate needed to make numeric conversions work, 
-            // since swift does not support generic associated types.
-            extension Godot 
-            {
-                typealias VectorElement     = _GodotVectorElement
-                typealias VectorStorage     = _GodotVectorStorage
-                
-                typealias RectangleElement  = _GodotRectangleElement
-                typealias RectangleStorage  = _GodotRectangleStorage
-            }
-            protocol _GodotVectorElement:SIMDScalar 
-            """
-            Source.block 
-            {
-                for n:Int in 2 ... 4 
-                {
-                    "associatedtype Vector\(n)Aggregate:Godot.RawAggregate"
-                }
-                for n:Int in 2 ... 4 
-                {
-                    """
-                    static 
-                    func generalize(_ specific:Vector\(n)Aggregate.Unpacked) -> Vector\(n)<Self> 
-                    """
-                }
-                for n:Int in 2 ... 4 
-                {
-                    """
-                    static 
-                    func specialize(_ general:Vector\(n)<Self>) -> Vector\(n)Aggregate.Unpacked 
-                    """
-                }
-            }
-            """
-            protocol _GodotRectangleElement:Godot.VectorElement 
-            """
-            Source.block 
-            {
-                for n:Int in 2 ... 3 
-                {
-                    """
-                    associatedtype Rectangle\(n)Aggregate:Godot.RawAggregate
-                        where   Rectangle\(n)Aggregate.Unpacked:VectorFiniteRangeExpression, 
-                                Rectangle\(n)Aggregate.Unpacked.Bound == Vector\(n)Aggregate.Unpacked
-                    """
-                }
-            }
-            """
-            protocol _GodotVectorStorage:SIMD where Scalar:SIMDScalar 
-            {
-                associatedtype VectorAggregate:Godot.RawAggregate
-                
-                static 
-                func generalize(_ specific:VectorAggregate.Unpacked) -> Vector<Self, Scalar> 
-                static 
-                func specialize(_ general:Vector<Self, Scalar>) -> VectorAggregate.Unpacked 
-            }
-            protocol _GodotRectangleStorage:Godot.VectorStorage 
-            {
-                associatedtype RectangleAggregate:Godot.RawAggregate
-                    where   RectangleAggregate.Unpacked:VectorFiniteRangeExpression, 
-                            RectangleAggregate.Unpacked.Bound == VectorAggregate.Unpacked
-            }
-            
-            // need to work around type system limitations
-            extension BinaryFloatingPoint where Self:SIMDScalar
-            """
-            Source.block 
-            {
-                """
-                typealias Vector2Aggregate = godot_vector2
-                typealias Vector3Aggregate = godot_vector3
-                typealias Vector4Aggregate = godot_color
-                
-                typealias Rectangle2Aggregate = godot_rect2
-                typealias Rectangle3Aggregate = godot_aabb
-                
-                """
-                for n:Int in 2 ... 4 
-                {
-                    """
-                    static 
-                    func generalize(_ specific:Vector\(n)<Float32>) -> Vector\(n)<Self> 
-                    {
-                        .init(specific)
-                    }
-                    """
-                }
-                for n:Int in 2 ... 4 
-                {
-                    """
-                    static 
-                    func specialize(_ general:Vector\(n)<Self>) -> Vector\(n)<Float32> 
-                    {
-                        .init(general)
-                    }
-                    """
-                }
-            }
-            for n:Int in 2 ... 4 
-            {
-                """
-                extension SIMD\(n):Godot.VectorStorage where Scalar:Godot.VectorElement
-                {
-                    typealias VectorAggregate = Scalar.Vector\(n)Aggregate
-                    static 
-                    func generalize(_ specific:VectorAggregate.Unpacked) -> Vector\(n)<Scalar> 
-                    {
-                        Scalar.generalize(specific)
-                    }
-                    static 
-                    func specialize(_ general:Vector\(n)<Scalar>) -> VectorAggregate.Unpacked
-                    {
-                        Scalar.specialize(general)
-                    }
-                }
-                """
-            }
-            for n:Int in 2 ... 3 
-            {
-                """
-                extension SIMD\(n):Godot.RectangleStorage where Scalar:Godot.RectangleElement
-                {
-                    typealias RectangleAggregate = Scalar.Rectangle\(n)Aggregate
-                }
-                """
-            }
-            for type:String in ["Float16", "Float32", "Float64"] 
-            {
-                "extension \(type):Godot.VectorElement, Godot.RectangleElement {}"
-            }
         }
         
         Source.section(name: "passable.swift.part")
@@ -2186,34 +1862,6 @@ extension Godot
         let _:String = Source.section(name: "entrapta.swift")
         {
             """
-            /// plugin GodotNativeScript 
-            ///     Swift language support for the Godot game engine. 
-            /// 
-            ///     Do not actually import `GodotNativeScript` in your project. All 
-            ///     code generated by this plugin is emitted inline into your  
-            ///     Swift module.
-            /// #   [Namespaces](godot-namespaces)
-            /// #   [Math types](math-types)
-            /// #   [Math protocols](math-protocols)
-            
-            /// import Numerics 
-            ///     The [*Swift Numerics*](https://github.com/apple/swift-numerics)
-            ///     module.
-            
-            /// import protocol Numerics.Real
-            ///     The [*Swift Numerics*](https://github.com/apple/swift-numerics) 
-            ///     [`Real`](https://github.com/apple/swift-numerics/blob/main/Sources/RealModule/README.md)
-            ///     protocol.
-            
-            /// enum Godot 
-            ///     A namespace for Godot-related functionality.
-            /// #   [Namespaces](godot-namespaces)
-            /// #   [Working with variants](godot-variant-usage, godot-variant-protocols)
-            /// #   [Engine types](godot-core-types)
-            /// #   [Engine protocols](godot-core-protocols)
-            /// #   [Working with signals](godot-signal-usage)
-            /// #   (godot-namespaces)
-            
             /// enum Godot.Unmanaged 
             ///     A namespace for Godot types that are not memory-managed by the 
             ///     Godot engine.
@@ -2222,100 +1870,6 @@ extension Godot
             /// enum Godot.Singleton 
             ///     A namespace for Godot singleton classes.
             /// #   (godot-namespaces)
-            
-            /// protocol Godot.ArrayElement 
-            ///     A type that can be used as an [`Godot.Array.Element`] type.
-            /// 
-            ///     Do not conform custom types to this protocol.
-            /// #   (godot-core-protocols)
-            
-            /// protocol Godot.Signal 
-            ///     A type specifying the name and format of a Godot signal.
-            /// #   (0:godot-signal-usage)
-            
-            /// associatedtype Godot.Signal.Value 
-            /// required 
-            ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
-            
-            /// static var Godot.Signal.name:Swift.String { get }
-            /// required 
-            ///     The name of this signal type, as seen by Godot.
-            
-            /// static var Godot.Signal.interface:Interface { get }
-            /// required 
-            ///     The interface of this signal type, specifying how signal fields 
-            ///     are read from an instance of [[`Value`]]. 
-            
-            /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
-            
-            /// struct Godot.SignalInterface<T> 
-            /// @   resultBuilder 
-            ///     A descriptor specifying how signal fields are read from an 
-            ///     instance of [[`T`]].
-            /// #   (1:godot-signal-usage)
-            
-            /// protocol Godot.VariantRepresentable 
-            ///     A type that can be represented by a GDScript variant value.
-            /// #   (1:godot-variant-protocols)
-            
-            /// protocol Godot.Variant
-            /// :   Godot.VariantRepresentable 
-            ///     A type-erased GDScript variant.
-            /// 
-            ///     Do not conform custom types to this protocol; conform custom
-            ///     types to [`Godot.VariantRepresentable`] instead.
-            /// #   (0:godot-variant-protocols)
-            
-            /// struct Godot.VariantType
-            /// :   Swift.Hashable 
-            ///     The [`Godot::Variant::Type`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-type) enumeration.
-            /// #   (10:godot-variant-usage)
-            
-            /// struct Godot.VariantOperator
-            /// :   Swift.Hashable 
-            ///     The [`Godot::Variant::Operator`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#enum-globalscope-variant-operator) enumeration.
-            /// #   (10:godot-variant-usage)
-            
-            /// class Godot.Array<Element>
-            /// :   Godot.Variant 
-            /// where Element:Godot.ArrayElement
-            /// final 
-            ///     One of the Godot pooled array types.
-            """
-            for (godot, element):(String, String) in 
-            [
-                ("String",  "Swift.String"),
-                ("Byte",    "Swift.UInt8"),
-                ("Int",     "Swift.Int32"),
-                ("Real",    "Swift.Float32"),
-                ("Vector2", "Vector2<Swift.Float32>"),
-                ("Vector3", "Vector3<Swift.Float32>"),
-                ("Color",   "Vector4<Swift.Float32>"),
-            ]
-            {
-                """
-                /// 
-                ///     If [`Element`] is [[`\(element)`]], this type corresponds to the 
-                ///     [`Godot::Pool\(godot)Array`](https://docs.godotengine.org/en/stable/classes/class_pool\(godot.lowercased())array.html) type.
-                """
-            }
-            """
-            /// #   (11:godot-core-types)
-            
-            /// extension Bool
-            /// :   Godot.Variant
-            /// #   (0:godot-core-types)
-            /// #   (0:)
-            
-            /// extension Int64
-            /// :   Godot.Variant
-            /// #   (1:godot-core-types)
-            /// #   (1:)
-            
-            /// extension Float64
-            /// :   Godot.Variant
-            /// #   (2:godot-core-types)
-            /// #   (2:)
             
             /// class Godot.String
             /// :   Godot.Variant 

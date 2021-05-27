@@ -5,36 +5,242 @@ import TSCBasic
 
 extension Main.Synthesizer 
 {
-    enum Inspector 
+    enum Error:Swift.Error 
     {
-        enum Error:Swift.Error 
-        {
-            case subBuildFailed
-            case couldNotOpenSubBuildProduct(String)
-            case missingSubBuildProductSymbol(String)
-            case invalidSubBuildInterfaceFormat(Any.Type, expected:Any.Type)
-        }
-        
-        static 
-        let entrypoint:String = "__inspector_entrypoint_loader__"
-        
-        typealias Interface = 
+        case subBuildFailed
+        case couldNotOpenSubBuildProduct(String)
+        case missingSubBuildProductSymbol(String)
+        case invalidSubBuildInterfaceFormat(Any.Type, expected:Any.Type)
+    }
+    
+    struct Interface:Codable  
+    {
+        typealias Tuple = 
         (
-            // `type.symbols` used for `library.json`
-            type:(name:String, symbols:[String]), 
+            // `classes` used for `library.json`
+            type:String, 
+            classes:[String], 
             properties:Int,
             methods:[String],
             signals:[String]
         )
+        
+        let type:String 
+        let classes:[String]
+        let properties:Int 
+        let methods:[String]
+        let signals:[String]
+        
+        init(_ tuple:Tuple)
+        {
+            self.type       = tuple.type 
+            self.classes    = tuple.classes 
+            self.properties = tuple.properties 
+            self.methods    = tuple.methods 
+            self.signals    = tuple.signals
+        }
+        
+        static 
+        let entrypoint:String = "__inspector_entrypoint_loader__"
+    }
+}
+
+#if !BUILD_STAGE_INERT 
+
+import Workspace
+
+extension Main.Synthesizer.Interface:CustomStringConvertible 
+{
+    var description:String 
+    {
+        """
+        \(self.type) <- (\(self.classes.map{ "Godot::\($0)" }.joined(separator: ", ")))
+        {
+            (\(self.properties) \(self.properties       == 1 ? "property" : "properties"))
+            (\(self.methods.count) \(self.methods.count == 1 ? "method" : "methods"))
+            (\(self.signals.count) \(self.signals.count == 1 ? "signal" : "signals"))
+        }
+        """
+    }
+}
+extension Main.Synthesizer.Interface 
+{
+    private final 
+    class OutputBuffer 
+    {
+        private 
+        var buffered:String 
+        
+        init()
+        {
+            self.buffered = ""
+        }
+        
+        func push(utf8:[UInt8]) 
+        {
+            let lines:[Substring] = "\(self.buffered)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+                .split(separator: "\n", omittingEmptySubsequences: false)
+            guard let last:Substring = lines.last 
+            else 
+            {
+                return 
+            }
+            self.buffered = .init(last)
+            for line:Substring in lines.dropLast()
+            {
+                print("(sub-build)".bolded, line)
+            }
+        }
+        
+        func flush()
+        {
+            guard !self.buffered.isEmpty 
+            else 
+            {
+                return 
+            }
+            
+            print("(sub-build)".bolded, self.buffered)
+            
+            self.buffered = ""
+        }
     }
     
+    static 
+    func load(inspecting dependency:(package:String, product:String, path:AbsolutePath), 
+        workspace:AbsolutePath, toolchain:AbsolutePath) 
+        throws -> [Self]
+    {
+        let triple:Triple = .getHostTriple(usingSwiftCompiler: toolchain)
+        
+        var configuration:String { "debug" }
+        let path:(cache:AbsolutePath, build:AbsolutePath, product:AbsolutePath)
+        path.cache      = workspace.appending(component: ".cache")
+        path.build      = workspace.appending(component: ".build")
+        path.product    = path.build.appending(component: configuration).appending(
+            component: "\(triple.dynamicLibraryPrefix)\(dependency.product)\(triple.dynamicLibraryExtension)")
+        
+        let arguments:[String] = 
+        [
+            "swift", "build", "--product", dependency.product, 
+            "-c", configuration, 
+            "--package-path",   "\(dependency.path)", 
+            "--cache-path",     "\(path.cache)", 
+            "--build-path",     "\(path.build)", 
+            "--disable-repository-cache",
+            "-Xswiftc", "-DBUILD_STAGE_INERT"
+        ]
+        
+        print(bold: "starting sub-build with invocation:")
+        print(arguments.joined(separator: " "))
+        
+        let output:OutputBuffer = .init()
+        
+        let process:Process = .init(arguments: arguments, environment: ProcessEnv.vars, 
+            outputRedirection: .stream
+            {
+                output.push(utf8: $0)
+            }
+            stderr: 
+            {
+                output.push(utf8: $0)
+            })
+        try process.launch()
+        let result:ProcessResult = try process.waitUntilExit()
+        
+        output.flush()
+        
+        guard case .terminated(code: 0) = result.exitStatus
+        else 
+        {
+            throw Main.Synthesizer.Error.subBuildFailed
+        }
+        
+        guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
+        else 
+        {
+            throw Main.Synthesizer.Error.couldNotOpenSubBuildProduct("\(path.product)")
+        } 
+        
+        guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
+            dlsym(library, symbol: Self.entrypoint) 
+        else 
+        {
+            throw Main.Synthesizer.Error.missingSubBuildProductSymbol(Self.entrypoint)
+        }
+        
+        print(bold: "inspecting sub-build product '\(path.product.basename)'")
+        print(note: "in directory '\(path.product.parentDirectory)'")
+        print(note: "through entrypoint '\(Self.entrypoint)'")
+        
+        let description:AnyObject   = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
+        guard let interfaces:[Self] = (description as? [Tuple])?.map(Self.init(_:))
+        else 
+        {
+            throw Main.Synthesizer.Error.invalidSubBuildInterfaceFormat(Swift.type(of: description), 
+                expected: [Tuple].self)
+        }
+        
+        // dlclose seems to be broken, so we leak the dynamic library, just as 
+        // the swift official tools do: 
+        // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
+        library.leak()
+        
+        return interfaces
+    }
+    
+    static 
+    func load(from path:AbsolutePath) -> [Self]? 
+    {
+        guard let string:String = try? 
+            TSCBasic.localFileSystem.readFileContents(path).description
+        else 
+        {
+            print(note: "no cached nativescript interface list available")
+            print(note: "at '\(path)'")
+            return nil 
+        }
+        guard   let json:JSON       =      .init(parsing: string), 
+                let interfaces:[Self] = try? .init(from: JSON.Decoder.init(json: json))
+        else 
+        {
+            print(warning:  "could not parse cached nativescript interface list")
+            print(note:     "from '\(path)'")
+            return nil 
+        }
+        
+        print("found \(interfaces.count) cached nativescript interface(s):")
+        for (i, interface):(Int, Self) in interfaces.enumerated()
+        {
+            print("[\(i)]: \(interface)")
+        }
+        return interfaces
+    }
+}
+#endif 
+
+extension Main.Synthesizer 
+{
     func run() throws
     {
-        // locate toolchain. this gives the `swiftc` tool, not the `swift` tool!
-        let toolchain:AbsolutePath = Self.toolchain()
     #if BUILD_STAGE_INERT 
         self.synthesize()
     #else  
+        // locate toolchain. this gives the `swiftc` tool, not the `swift` tool!
+        let toolchain:AbsolutePath = Self.toolchain()
+        
+        // load plugin settings 
+        let settings:Settings = .load(from: 
+            self.packagePath.appending(components: ".godot-swift", "settings.json"))
+        
+        if !settings.updateInterface, let interfaces:[Interface] = Interface.load(from: 
+            self.workspace.appending(component: "interfaces.json"))
+        {
+            // don’t perform a sub-build
+            self.synthesize(interfaces: interfaces)
+            return 
+        }
+        
         print(bold: "starting two-stage build...")
         // get basic information about the package 
         let dependency:(package:String, product:String, path:AbsolutePath) = 
@@ -42,8 +248,35 @@ extension Main.Synthesizer
         
         do 
         {
-            let interfaces:[Inspector.Interface] = try Inspector.inspect(workspace: self.workspace, 
-                toolchain: toolchain, dependency: dependency)
+            let interfaces:[Interface] = try Interface.load(inspecting: dependency, 
+                workspace: self.workspace, toolchain: toolchain)
+                
+            print("found \(interfaces.count) nativescript interface(s):")
+            for (i, interface):(Int, Interface) in interfaces.enumerated()
+            {
+                print("[\(i)]: \(interface)")
+            }
+            
+            // save interface.json 
+            Source.generate(file: self.workspace.appending(component: "interfaces.json")) 
+            {
+                """
+                [
+                \(interfaces.map 
+                {
+                    """
+                        {
+                            "type"      : "\($0.type)", 
+                            "classes"   : \($0.classes),
+                            "properties": \($0.properties), 
+                            "methods"   : \($0.methods), 
+                            "signals"   : \($0.signals)
+                        }
+                    """
+                }.joined(separator: ",\n"))
+                ]
+                """
+            }
                 
             self.synthesize(interfaces: interfaces)
             
@@ -53,27 +286,27 @@ extension Main.Synthesizer
                 """
                 {
                     "product": "\(dependency.product)", 
-                    "symbols": \(interfaces.flatMap(\.type.symbols))
+                    "symbols": \(interfaces.flatMap(\.classes))
                 }
                 """
             }
         }
-        catch Inspector.Error.subBuildFailed 
+        catch Error.subBuildFailed 
         {
             print(error: "sub-build failed")
             throw ExitCode.failure
         }
-        catch Inspector.Error.couldNotOpenSubBuildProduct(let product) 
+        catch Error.couldNotOpenSubBuildProduct(let product) 
         {
             print(error: "could not open sub-build dynamic library product '\(product)'")
             throw ExitCode.failure
         }
-        catch Inspector.Error.missingSubBuildProductSymbol(let symbol) 
+        catch Error.missingSubBuildProductSymbol(let symbol) 
         {
             print(error: "could not find sub-build dynamic library symbol '\(symbol)'")
             throw ExitCode.failure
         }
-        catch Inspector.Error.invalidSubBuildInterfaceFormat(let type, expected: let expected) 
+        catch Error.invalidSubBuildInterfaceFormat(let type, expected: let expected) 
         {
             print(error: "inspector interface description type (\(type)) does not match expected type \(expected)")
             throw ExitCode.failure
@@ -211,15 +444,16 @@ extension Main.Synthesizer
                 }
             }
             
-            @_cdecl("\(Inspector.entrypoint)") 
+            @_cdecl("\(Interface.entrypoint)") 
             public 
-            func \(Inspector.entrypoint)() -> UnsafeMutableRawPointer
+            func \(Interface.entrypoint)() -> UnsafeMutableRawPointer
             {
-                let interfaces:[\(Inspector.Interface.self)] = 
+                let interfaces:[\(Interface.Tuple.self)] = 
                     Godot.Library.interface.types.map 
                 {
                     (
-                        type:       (.init(reflecting: $0.type), $0.symbols), 
+                        type:       .init(reflecting: $0.type), 
+                        classes:    $0.symbols, 
                         properties: $0.type.__properties__,
                         methods:    $0.type.__methods__,
                         signals:    $0.type.__signals__
@@ -235,8 +469,6 @@ extension Main.Synthesizer
 }
 
 #else 
-
-import Workspace
 
 extension Main.Synthesizer 
 {    
@@ -354,14 +586,14 @@ extension Main.Synthesizer
         case tuple([Self])
         case scalar(type:String) 
         
-        init(_ type:SwiftGrammar.SwiftType, prefix:String, start:Int = 0, 
-            diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType, component:String)>) 
+        init(_ type:Grammar.SwiftType, prefix:String, start:Int = 0, 
+            diagnostics:Diagnostics.Delegate<(typename:String, signature:Grammar.SwiftType, component:String)>) 
         {
             var counter:Int = start 
             self.init(type, prefix: prefix, counter: &counter, diagnostics: diagnostics)
         }
-        init(_ type:SwiftGrammar.SwiftType, prefix:String, counter:inout Int, 
-                diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType, component:String)>) 
+        init(_ type:Grammar.SwiftType, prefix:String, counter:inout Int, 
+                diagnostics:Diagnostics.Delegate<(typename:String, signature:Grammar.SwiftType, component:String)>) 
         {
             switch type 
             {
@@ -374,7 +606,7 @@ extension Main.Synthesizer
                 }
                 
                 var elements:[Self] = []
-                for type:SwiftGrammar.SwiftType in types.map(\.type)  
+                for type:Grammar.SwiftType in types.map(\.type)  
                 {
                     elements.append(Self.init(type, prefix: prefix, counter: &counter, 
                         diagnostics: diagnostics))
@@ -495,13 +727,13 @@ extension Main.Synthesizer
         
         // `exclude` specifies a leading (unparameterized) type to append to 
         //  the parameters tuple
-        init(function:SwiftGrammar.FunctionType, exclude:String, 
+        init(function:Grammar.FunctionType, exclude:String, 
             prefix:(domain:String, range:String), 
-            diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType)>)   
+            diagnostics:Diagnostics.Delegate<(typename:String, signature:Grammar.SwiftType)>)   
         {
             var domain:[Form.Parameter] = [], 
                 counter:Int             = 0
-            for (i, parameter):(Int, SwiftGrammar.FunctionParameter) in 
+            for (i, parameter):(Int, Grammar.FunctionParameter) in 
                 function.parameters.enumerated().dropFirst()
             {
                 diagnostics.with(context: 
@@ -879,18 +1111,18 @@ extension Main.Synthesizer.FunctionParameterization
 }
 extension Main.Synthesizer 
 {
-    func synthesize(interfaces:[Inspector.Interface])
+    func synthesize(interfaces:[Interface])
     {
         let diagnostics:Diagnostics = .init()
         // diagnose repeated signal types within the same nativescript 
-        for interface:Inspector.Interface in interfaces 
+        for interface:Interface in interfaces 
         {
             let multiplicity:[String: [String]] = .init(grouping: interface.signals){ $0 }
             for (signal, count):(String, Int) in multiplicity.mapValues(\.count) 
             {
                 if count != 1 
                 {
-                    diagnostics.with(context: (typename: interface.type.name, signal: signal))
+                    diagnostics.with(context: (typename: interface.type, signal: signal))
                     {
                         $0.error 
                         {
@@ -910,22 +1142,22 @@ extension Main.Synthesizer
         let parameterizations:Set<FunctionParameterization> = 
             .init(interfaces.flatMap
         {
-            (interface:Inspector.Interface) -> [FunctionParameterization] in 
+            (interface:Interface) -> [FunctionParameterization] in 
             
             interface.methods.compactMap  
             {
                 (signature:String) in 
                 
-                guard let type:SwiftGrammar.SwiftType = .init(parsing: signature)
+                guard let type:Grammar.SwiftType = .init(parsing: signature)
                 else 
                 {
                     print("error: failed to parse signature '\(signature)'")
                     return nil 
                 }
                 
-                return diagnostics.with(context: (typename: interface.type.name, signature: type))
+                return diagnostics.with(context: (typename: interface.type, signature: type))
                 {
-                    (diagnostics:Diagnostics.Delegate<(typename:String, signature:SwiftGrammar.SwiftType)>) 
+                    (diagnostics:Diagnostics.Delegate<(typename:String, signature:Grammar.SwiftType)>) 
                         -> FunctionParameterization? in 
                     
                     guard case .function(let function) = type 
@@ -1003,9 +1235,9 @@ extension Main.Synthesizer
                 parameterization.generateBindingOperatorOverload()
             }
             let _ = print("synthesizing Godot.NativeScript conformances (\(interfaces.count) types)")
-            for (i, interface):(Int, Inspector.Interface) in interfaces.enumerated() 
+            for (i, interface):(Int, Interface) in interfaces.enumerated() 
             {
-                let type:String = interface.type.name 
+                let type:String = interface.type 
                 
                 let _ = print("[\(i)]: \(type)")
                 // if `instance` is a class, this will simply produce the class instance pointer. 
@@ -1172,23 +1404,23 @@ extension Main.Synthesizer
 }
 
 // diagnostic helpers 
-extension SwiftGrammar.SwiftType 
+extension Grammar.SwiftType 
 {
     func match(vector arity:Int) -> String? 
     {
-        if  case .named(let identifiers)                = self,
-            let head:SwiftGrammar.TypeIdentifier        = identifiers.first, 
+        if  case .named(let identifiers)            = self,
+            let head:Grammar.TypeIdentifier         = identifiers.first, 
             identifiers.dropFirst().isEmpty, 
             head.identifier == "Vector", 
-            let storage:SwiftGrammar.SwiftType          = head.generics.first, 
-            let _:SwiftGrammar.SwiftType                = head.generics.dropFirst().first, 
+            let storage:Grammar.SwiftType           = head.generics.first, 
+            let _:Grammar.SwiftType                 = head.generics.dropFirst().first, 
             head.generics.dropFirst(2).isEmpty, 
             
-            case .named(let storageIdentifiers)         = storage, 
-            let storageHead:SwiftGrammar.TypeIdentifier = storageIdentifiers.first, 
+            case .named(let storageIdentifiers)     = storage, 
+            let storageHead:Grammar.TypeIdentifier  = storageIdentifiers.first, 
             storageIdentifiers.dropFirst().isEmpty, 
             storageHead.identifier == "SIMD\(arity)", 
-            let scalar:SwiftGrammar.SwiftType           = storageHead.generics.first, 
+            let scalar:Grammar.SwiftType            = storageHead.generics.first, 
             storageHead.generics.dropFirst().isEmpty 
         {
             return "\(scalar)" 
@@ -1197,147 +1429,6 @@ extension SwiftGrammar.SwiftType
         {
             return nil 
         }
-    }
-}
-
-extension Main.Synthesizer.Inspector 
-{
-    private final 
-    class OutputBuffer 
-    {
-        private 
-        var buffered:String 
-        
-        init()
-        {
-            self.buffered = ""
-        }
-        
-        func push(utf8:[UInt8]) 
-        {
-            let lines:[Substring] = "\(self.buffered)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
-                .split(separator: "\n", omittingEmptySubsequences: false)
-            guard let last:Substring = lines.last 
-            else 
-            {
-                return 
-            }
-            self.buffered = .init(last)
-            for line:Substring in lines.dropLast()
-            {
-                print("(sub-build)".bolded, line)
-            }
-        }
-        
-        func flush()
-        {
-            guard !self.buffered.isEmpty 
-            else 
-            {
-                return 
-            }
-            
-            print("(sub-build)".bolded, self.buffered)
-            
-            self.buffered = ""
-        }
-    }
-    
-    static 
-    func inspect(workspace:AbsolutePath, toolchain:AbsolutePath, 
-        dependency:(package:String, product:String, path:AbsolutePath)) throws
-        -> [Interface]
-    {
-        let triple:Triple = .getHostTriple(usingSwiftCompiler: toolchain)
-        
-        var configuration:String { "debug" }
-        let path:(cache:AbsolutePath, build:AbsolutePath, product:AbsolutePath)
-        path.cache      = workspace.appending(component: ".cache")
-        path.build      = workspace.appending(component: ".build")
-        path.product    = path.build.appending(component: configuration).appending(
-            component: "\(triple.dynamicLibraryPrefix)\(dependency.product)\(triple.dynamicLibraryExtension)")
-        
-        let arguments:[String] = 
-        [
-            "swift", "build", "--product", dependency.product, 
-            "-c", configuration, 
-            "--package-path",   "\(dependency.path)", 
-            "--cache-path",     "\(path.cache)", 
-            "--build-path",     "\(path.build)", 
-            "--disable-repository-cache",
-            "-Xswiftc", "-DBUILD_STAGE_INERT"
-        ]
-        
-        print(bold: "starting sub-build with invocation:")
-        print(arguments.joined(separator: " "))
-        
-        let output:OutputBuffer = .init()
-        
-        let process:Process = .init(arguments: arguments, environment: ProcessEnv.vars, 
-            outputRedirection: .stream
-            {
-                output.push(utf8: $0)
-            }
-            stderr: 
-            {
-                output.push(utf8: $0)
-            })
-        try process.launch()
-        let result:ProcessResult = try process.waitUntilExit()
-        
-        output.flush()
-        
-        guard case .terminated(code: 0) = result.exitStatus
-        else 
-        {
-            throw Error.subBuildFailed
-        }
-        
-        guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
-        else 
-        {
-            throw Error.couldNotOpenSubBuildProduct("\(path.product)")
-        } 
-        
-        guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
-            dlsym(library, symbol: Self.entrypoint) 
-        else 
-        {
-            throw Error.missingSubBuildProductSymbol(Self.entrypoint)
-        }
-        
-        print(bold: "inspecting sub-build product '\(path.product.basename)'")
-        print(note: "in directory '\(path.product.parentDirectory)'")
-        print(note: "through entrypoint '\(Self.entrypoint)'")
-        
-        let description:AnyObject = Unmanaged<AnyObject>.fromOpaque(entrypoint()).takeRetainedValue() 
-        guard let interfaces:[Interface] = description as? [Interface]
-        else 
-        {
-            throw Error.invalidSubBuildInterfaceFormat(type(of: description), expected: [Interface].self)
-        }
-        
-        // dlclose seems to be broken, so we leak the dynamic library, just as 
-        // the swift official tools do: 
-        // https://github.com/apple/swift-tools-support-core/blob/main/Sources/TSCUtility/IndexStore.swift#L264
-        library.leak()
-        
-        print("found \(interfaces.count) nativescript interface(s):")
-        for (i, interface):(Int, Interface) in interfaces.enumerated()
-        {
-            print(
-                """
-                [\(i)]: \(interface.type.name) <- \
-                (\(interface.type.symbols.map{ "Godot::\($0)" }.joined(separator: ", ")))
-                {
-                    (\(interface.properties) \(interface.properties       == 1 ? "property" : "properties"))
-                    (\(interface.methods.count) \(interface.methods.count == 1 ? "method" : "methods"))
-                    (\(interface.signals.count) \(interface.signals.count == 1 ? "signal" : "signals"))
-                }
-                """)
-        }
-        
-        return interfaces
     }
 }
 

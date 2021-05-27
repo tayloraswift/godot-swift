@@ -694,6 +694,11 @@ extension Godot
     typealias AnySignal = _GodotAnySignal
     typealias Signal    = _GodotSignal
     
+    /// struct Godot.SignalInterface<T> 
+    /// @   resultBuilder 
+    ///     A descriptor specifying how signal fields are read from an 
+    ///     instance of [[`T`]].
+    /// #   (1:godot-signal-usage)
     @resultBuilder
     struct SignalInterface<T> 
     {        
@@ -713,18 +718,33 @@ protocol _GodotAnySignal
     {
         get
     } 
+    
+    /// static var Godot.Signal.name:Swift.String { get }
+    /// required 
+    ///     The name of this signal type, as seen by Godot.
     static 
     var name:Swift.String
     {
         get
     } 
 }
+/// protocol Godot.Signal 
+///     A type specifying the name and format of a Godot signal.
+/// #   (0:godot-signal-usage)
 protocol _GodotSignal:Godot.AnySignal  
 {
+    /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
     typealias Interface = Godot.SignalInterface<Value>
     
+    /// associatedtype Godot.Signal.Value 
+    /// required 
+    ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
     associatedtype Value 
     
+    /// static var Godot.Signal.interface:Interface { get }
+    /// required 
+    ///     The interface of this signal type, specifying how signal fields 
+    ///     are read from an instance of [[`Value`]]. 
     static 
     var interface:Interface
     {

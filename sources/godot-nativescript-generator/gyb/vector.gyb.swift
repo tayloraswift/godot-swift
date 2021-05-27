@@ -200,6 +200,15 @@ enum Vector
         let numeric:[String] = ["FixedWidthInteger", "BinaryFloatingPoint"]
         
         """
+        /// import Numerics 
+        ///     The [*Swift Numerics*](https://github.com/apple/swift-numerics)
+        ///     module.
+
+        /// import protocol Numerics.Real
+        ///     The [*Swift Numerics*](https://github.com/apple/swift-numerics) 
+        ///     [`Real`](https://github.com/apple/swift-numerics/blob/main/Sources/RealModule/README.md)
+        ///     protocol.
+        
         import protocol Numerics.Real
         
         /// operator .. : RangeFormationPrecedence 
@@ -258,6 +267,7 @@ enum Vector
         /// struct Vector<Storage, T> 
         /// :   Hashable 
         /// :   CustomStringConvertible 
+        /// :   Godot.ArrayElement where Storage:Godot.ArrayElementStorage 
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
         /// #   [Vector types](vector-fixed-length-specializations)

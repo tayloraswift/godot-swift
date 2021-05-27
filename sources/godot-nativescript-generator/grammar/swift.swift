@@ -1,4 +1,4 @@
-enum SwiftGrammar
+extension Grammar
 {
     static 
     func isIdentifierHead(_ scalar:Unicode.Scalar) -> Bool 
@@ -120,13 +120,13 @@ enum SwiftGrammar
     }
 }
 
-extension SwiftGrammar.Token 
+extension Grammar.Token 
 {
-    struct Wildcard:Grammar.Parseable.CharacterClass
+    struct Wildcard:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
-        init?(character:Character)
+        init?(_ character:Character)
         {
             if character.isNewline 
             {
@@ -135,11 +135,11 @@ extension SwiftGrammar.Token
             self.character = character
         }
     } 
-    struct Alphanumeric:Grammar.Parseable.CharacterClass
+    struct Alphanumeric:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
-        init?(character:Character)
+        init?(_ character:Character)
         {
             guard character.isLetter || character.isNumber || character == "-" 
             else 
@@ -149,31 +149,11 @@ extension SwiftGrammar.Token
             self.character = character
         }
     } 
-    struct BalancedContent:Grammar.Parseable.CharacterClass
+    struct ASCIIDigit:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
-        init?(character:Character)
-        {
-            guard  !character.isNewline,
-                    character != "(", 
-                    character != ")",
-                    character != "[",
-                    character != "]",
-                    character != "{",
-                    character != "}"
-            else 
-            {
-                return nil 
-            }
-            self.character = character
-        }
-    } 
-    struct ASCIIDigit:Grammar.Parseable.CharacterClass
-    {
-        let character:Character 
-        
-        init?(character:Character)
+        init?(_ character:Character)
         {
             guard character.isWholeNumber, character.isASCII
             else 
@@ -183,11 +163,11 @@ extension SwiftGrammar.Token
             self.character = character
         }
     } 
-    struct Darkspace:Grammar.Parseable.CharacterClass
+    struct Darkspace:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
-        init?(character:Character)
+        init?(_ character:Character)
         {
             if character.isWhitespace
             {
@@ -196,9 +176,9 @@ extension SwiftGrammar.Token
             self.character = character
         }
     } 
-    struct Newline:Grammar.Parseable.CharacterClass
+    struct Newline:Grammar.Parsable.CharacterClass
     {
-        init?(character:Character)
+        init?(_ character:Character)
         {
             guard character.isNewline
             else 
@@ -208,9 +188,9 @@ extension SwiftGrammar.Token
         }
     }
     // does not include newlines 
-    struct Space:Grammar.Parseable.CharacterClass
+    struct Space:Grammar.Parsable.CharacterClass
     {
-        init?(character:Character)
+        init?(_ character:Character)
         {
             guard character.isWhitespace, !character.isNewline
             else 
@@ -221,12 +201,12 @@ extension SwiftGrammar.Token
     }
     enum Parenthesis 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "("
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = ")"
@@ -234,12 +214,12 @@ extension SwiftGrammar.Token
     }
     enum Bracket 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "["
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "]"
@@ -247,12 +227,12 @@ extension SwiftGrammar.Token
     }
     enum Brace 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "{"
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "}"
@@ -260,115 +240,245 @@ extension SwiftGrammar.Token
     }
     enum Angle 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "<"
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = ">"
         }
     }
-    struct Question:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "?"
-    }
-    struct Comma:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = ","
-    }
-    struct Period:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "."
-    }
-    struct Colon:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = ":"
-    } 
-    struct Equals:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "="
-    } 
-    struct At:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "@"
-    } 
-    struct Ampersand:Grammar.Parseable.Terminal
+    struct Ampersand:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "&"
     } 
-    struct Hyphen:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "-"
-    } 
-    struct Hashtag:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "#"
-    } 
-    struct EqualsEquals:Grammar.Parseable.Terminal
-    {
-        static 
-        let token:String = "=="
-    } 
-    struct Arrow:Grammar.Parseable.Terminal
+    struct Arrow:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "->"
     } 
-    struct Ellipsis:Grammar.Parseable.Terminal
+    struct At:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "@"
+    } 
+    struct Backslash:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "\\"
+    } 
+    struct Backtick:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "`"
+    } 
+    struct Colon:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = ":"
+    } 
+    struct Comma:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = ","
+    }
+    struct Ellipsis:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "..."
     } 
+    struct Equals:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "="
+    } 
+    struct EqualsEquals:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "=="
+    } 
+    struct Hashtag:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "#"
+    } 
+    struct Hyphen:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "-"
+    } 
+    struct Period:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "."
+    }
+    struct Question:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "?"
+    }
     
-    struct Throws:Grammar.Parseable.Terminal
+    struct As:Grammar.Parsable.Terminal
     {
         static 
-        let token:String = "throws"
+        let token:String = "as"
     } 
-    struct Rethrows:Grammar.Parseable.Terminal
+    struct Associatedtype:Grammar.Parsable.Terminal
     {
         static 
-        let token:String = "rethrows"
-    } 
-    struct Final:Grammar.Parseable.Terminal
+        let token:String = "associatedtype"
+    }
+    struct Case:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "case"
+    }
+    struct Class:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "class"
+    }
+    struct Enum:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "enum"
+    }
+    struct Extension:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "extension"
+    }
+    struct Final:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "final"
     } 
-    struct Static:Grammar.Parseable.Terminal 
+    struct Func:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "func"
+    }
+    struct Get:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "get"
+    }
+    struct Import:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "import"
+    }
+    struct Indirect:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "indirect"
+    }
+    struct Infix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "infix"
+    } 
+    struct Init:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "init"
+    }
+    struct Rethrows:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "rethrows"
+    } 
+    struct Let:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "let"
+    }
+    struct Mutating:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "mutating"
+    }
+    struct Nonmutating:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "nonmutating"
+    }
+    struct Override:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "override"
+    } 
+    struct Postfix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "postfix"
+    } 
+    struct Prefix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "prefix"
+    } 
+    struct `Protocol`:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "protocol"
+    }
+    struct Set:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "set"
+    }
+    struct Static:Grammar.Parsable.Terminal 
     {
         static 
         let token:String = "static"
     }
-    /* struct Override:Grammar.Parseable.Terminal
+    struct Struct:Grammar.Parsable.Terminal
     {
         static 
-        let token:String = "override"
-    }  */
+        let token:String = "struct"
+    }
+    struct Subscript:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "subscript"
+    }
+    struct Throws:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "throws"
+    } 
+    struct Typealias:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "typealias"
+    }
+    struct Var:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "var"
+    }
+    struct Where:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "where"
+    }
     
     enum Identifier 
     {
-        struct Head:Grammar.Parseable.CharacterClass
+        struct Head:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
-            init?(character:Swift.Character)
+            init?(_ character:Swift.Character)
             {
                 guard   let first:Unicode.Scalar = character.unicodeScalars.first, 
-                                                                    SwiftGrammar.isIdentifierHead(first), 
-                    character.unicodeScalars.dropFirst().allSatisfy(SwiftGrammar.isIdentifierScalar(_:))
+                                                                    Grammar.isIdentifierHead(first), 
+                    character.unicodeScalars.dropFirst().allSatisfy(Grammar.isIdentifierScalar(_:))
                 else 
                 {
                     return nil 
@@ -376,13 +486,13 @@ extension SwiftGrammar.Token
                 self.character = character
             }
         } 
-        struct Character:Grammar.Parseable.CharacterClass
+        struct Character:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
-            init?(character:Swift.Character)
+            init?(_ character:Swift.Character)
             {
-                guard character.unicodeScalars.allSatisfy(SwiftGrammar.isIdentifierScalar(_:))
+                guard character.unicodeScalars.allSatisfy(Grammar.isIdentifierScalar(_:))
                 else 
                 {
                     return nil 
@@ -392,17 +502,20 @@ extension SwiftGrammar.Token
         } 
     }
     
-    enum Operator 
+    struct Operator:Grammar.Parsable.Terminal
     {
-        struct Head:Grammar.Parseable.CharacterClass
+        static 
+        let token:String = "operator"
+        
+        struct Head:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
-            init?(character:Swift.Character)
+            init?(_ character:Swift.Character)
             {
                 guard   let first:Unicode.Scalar = character.unicodeScalars.first, 
-                                                                    SwiftGrammar.isOperatorHead(first), 
-                    character.unicodeScalars.dropFirst().allSatisfy(SwiftGrammar.isOperatorScalar(_:))
+                                                                    Grammar.isOperatorHead(first), 
+                    character.unicodeScalars.dropFirst().allSatisfy(Grammar.isOperatorScalar(_:))
                 else 
                 {
                     return nil 
@@ -410,13 +523,13 @@ extension SwiftGrammar.Token
                 self.character = character
             }
         } 
-        struct Character:Grammar.Parseable.CharacterClass
+        struct Character:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
-            init?(character:Swift.Character)
+            init?(_ character:Swift.Character)
             {
-                guard character.unicodeScalars.allSatisfy(SwiftGrammar.isOperatorScalar(_:))
+                guard character.unicodeScalars.allSatisfy(Grammar.isOperatorScalar(_:))
                 else 
                 {
                     return nil 
@@ -427,79 +540,175 @@ extension SwiftGrammar.Token
     }
 }
 
-extension SwiftGrammar 
+extension Grammar 
 {
     // Whitespace ::= ' ' ' ' *
-    struct Whitespace:Grammar.Parseable 
+    struct Whitespace:Parsable 
     {
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let _:Token.Space   = try .init(parsing: string, from: &position),
-                _:[Token.Space] =     .init(parsing: string, from: &position)
+            let _:Token.Space   = try .init(parsing: &input),
+                _:[Token.Space] =     .init(parsing: &input)
         }
     }
     
-    // EncapsulatedOperator ::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
-    struct EncapsulatedOperator:Grammar.Parseable, CustomStringConvertible
+    //  BalancedToken   ::= [^\[\]\(\)\{\}]
+    //                    | '(' <BalancedToken> * ')'
+    //                    | '[' <BalancedToken> * ']'
+    //                    | '{' <BalancedToken> * '}'
+    struct BalancedToken:Parsable 
     {
-        let string:String 
-        
-        init(parsing string:String, from position:inout String.Index) throws
+        private 
+        struct Unencapsulated:Parsable.CharacterClass
         {
-            let _:Token.Parenthesis.Left        = try .init(parsing: string, from: &position),
-                head:Token.Operator.Head        = try .init(parsing: string, from: &position),
-                body:[Token.Operator.Character] =     .init(parsing: string, from: &position), 
-                _:Token.Parenthesis.Right       = try .init(parsing: string, from: &position)
-            self.string = "\(head.character)\(String.init(body.map(\.character)))"
-        }
-        
-        var description:String 
-        {
-            self.string
-        }
-    }
-    
-    // Identifier ::= <Swift Identifier Head> <Swift Identifier Character> *
-    struct Identifier:Grammar.Parseable, CustomStringConvertible
-    {
-        let string:String 
-        
-        init(parsing string:String, from position:inout String.Index) throws
-        {
-            let head:Token.Identifier.Head          = try .init(parsing: string, from: &position),
-                body:[Token.Identifier.Character]   =     .init(parsing: string, from: &position)
-            self.string = "\(head.character)\(String.init(body.map(\.character)))"
-        }
-        
-        var description:String 
-        {
-            self.string
-        }
-    }
-    
-    // Identifiers ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
-    struct Identifiers:Grammar.Parseable, CustomStringConvertible
-    {
-        let identifiers:[String]
+            let character:Character 
             
-        init(parsing string:String, from position:inout String.Index) throws
-        {
-            let head:Identifier = try .init(parsing: string, from: &position)
-            let body:[List<Token.Period, Identifier>] = 
-                .init(parsing: string, from: &position)
-            let `operator`:List<Token.Period, EncapsulatedOperator>? = 
-                .init(parsing: string, from: &position)
-            let operators:[String] 
-            if let `operator`:String = `operator`.map(\.body)?.string 
+            init?(_ character:Character)
             {
-                operators = [`operator`]
+                guard  !character.isNewline,
+                        character != "(", 
+                        character != ")",
+                        character != "[",
+                        character != "]",
+                        character != "{",
+                        character != "}"
+                else 
+                {
+                    return nil 
+                }
+                self.character = character
+            }
+        } 
+        
+        let string:String 
+        
+        init(parsing input:inout Input) throws 
+        {
+            let start:String.Index                      = input.index
+            if      let unencapsulated:Unencapsulated   = .init(parsing: &input)
+            {
+                self.string = "\(unencapsulated.character)"
+            }
+            else if let encapsulated:
+                List<   Token.Parenthesis.Left, 
+                List<   [Self], 
+                        Token.Parenthesis.Right>>       = .init(parsing: &input)
+            {
+                self.string = "(\(encapsulated.body.head.map(\.string).joined()))"
+            }
+            else if let encapsulated:
+                List<   Token.Bracket.Left, 
+                List<   [Self], 
+                        Token.Bracket.Right>>           = .init(parsing: &input)
+            {
+                self.string = "[\(encapsulated.body.head.map(\.string).joined())]"
+            }
+            else if let encapsulated:
+                List<   Token.Brace.Left, 
+                List<   [Self], 
+                        Token.Brace.Right>>             = .init(parsing: &input)
+            {
+                self.string = "{\(encapsulated.body.head.map(\.string).joined())}"
             }
             else 
             {
-                operators = []
+                throw input.expected(Self.self, from: start)
             }
+        }
+    }
+    
+    //  Operator                    ::= <Swift Operator Head> <Swift Operator Character> *
+    //                                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
+    struct Operator:Parsable
+    {
+        let string:String 
+        
+        init(parsing input:inout Input) throws 
+        {
+            let start:String.Index      = input.index 
+            if      let _:Token.Period  = .init(parsing: &input) 
+            {
+                var string:String       = "."
+                while true 
+                {
+                    if let _:Token.Period = .init(parsing: &input) 
+                    {
+                        string.append(".")
+                    }
+                    else if let character:Token.Operator.Character = .init(parsing: &input)
+                    {
+                        string.append(character.character)
+                    }
+                    else 
+                    {
+                        break 
+                    }
+                }
+                self.string = string 
+            }
+            else if let head:Token.Operator.Head    = .init(parsing: &input)
+            {
+                let body:[Token.Operator.Character] = .init(parsing: &input)
+                self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+        }
+    }
+    //  Identifier              ::= <Identifier.Unescaped> 
+    //                            | '`' <Identifier.Unescaped> '`'
+    //  Identifier.Unescaped    ::= <Swift Identifier Head> <Swift Identifier Character> *
+    struct Identifier:Parsable, CustomStringConvertible
+    {
+        private 
+        struct Unescaped:Parsable
+        {
+            let string:String 
             
-            self.identifiers = ([head] + body.map(\.body)).map(\.string) + operators
+            init(parsing input:inout Input) throws
+            {
+                let head:Token.Identifier.Head          = try .init(parsing: &input), 
+                    body:[Token.Identifier.Character]   =     .init(parsing: &input)
+                self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            }
+        }
+        
+        let string:String 
+        
+        init(parsing input:inout Input) throws
+        {
+            let unescaped:Unescaped
+            if  let _:Token.Backtick = .init(parsing: &input)
+            {
+                unescaped               = try .init(parsing: &input)
+                let _:Token.Backtick    = try .init(parsing: &input)
+            }
+            else 
+            {
+                unescaped               = try .init(parsing: &input)
+            }
+            self.string = unescaped.string 
+        }
+        
+        var description:String 
+        {
+            self.string
+        }
+    }
+    
+    // Identifiers ::= <Identifier> ( '.' <Identifier> ) * 
+    struct Identifiers:Parsable, CustomStringConvertible
+    {
+        let identifiers:[String]
+            
+        init(parsing input:inout Input) throws
+        {
+            let head:Identifier                         = try .init(parsing: &input)
+            let body:[List<Token.Period, Identifier>]   =     .init(parsing: &input)
+            
+            self.identifiers = ([head] + body.map(\.body)).map(\.string) 
         }
         
         var description:String 
@@ -527,7 +736,7 @@ extension SwiftGrammar
     
     // ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
     
-    enum SwiftType:Grammar.Parseable, CustomStringConvertible
+    enum SwiftType:Parsable, CustomStringConvertible
     {
         indirect
         case named([TypeIdentifier])
@@ -538,10 +747,10 @@ extension SwiftGrammar
         
         case protocols([[String]])
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let unwrapped:UnwrappedType     = try .init(parsing: string, from: &position), 
-                optionals:[Token.Question]  =     .init(parsing: string, from: &position)
+            let unwrapped:UnwrappedType     = try .init(parsing: &input), 
+                optionals:[Token.Question]  =     .init(parsing: &input)
             var inner:Self 
             switch unwrapped 
             {
@@ -597,7 +806,7 @@ extension SwiftGrammar
             }
         }
     }
-    enum UnwrappedType:Grammar.Parseable 
+    enum UnwrappedType:Parsable 
     {
         case named(NamedType)
         case compound(CompoundType)
@@ -605,61 +814,62 @@ extension SwiftGrammar
         case collection(CollectionType)
         case protocols(ProtocolCompositionType)
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            if      let type:NamedType = .init(parsing: string, from: &position)
+            let start:String.Index      = input.index
+            if      let type:NamedType  = .init(parsing: &input)
             {
                 self = .named(type)
             }
             // must parse function types before compound types, because a function 
             // parameters list looks just like a tuple
-            else if let type:FunctionType = .init(parsing: string, from: &position)
+            else if let type:FunctionType = .init(parsing: &input)
             {
                 self = .function(type)
             }
-            else if let type:CompoundType = .init(parsing: string, from: &position)
+            else if let type:CompoundType = .init(parsing: &input)
             {
                 self = .compound(type)
             }
-            else if let type:CollectionType = .init(parsing: string, from: &position)
+            else if let type:CollectionType = .init(parsing: &input)
             {
                 self = .collection(type)
             }
-            else if let type:ProtocolCompositionType = .init(parsing: string, from: &position)
+            else if let type:ProtocolCompositionType = .init(parsing: &input)
             {
                 self = .protocols(type)
             }
             else 
             {
-                throw Grammar.ParsingError.unexpected(.init(string[position]), expected: Self.self)
+                throw input.expected(Self.self, from: start)
             }
         }
     }
-    struct ProtocolCompositionType:Grammar.Parseable
+    struct ProtocolCompositionType:Parsable
     {
         let protocols:[[String]]
             
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let head:Identifiers     = try .init(parsing: string, from: &position), 
+            let head:Identifiers     = try .init(parsing: &input), 
                 body:[List<Whitespace?, List<Token.Ampersand, List<Whitespace?, Identifiers>>>] =
-                                                  .init(parsing: string, from: &position)
+                                                  .init(parsing: &input)
             self.protocols = [head.identifiers] + body.map(\.body.body.body.identifiers)
         }
     }
-    struct NamedType:Grammar.Parseable
+    struct NamedType:Parsable
     {
         let identifiers:[TypeIdentifier]
             
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let head:TypeIdentifier = try .init(parsing: string, from: &position)
-            let body:[List<Token.Period, TypeIdentifier>] = .init(parsing: string, from: &position)
+            let head:TypeIdentifier = try .init(parsing: &input)
+            let body:[List<Token.Period, TypeIdentifier>] = .init(parsing: &input)
             self.identifiers = [head] + body.map(\.body)
         }
         
     }
-    struct TypeIdentifier:Grammar.Parseable, CustomStringConvertible
+    struct TypeIdentifier:Parsable, CustomStringConvertible
     {
         let identifier:String
         let generics:[SwiftType]
@@ -670,10 +880,10 @@ extension SwiftGrammar
             self.generics   = generics 
         }
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let identifier:Identifier    = try .init(parsing: string, from: &position), 
-                generics:TypeArguments?  =     .init(parsing: string, from: &position)
+            let identifier:Identifier    = try .init(parsing: &input), 
+                generics:TypeArguments?  =     .init(parsing: &input)
             self.init(identifier.string, generics: generics?.types ?? [])
         }
         
@@ -682,46 +892,46 @@ extension SwiftGrammar
             "\(self.identifier)\(self.generics.isEmpty ? "" : "<\(self.generics.map(String.init(describing:)).joined(separator: ", "))>")"
         }
     }
-    struct TypeArguments:Grammar.Parseable
+    struct TypeArguments:Parsable
     {
         let types:[SwiftType]
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let _:Token.Angle.Left  = try .init(parsing: string, from: &position), 
-                _:Whitespace?       =     .init(parsing: string, from: &position),
-                head:SwiftType      = try .init(parsing: string, from: &position), 
-                _:Whitespace?       =     .init(parsing: string, from: &position),
+            let _:Token.Angle.Left  = try .init(parsing: &input), 
+                _:Whitespace?       =     .init(parsing: &input),
+                head:SwiftType      = try .init(parsing: &input), 
+                _:Whitespace?       =     .init(parsing: &input),
                 body:[List<Token.Comma, List<Whitespace?, List<SwiftType, Whitespace?>>>] = 
-                                          .init(parsing: string, from: &position),
-                _:Token.Angle.Right = try .init(parsing: string, from: &position)
+                                          .init(parsing: &input),
+                _:Token.Angle.Right = try .init(parsing: &input)
             self.types = [head] + body.map(\.body.body.head)
         }
     }
-    struct CompoundType:Grammar.Parseable
+    struct CompoundType:Parsable
     {
         let elements:[LabeledType]
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let _:Token.Parenthesis.Left    = try .init(parsing: string, from: &position), 
-                _:Whitespace?               =     .init(parsing: string, from: &position), 
+            let _:Token.Parenthesis.Left    = try .init(parsing: &input), 
+                _:Whitespace?               =     .init(parsing: &input), 
                 types:List<LabeledType, List<Whitespace?, [List<Token.Comma, List<Whitespace?, List<LabeledType, Whitespace?>>>]>>? = 
-                                                  .init(parsing: string, from: &position), 
-                _:Token.Parenthesis.Right   = try .init(parsing: string, from: &position)
+                                                  .init(parsing: &input), 
+                _:Token.Parenthesis.Right   = try .init(parsing: &input)
             self.elements = types.map{ [$0.head] + $0.body.body.map(\.body.body.head) } ?? []
         }
     }
-    struct LabeledType:Grammar.Parseable, CustomStringConvertible
+    struct LabeledType:Parsable, CustomStringConvertible
     {
         let label:String?
         let type:SwiftType
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
             let label:List<Identifier, List<Whitespace?, List<Token.Colon, Whitespace?>>>? = 
-                                            .init(parsing: string, from: &position), 
-                type:SwiftType = try .init(parsing: string, from: &position)
+                                            .init(parsing: &input), 
+                type:SwiftType = try .init(parsing: &input)
             self.label  = label?.head.string 
             self.type   = type
         }
@@ -731,37 +941,37 @@ extension SwiftGrammar
             "\(self.label.map{ "\($0):" } ?? "")\(self.type)"
         }
     }
-    struct FunctionType:Grammar.Parseable
+    struct FunctionType:Parsable
     {
         let attributes:[Attribute]
         let parameters:[FunctionParameter]
         let `throws`:Bool
         let `return`:SwiftType
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
             let attributes:[List<Attribute, Whitespace>] = 
-                                                  .init(parsing: string, from: &position),
-                _:Token.Parenthesis.Left    = try .init(parsing: string, from: &position),
-                _:Whitespace?               =     .init(parsing: string, from: &position),
+                                                  .init(parsing: &input),
+                _:Token.Parenthesis.Left    = try .init(parsing: &input),
+                _:Whitespace?               =     .init(parsing: &input),
                 parameters:List<FunctionParameter, List<Whitespace?, [List<Token.Comma, List<Whitespace?, List<FunctionParameter, Whitespace?>>>]>>? = 
-                                                  .init(parsing: string, from: &position), 
-                _:Token.Parenthesis.Right   = try .init(parsing: string, from: &position),
-                _:Whitespace?               =     .init(parsing: string, from: &position), 
+                                                  .init(parsing: &input), 
+                _:Token.Parenthesis.Right   = try .init(parsing: &input),
+                _:Whitespace?               =     .init(parsing: &input), 
                 `throws`:List<Token.Throws, Whitespace?>? = 
-                                                  .init(parsing: string, from: &position), 
-                _:Token.Arrow               = try .init(parsing: string, from: &position), 
-                _:Whitespace?               =     .init(parsing: string, from: &position), 
-                `return`:SwiftType          = try .init(parsing: string, from: &position)
+                                                  .init(parsing: &input), 
+                _:Token.Arrow               = try .init(parsing: &input), 
+                _:Whitespace?               =     .init(parsing: &input), 
+                `return`:SwiftType          = try .init(parsing: &input)
             self.attributes = attributes.map(\.head)
             self.parameters = parameters.map{ [$0.head] + $0.body.body.map(\.body.body.head) } ?? []
             self.throws     = `throws` != nil
             self.return     = `return`
         }
     }
-    struct FunctionParameter:Grammar.Parseable, CustomStringConvertible
+    struct FunctionParameter:Parsable, CustomStringConvertible
     {
-        struct Inout:Grammar.Parseable.Terminal 
+        struct Inout:Parsable.Terminal 
         {
             static 
             let token:String = "inout"
@@ -772,13 +982,13 @@ extension SwiftGrammar
             variadic:Bool 
         let type:SwiftType
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
             let attributes:[List<Attribute, Whitespace>]    = 
-                                                                  .init(parsing: string, from: &position), 
-                `inout`:List<Inout, Whitespace>?            =     .init(parsing: string, from: &position), 
-                type:SwiftType                              = try .init(parsing: string, from: &position),
-                variadic:List<Whitespace?, Token.Ellipsis>? =     .init(parsing: string, from: &position) 
+                                                                  .init(parsing: &input), 
+                `inout`:List<Inout, Whitespace>?            =     .init(parsing: &input), 
+                type:SwiftType                              = try .init(parsing: &input),
+                variadic:List<Whitespace?, Token.Ellipsis>? =     .init(parsing: &input) 
             self.attributes = attributes.map(\.head) 
             self.inout      = `inout`  != nil 
             self.variadic   = variadic != nil 
@@ -790,14 +1000,14 @@ extension SwiftGrammar
             "\(self.attributes.map{ "\($0) " }.joined())\(self.inout ? "inout " : "")\(self.type)\(self.variadic ? "..." : "")"
         }
     }
-    struct Attribute:Grammar.Parseable, CustomStringConvertible
+    struct Attribute:Parsable, CustomStringConvertible
     {
         let identifier:String
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let _:Token.At              = try .init(parsing: string, from: &position),
-                identifier:Identifier   = try .init(parsing: string, from: &position)
+            let _:Token.At              = try .init(parsing: &input),
+                identifier:Identifier   = try .init(parsing: &input)
             self.identifier = identifier.string
         }
         
@@ -806,20 +1016,20 @@ extension SwiftGrammar
             "@\(self.identifier)"
         }
     }
-    struct CollectionType:Grammar.Parseable 
+    struct CollectionType:Parsable 
     {
         let key:SwiftType, 
             value:SwiftType?
         
-        init(parsing string:String, from position:inout String.Index) throws
+        init(parsing input:inout Input) throws
         {
-            let _:Token.Bracket.Left    = try .init(parsing: string, from: &position),
-                _:Whitespace?           =     .init(parsing: string, from: &position),
-                key:SwiftType           = try .init(parsing: string, from: &position), 
-                _:Whitespace?           =     .init(parsing: string, from: &position),
+            let _:Token.Bracket.Left    = try .init(parsing: &input),
+                _:Whitespace?           =     .init(parsing: &input),
+                key:SwiftType           = try .init(parsing: &input), 
+                _:Whitespace?           =     .init(parsing: &input),
                 value:List<Token.Colon, List<Whitespace?, List<SwiftType, Whitespace?>>>? =
-                                              .init(parsing: string, from: &position), 
-                _:Token.Bracket.Right   = try .init(parsing: string, from: &position)
+                                              .init(parsing: &input), 
+                _:Token.Bracket.Right   = try .init(parsing: &input)
             self.key    = key
             self.value  = value?.body.body.head
         }

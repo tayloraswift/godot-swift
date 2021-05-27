@@ -4,8 +4,17 @@ extension Godot
     typealias VariantRepresentable  = _GodotVariantRepresentable
     typealias Variant               = _GodotVariant
 }
+/// protocol Godot.VariantRepresentable 
+///     A type that can be represented by a GDScript variant value.
+/// #   (1:godot-variant-protocols)
 protocol _GodotVariantRepresentable 
 {
+    /// static var Godot.VariantRepresentable.variantType:Godot.VariantType { get }
+    /// required 
+    ///     A type hint used by GDScript.
+    /// 
+    ///     If a conforming type can be represented by more than one GDScript type, 
+    ///     this property should return [`VariantType.void`].
     static 
     var variantType:Godot.VariantType
     {
@@ -14,10 +23,52 @@ protocol _GodotVariantRepresentable
     // this needs to be a static function, to handle covariant `Self`. 
     // it’s better to not call these methods directly, the preferred form is the  
     // generic methods on `Godot.Unmanaged.Variant`.
+    
+    /// static func Godot.VariantRepresentable.takeUnretained(_:)
+    /// required 
+    ///     Attempts to load an instance of [[`Self`]] from an unmanaged variant 
+    ///     value, performing an unbalanced retain if successful.
+    /// 
+    ///     The loaded instance of [[`Self`]] should be independent of the original 
+    ///     variant, in memory-management terms. If the original variant value is 
+    ///     deinitialized, the loaded instance of [[`Self`]] should still be valid.
+    /// 
+    ///     Implementations are not required to deep-copy engine reference types. 
+    ///     However, their reference counts should be incremented to reflect the 
+    ///     fact that Swift has taken ownership of them.
+    /// 
+    ///     This requirement is declared as a static method in order to handle 
+    ///     covariant [[`Self`]], if applicable.
+    /// - value :Godot.Unmanaged.Variant 
+    ///     An unmanaged GDScript variant value.
+    /// - ->    :Self? 
+    ///     An instance of [[`Self`]], if it was possible to load it from `value`, 
+    ///     or `nil` otherwise.
     static 
     func takeUnretained(_:Godot.Unmanaged.Variant) -> Self?
+    /// func Godot.VariantRepresentable.passRetained()
+    /// required 
+    ///     Stores `self` as an unmanaged variant value, performing an unbalanced 
+    ///     retain.
+    /// 
+    ///     The returned variant value should be independent of the original 
+    ///     Swift instance, in memory-management terms. If `self` is deinitialized
+    ///     by the Swift runtime, the returned variant should still be valid.
+    /// 
+    ///     Implementations are not required to deep-copy `self`. However, its 
+    ///     reference count should be incremented to reflect the fact that GDScript 
+    ///     has taken ownership of the value.
+    /// - ->    :Godot.Unmanaged.Variant 
+    ///     An unmanaged GDScript variant value.
     func passRetained() -> Godot.Unmanaged.Variant 
 }
+/// protocol Godot.Variant
+/// :   Godot.VariantRepresentable 
+///     A type-erased GDScript variant.
+/// 
+///     Do not conform additional types to this protocol; conform custom
+///     types to [`Godot.VariantRepresentable`] instead.
+/// #   (0:godot-variant-protocols)
 protocol _GodotVariant:Godot.VariantRepresentable
 {
 }
@@ -58,6 +109,11 @@ extension Godot.AnyDelegate:Godot.Variant
 }
 
 // basic variants 
+
+/// extension Bool
+/// :   Godot.Variant
+/// #   (0:godot-core-types)
+/// #   (0:)
 extension Bool:Godot.Variant 
 {
     static 
@@ -130,7 +186,15 @@ extension BinaryFloatingPoint
     }
 }
 
+/// extension Int64
+/// :   Godot.Variant
+/// #   (1:godot-core-types)
+/// #   (1:)
 extension Int64:Godot.Variant               {}
+/// extension Float64
+/// :   Godot.Variant
+/// #   (2:godot-core-types)
+/// #   (2:)
 extension Float64:Godot.Variant             {}
 
 extension Float32:Godot.VariantRepresentable{}
@@ -146,36 +210,6 @@ extension UInt32:Godot.VariantRepresentable {}
 extension UInt16:Godot.VariantRepresentable {}
 extension UInt8:Godot.VariantRepresentable  {}
 extension UInt:Godot.VariantRepresentable   {}
-
-extension Godot 
-{
-    typealias RawValue      = _GodotRawValue
-    typealias RawReference  = _GodotRawReference 
-}
-protocol _GodotRawValue
-{
-    init()
-    
-    static 
-    var variantType:Godot.VariantType 
-    {
-        get 
-    }
-}
-extension Godot.RawValue 
-{
-    init(with initializer:(UnsafeMutablePointer<Self>) -> ()) 
-    {
-        self.init()
-        initializer(&self)
-    }
-}
-
-protocol _GodotRawReference:Godot.RawValue
-{
-    mutating
-    func `deinit`()
-}
 
 extension godot_string 
 {
@@ -292,91 +326,6 @@ extension Godot
         }
     }
 }
-// pool arrays 
-extension Godot 
-{
-    typealias ArrayElement          = _GodotArrayElement
-    typealias ArrayElementStorage   = _GodotArrayElementStorage // needed for vectors
-}
-protocol _GodotArrayElement 
-{
-    associatedtype RawArrayReference:Godot.RawReference
-    
-    static 
-    func downcast(array:Godot.Unmanaged.Variant) -> RawArrayReference?
-    static 
-    func upcast(array:RawArrayReference) -> Godot.Unmanaged.Variant
-    static 
-    func convert(array godot:RawArrayReference) -> [Self]
-    static 
-    func convert(array swift:[Self]) -> RawArrayReference
-}
-protocol _GodotArrayElementStorage:SIMD where Scalar:SIMDScalar
-{
-    associatedtype RawArrayReference:Godot.RawReference
-    
-    static 
-    func downcast(array:Godot.Unmanaged.Variant) -> RawArrayReference?
-    static 
-    func upcast(array:RawArrayReference) -> Godot.Unmanaged.Variant
-    static 
-    func convert(array godot:RawArrayReference) -> [Vector<Self, Scalar>]
-    static 
-    func convert(array swift:[Vector<Self, Scalar>]) -> RawArrayReference
-}
-extension Vector:Godot.ArrayElement where Storage:Godot.ArrayElementStorage 
-{
-    typealias RawArrayReference = Storage.RawArrayReference
-    
-    static 
-    func downcast(array value:Godot.Unmanaged.Variant) -> RawArrayReference?
-    {
-        Storage.downcast(array: value)
-    }
-    static 
-    func upcast(array value:RawArrayReference) -> Godot.Unmanaged.Variant
-    {
-        Storage.upcast(array: value)
-    }
-    static 
-    func convert(array godot:RawArrayReference) -> [Self]
-    {
-        Storage.convert(array: godot)
-    }
-    static 
-    func convert(array swift:[Self]) -> RawArrayReference
-    {
-        Storage.convert(array: swift)
-    }
-}
-
-extension Godot 
-{
-    final 
-    class Array<Element> where Element:ArrayElement 
-    {
-        // needs to be fileprivate so Swift.Array.init(_:) can access it
-        fileprivate private(set)
-        var core:Element.RawArrayReference 
-        
-        fileprivate 
-        init(retained core:Element.RawArrayReference) 
-        {
-            self.core = core
-        }
-        
-        private 
-        init(with initializer:(UnsafeMutablePointer<Element.RawArrayReference>) -> ()) 
-        {
-            self.core = .init(with: initializer)
-        }
-        
-        deinit 
-        {
-            self.core.deinit()
-        }
-    } 
-}
 
 extension Godot.NodePath:Godot.Variant 
 {
@@ -479,26 +428,6 @@ extension Godot.Map:Godot.Variant
             {
                 .init(value: $0, Godot.api.1.0.godot_variant_new_dictionary)
             }
-        }
-    }
-}
-extension Godot.Array:Godot.Variant 
-{
-    static 
-    var variantType:Godot.VariantType 
-    {
-        Element.RawArrayReference.variantType
-    }
-    static 
-    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-    {
-        Element.downcast(array: value).map(Self.init(retained:))
-    }
-    func passRetained() -> Godot.Unmanaged.Variant 
-    {
-        withExtendedLifetime(self)
-        {
-            Element.upcast(array: self.core)
         }
     }
 }
@@ -1027,66 +956,6 @@ extension MemoryLayout where T:Godot.RawAggregatePrivate
     }
 } 
 
-extension Vector:Godot.VariantRepresentable 
-    where Storage:Godot.VectorStorage
-{
-    static 
-    var variantType:Godot.VariantType 
-    {
-        Storage.VectorAggregate.variantType
-    }
-    static 
-    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-    {
-        Storage.VectorAggregate.unpacked(variant: value).map(Storage.generalize(_:))
-    }
-    func passRetained() -> Godot.Unmanaged.Variant 
-    {
-        Storage.VectorAggregate.variant(packing: Storage.specialize(self))
-    }
-}
-extension Vector:Godot.Variant where Storage:Godot.VectorStorage, T == Float32 
-{
-}
-
-extension VectorFiniteRangeExpression where Storage:Godot.RectangleStorage 
-{
-    static 
-    var variantType:Godot.VariantType 
-    {
-        Storage.RectangleAggregate.variantType
-    }
-    static 
-    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-    {
-        Storage.RectangleAggregate.unpacked(variant: value).map
-        {
-            return Self.init(
-                lowerBound: Storage.generalize($0.lowerBound), 
-                upperBound: Storage.generalize($0.upperBound)) 
-        }
-    }
-    func passRetained() -> Godot.Unmanaged.Variant 
-    {
-        Storage.RectangleAggregate.variant(packing: .init(
-            lowerBound: Storage.specialize(self.lowerBound), 
-            upperBound: Storage.specialize(self.upperBound)))
-    }
-}
-extension Vector.Rectangle:Godot.Variant 
-    where Storage:Godot.RectangleStorage, T == Float32 
-{
-}
-extension Vector.Rectangle:Godot.VariantRepresentable 
-    where Storage:Godot.RectangleStorage, T:Comparable
-{
-} 
-extension Vector.ClosedRectangle:Godot.VariantRepresentable  
-    where Storage:Godot.RectangleStorage, T:Comparable
-{
-} 
-
-
 extension Quaternion:Godot.VariantRepresentable 
 {
     static 
@@ -1204,6 +1073,8 @@ extension Godot
 }
 extension Godot.Unmanaged 
 {
+    /// struct Godot.Unmanaged.Variant 
+    ///     An unmanaged GDScript variant.
     struct Variant 
     {
         private 
@@ -1492,41 +1363,6 @@ extension String:Godot.VariantRepresentable
         .pass(retaining: Godot.String.init(self))
     }
 } 
-
-extension Godot.Array 
-{
-    convenience
-    init(_ swift:[Element]) 
-    {
-        self.init(retained: Element.convert(array: swift))
-    }
-}
-extension Array:Godot.VariantRepresentable 
-    where Element:Godot.ArrayElement 
-{
-    init(_ godot:Godot.Array<Element>) 
-    {
-        self = withExtendedLifetime(godot) 
-        {
-            Element.convert(array: godot.core)
-        }
-    }
-    
-    static 
-    var variantType:Godot.VariantType 
-    {
-        Element.RawArrayReference.variantType
-    }
-    static 
-    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-    {
-        value.take(unretained: Godot.Array<Element>.self).map(Self.init(_:))
-    }
-    func passRetained() -> Godot.Unmanaged.Variant 
-    {
-        .pass(retaining: Godot.Array<Element>.init(self))
-    }
-}
 
 extension Godot.VariadicArguments:RandomAccessCollection, MutableCollection
 {
