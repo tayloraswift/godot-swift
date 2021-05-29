@@ -752,6 +752,12 @@ extension Godot.Class.Node.Property
         }
         return Source.fragment 
         {
+            // create doccomment tag for this accessor group. we need to replace 
+            // underscores with "-" hyphens
+            let tag:String = .init("class-\(`class`.symbol)-\(symbol)-accessor".map 
+            {
+                $0 == "_" ? "-" : $0
+            })
             // emit doccomment 
             """
             /// var \(`class`.namespace).\(`class`.name).\(name):\(function.range.canonical) \
@@ -765,6 +771,8 @@ extension Godot.Class.Node.Property
             }
             """
             ///     The [`Godot::\(`class`.symbol)::\(symbol)`](\(`class`.url)#properties) property.
+            /// #   [See also](\(tag))
+            /// #   (\(tag))
             """
             
             if let modifiers:String = modifiers 
@@ -776,7 +784,6 @@ extension Godot.Class.Node.Property
             """
             if function.parameters.isEmpty // no generics 
             {
-                
                 if let set:String = body.set 
                 {
                     Source.block 
@@ -818,6 +825,26 @@ extension Godot.Class.Node.Property
                     }
                 } 
                 
+                // emit generic accessors 
+                """
+                /// func \(`class`.namespace).\(`class`.name).\(name)\(Source.inline(angled: function.parameters))(as:)
+                """
+                if let modifiers:String = modifiers 
+                {
+                    """
+                    /// \(modifiers)
+                    """
+                }
+                // constraints need to fit on one line for entrapta doccomment
+                """
+                /// where \(function.constraints.joined(separator: ", "))
+                ///     Loads this delegate’s [`\(name)`] property as the specified type.
+                /// - type  :\(function.range.outer).Type
+                /// - ->    :\(function.range.outer)
+                /// #   [See also](\(tag))
+                /// #   (\(tag))
+                """
+                
                 if let modifiers:String = modifiers 
                 {
                     modifiers
@@ -830,6 +857,22 @@ extension Godot.Class.Node.Property
                 body.get
                 if let set:String = body.set
                 {
+                    """
+                    /// func \(`class`.namespace).\(`class`.name).set\(Source.inline(angled: function.parameters))(\(name):)
+                    """
+                    if let modifiers:String = modifiers 
+                    {
+                        """
+                        /// \(modifiers)
+                        """
+                    }
+                    """
+                    /// where \(function.constraints.joined(separator: ", "))
+                    ///     Sets this delegate’s [`\(name)`] property to the given value. 
+                    /// - value :\(function.range.outer)
+                    /// #   [See also](\(tag))
+                    /// #   (\(tag))
+                    """
                     if let modifiers:String = modifiers 
                     {
                         modifiers
