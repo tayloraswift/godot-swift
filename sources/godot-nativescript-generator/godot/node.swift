@@ -141,9 +141,13 @@ extension Godot.Class
                 name        = .name(class: descriptor.singleton)
             }
             
+            // keep track of enum constants, to filter out duplicated class constants 
+            var enumerationConstants:[String: Int] = [:]
             self.enumerations = descriptor.enumerations.map 
             {
                 (enumeration:Godot.Class.Enumeration) in 
+                
+                enumerationConstants.merge(enumeration.cases){ (keep:Int, _:Int) in keep }
                 
                 let unfactored:[(name:Words, rawValue:Int)] = enumeration.cases.map 
                 {
@@ -177,7 +181,18 @@ extension Godot.Class
             self.methods    = [:]
             self.unresolved = 
             (
-                constants:  descriptor.constants,
+                // ignore constants that have an enumeration case with the same value 
+                constants:  descriptor.constants.filter 
+                {
+                    if let value:Int = enumerationConstants[$0.key], value == $0.value 
+                    {
+                        return false 
+                    }
+                    else 
+                    {
+                        return true 
+                    }
+                },
                 properties: descriptor.properties, 
                 functions:  descriptor.methods
             )
