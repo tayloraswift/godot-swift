@@ -52,6 +52,7 @@ struct Words:Hashable, Comparable, CustomStringConvertible
             "Rect"      : ([], ["Rectangle"]),
             "Ref"       : ([], ["Reference"]),
             "Regen"     : ([], ["Regenerate"]),
+            "Src"       : ([], ["Source"]),
             "Subdiv"    : ([], ["Subdivision"]),
             "Surf"      : ([], ["Surface"]),
             //"Sub"       : ([], ["Subtract"]),

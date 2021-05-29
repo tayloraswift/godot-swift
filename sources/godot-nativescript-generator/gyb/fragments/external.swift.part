@@ -17,6 +17,7 @@ import GodotNative
 /// #   [Engine types](godot-core-types)
 /// #   [Engine protocols](godot-core-protocols)
 /// #   [Working with signals](godot-signal-usage)
+/// #   [Global constants](godot-global-constants)
 /// #   (godot-namespaces)
 public 
 enum Godot
