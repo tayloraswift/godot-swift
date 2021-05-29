@@ -82,7 +82,11 @@ enum VariantRectangle
         }
         for type:String in ["Float16", "Float32", "Float64"] 
         {
-            "extension \(type):Godot.RectangleElement {}"
+            """
+            /// extension \(type)
+            /// :   Godot.RectangleElement
+            extension \(type):Godot.RectangleElement {}
+            """
         }
         """
         extension VectorFiniteRangeExpression where Storage:Godot.RectangleStorage 

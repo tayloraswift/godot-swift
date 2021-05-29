@@ -529,11 +529,9 @@ enum Vector
         {
             /// associatedtype VectorRangeExpression.Storage 
             /// where Storage:SIMD 
-            /// required 
             
             /// associatedtype VectorRangeExpression.T 
             /// where T:SIMDScalar, T == Storage.Scalar  
-            /// required 
             
             associatedtype Storage  where Storage:SIMD 
             associatedtype T        where T:SIMDScalar, T == Storage.Scalar 
@@ -1764,7 +1762,6 @@ enum Vector
         protocol _SIMDTransposable:SIMD 
         {
             /// associatedtype SIMD.Transposable.Transpose 
-            /// required 
             ///     A type representing the transposed form of this vector storage 
             ///     type. 
             /// 
@@ -1774,7 +1771,6 @@ enum Vector
             associatedtype Transpose
             
             /// associatedtype SIMD.Transposable.Square 
-            /// required 
             ///     A square matrix type which a type conforming to [`Transposable`] 
             ///     supports extracting the diagonal of. 
             associatedtype Square 

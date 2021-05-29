@@ -33,6 +33,8 @@ enum VariantArray
         /// protocol Godot.ArrayElementStorage 
         /// :   SIMD 
         ///     A type that can be used as vector backing storage for a [`Godot.Array.Element`] type.
+        /// 
+        ///     Do not conform additional types to this protocol.
         /// #   (godot-core-protocols)
         protocol _GodotArrayElementStorage:SIMD where Scalar:SIMDScalar
         {
@@ -241,10 +243,10 @@ enum VariantArray
             }
         }
         
-        /// class Godot.Array<Element>
+        /// struct Godot.Array<Element>
         /// :   Godot.Variant 
+        /// :   Godot.ArrayRepresentable
         /// where Element:Godot.ArrayElement
-        /// final 
         ///     One of the Godot pooled array types.
         /// 
         ///     This type is automatically memory-managed by Swift.
@@ -253,12 +255,6 @@ enum VariantArray
         ///     in GDScript. Mutating a pooled array in GDScript will unlink it 
         ///     from any instances of this Swift class that hold a reference to 
         ///     it. 
-        /// 
-        ///     **Note:** This type may become a `struct` in the future, in order 
-        ///     to support proper copy-on-write semantics. To prevent source 
-        ///     breakage, this type does not currently support any functionality 
-        ///     that would modify the underlying array. This ensures that all 
-        ///     available *Godot Swift* APIs are semantically safe to use.
         """
         for (godot, element):(String, String) in 
         [
@@ -278,33 +274,184 @@ enum VariantArray
             """
         }
         """
-        /// #   (11:godot-core-types)
+        /// #   (12:godot-core-types)
+        /// #   (12:)
         extension Godot 
         {
-            final 
-            class Array<Element> where Element:ArrayElement 
+            struct Array<Element> where Element:ArrayElement 
             {
+                private final 
+                class Storage 
+                {
+                    var core:Element.RawArrayReference 
+                    
+                    init(core:Element.RawArrayReference)
+                    {
+                        self.core = core 
+                    }
+                    
+                    deinit 
+                    {
+                        self.core.deinit()
+                    }
+                }
+                
+                private 
+                var storage:Storage
+                
                 // needs to be fileprivate so Swift.Array.init(_:) can access it
-                fileprivate private(set)
+                fileprivate 
                 var core:Element.RawArrayReference 
+                {
+                    self.storage.core
+                }
+                
+                private 
+                init(storage:Storage) 
+                {
+                    self.storage = storage 
+                }
+                
+                /* private 
+                init(with initializer:(UnsafeMutablePointer<Element.RawArrayReference>) -> ()) 
+                {
+                    self.storage = .init(core: .init(with: initializer))
+                } */
                 
                 fileprivate 
                 init(retained core:Element.RawArrayReference) 
                 {
-                    self.core = core
-                }
-                
-                private 
-                init(with initializer:(UnsafeMutablePointer<Element.RawArrayReference>) -> ()) 
-                {
-                    self.core = .init(with: initializer)
-                }
-                
-                deinit 
-                {
-                    self.core.deinit()
+                    self.init(storage: .init(core: core))
                 }
             } 
+        }
+        
+        extension Godot 
+        {
+            typealias ArrayRepresentable = _GodotArrayRepresentable
+        }
+        /// protocol Godot.ArrayRepresentable
+        /// :   Godot.VariantRepresentable
+        ///     A type that can be losslessly converted to an from a Godot pooled 
+        ///     array type.
+        protocol _GodotArrayRepresentable:Godot.VariantRepresentable
+        {
+            /// associatedtype Godot.ArrayRepresentable.Element 
+            /// where Element:Godot.ArrayElement
+            associatedtype Element where Element:Godot.ArrayElement 
+            
+            /// init Godot.ArrayRepresentable.init(_:)
+            /// required 
+            ///     Creates an instance of [`Self`] from a Godot pooled array.
+            /// - array :Godot.Array<Element>
+            init(_:Godot.Array<Element>) 
+            
+            /// func Godot.ArrayRepresentable.as(_:)
+            /// required 
+            ///     Returns a Godot pooled array containing the elements of this 
+            ///     value.
+            /// 
+            ///     Avoid calling this method directly; using the generic 
+            ///     [`Godot.Array.init(_:)#(godot-array-init-from-arrayrepresentable)`] 
+            ///     initializer is the preferred form.
+            /// 
+            ///     **Warning:** When implementing this method, make sure you 
+            ///     do not call [`Godot.Array.init(_:)#(godot-array-init-from-arrayrepresentable)`] 
+            ///     with an instance of type [`Self`] — this will cause infinite 
+            ///     recursion.
+            /// - type  :Godot.Array<Element>.Type
+            /// - ->    :Godot.Array<Element>
+            func `as`(_:Godot.Array<Element>.Type) -> Godot.Array<Element>
+        }
+        
+        extension Godot.Array:Godot.ArrayRepresentable 
+        {
+            /// init Godot.Array.init<Other>(_:)
+            /// where Other:Godot.ArrayRepresentable, Other.Element == Element 
+            ///     Creates a Godot pooled array from another 
+            ///     [`Godot.ArrayRepresentable`] value.
+            /// 
+            ///     This initializer can be used to convert native Swift arrays 
+            ///     to Godot pooled arrays.
+            /// - other:Other
+            /// #   (godot-array-init-from-arrayrepresentable)
+            init<Other>(_ other:Other) 
+                where Other:Godot.ArrayRepresentable, Other.Element == Element 
+            {
+                self = other.as(Self.self)
+            }
+            
+            /// init Godot.Array.init(_:)
+            /// ?:  Godot.ArrayRepresentable
+            ///     Assigns a Godot pooled array to a new expression.
+            /// 
+            ///     This function is a hook used by the [`Godot.ArrayRepresentable`]
+            ///     protocol. Because pooled arrays are copy-on-write types, this 
+            ///     initializer does not copy the storage of `other`. It has the same 
+            ///     semantics as assigning `other` to a new variable.
+            /// - other :Self
+            init(_ other:Self) 
+            {
+                self = other
+            }
+            
+            /// func Godot.Array.as(_:)
+            /// ?:  Godot.ArrayRepresentable
+            ///     Returns `self`.
+            /// 
+            ///     This function is a hook used by the [`Godot.ArrayRepresentable`]
+            ///     protocol.
+            /// - type  :Self.Type
+            /// - ->    :Self
+            func `as`(_:Self.Type) -> Self 
+            {
+                self 
+            }
+        }
+        /// extension Array
+        /// :   Godot.ArrayRepresentable
+        /// where Element:Godot.ArrayElement 
+        /// #   (13:)
+        extension Swift.Array:Godot.ArrayRepresentable
+            where Element:Godot.ArrayElement
+        {
+            /// init Array.init(_:)
+            /// ?:  Godot.ArrayRepresentable where Element:Godot.ArrayElement
+            ///     Creates a native Swift array from a Godot pooled array.
+            /// 
+            ///     This initializer copies the storage of `array`.
+            ///     Because all valid [`(Godot).ArrayElement`] types are trivial 
+            ///     value types, the newly-initialized Swift array is completely 
+            ///     independent of the original pooled array.
+            /// - array:Godot.Array<Element>
+            ///     A Godot pooled array.
+            init(_ array:Godot.Array<Element>) 
+            {
+                self = withExtendedLifetime(array) 
+                {
+                    Element.convert(array: array.core)
+                }
+            }
+            
+            /// func Array.as(_:)
+            /// ?:  Godot.ArrayRepresentable where Element:Godot.ArrayElement
+            ///     Returns a Godot pooled array containing the elements of this 
+            ///     Swift array.
+            /// 
+            ///     This method copies the storage of this array.
+            ///     Because all valid [`(Godot).ArrayElement`] types are trivial 
+            ///     value types, the returned pooled array is completely independent 
+            ///     of the original Swift array.
+            /// 
+            ///     Avoid calling this method directly; using the generic 
+            ///     [`Godot.Array.init(_:)#(godot-array-init-from-arrayrepresentable)`] 
+            ///     initializer is the preferred form.
+            /// - type  :Godot.Array<Element>.Type
+            /// - ->    :Godot.Array<Element>
+            func `as`(_:Godot.Array<Element>.Type) -> Godot.Array<Element> 
+            {
+                .init(retained: Element.convert(array: self))
+            }
         }
         
         extension Godot.Array:Godot.Variant 
@@ -321,7 +468,7 @@ enum VariantArray
             /// ?:  Godot.VariantRepresentable 
             ///     Attempts to load a pooled array instance from a variant value.
             /// 
-            ///     This function does not (immediately) deep-copy the array storage. 
+            ///     This function does not (immediately) copy the array storage. 
             ///     However, because Godot pooled arrays have copy-on-write semantics,
             ///     modifications to the original pooled array in GDScript will 
             ///     not be reflected in the returned Swift instance.
@@ -336,7 +483,7 @@ enum VariantArray
             /// ?:  Godot.VariantRepresentable 
             ///     Stores this pooled array instance as a variant value.
             /// 
-            ///     This function does not (immediately) deep-copy the array storage. 
+            ///     This function does not (immediately) copy the array storage. 
             ///     However, because Godot pooled arrays have copy-on-write semantics,
             ///     modifications to the returned array in GDScript will not  
             ///     be reflected in the original instance of `self`.
@@ -350,36 +497,13 @@ enum VariantArray
             }
         }
         
-        extension Godot.Array 
-        {
-            /// init Godot.Array.init(_:)
-            ///     Converts a native Swift array to a Godot pooled array.
-            /// - swift:[Element]
-            ///     A native Swift array.
-            convenience
-            init(_ swift:[Element]) 
-            {
-                self.init(retained: Element.convert(array: swift))
-            }
-        }
         /// extension Array 
         /// :   Godot.VariantRepresentable 
         /// where Element:Godot.ArrayElement 
-        extension Array:Godot.VariantRepresentable 
+        /// #   (13:)
+        extension Swift.Array:Godot.VariantRepresentable 
             where Element:Godot.ArrayElement 
-        {
-            /// init Array.init(_:)
-            ///     Converts a Godot pooled array to a native Swift array.
-            /// - godot:Godot.Array<Element>
-            ///     A Godot pooled array.
-            init(_ godot:Godot.Array<Element>) 
-            {
-                self = withExtendedLifetime(godot) 
-                {
-                    Element.convert(array: godot.core)
-                }
-            }
-            
+        {            
             /// static var Array.variantType:Godot.VariantType { get }
             /// ?:  Godot.VariantRepresentable 
             static 
@@ -391,7 +515,8 @@ enum VariantArray
             /// ?:  Godot.VariantRepresentable 
             ///     Attempts to load a Swift array from a variant value.
             /// 
-            ///     This function deep-copies the pooled array’s storage. The 
+            ///     This function copies the pooled array’s storage. Because all 
+            ///     valid [`(Godot).ArrayElement`] types are trivial value types, the 
             ///     returned Swift array is completely independent of the original 
             ///     pooled array instance.
             /// - value :Godot.Unmanaged.Variant 
@@ -405,7 +530,8 @@ enum VariantArray
             /// ?:  Godot.VariantRepresentable 
             ///     Stores this Swift array as a variant value.
             /// 
-            ///     This function deep-copies this array’s storage. The 
+            ///     This method copies the storage of this array. Because all 
+            ///     valid [`(Godot).ArrayElement`] types are trivial value types, the 
             ///     returned variant value is completely independent of the original 
             ///     Swift array.
             /// - ->    :Godot.Unmanaged.Variant 

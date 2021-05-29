@@ -211,21 +211,6 @@ extension UInt16:Godot.VariantRepresentable {}
 extension UInt8:Godot.VariantRepresentable  {}
 extension UInt:Godot.VariantRepresentable   {}
 
-extension godot_string 
-{
-    init(packing string:String) 
-    {
-        self = Godot.api.1.0.godot_string_chars_to_utf8(string)
-    }
-    var unpacked:String 
-    {
-        var utf8:godot_char_string = 
-            withUnsafePointer(to: self, Godot.api.1.0.godot_string_utf8)
-        defer { Godot.api.1.0.godot_char_string_destroy(&utf8)  }
-        return .init(cString: unsafeBitCast(utf8, to: UnsafePointer<Int8>.self))
-    }
-}
-
 // container types 
 extension Godot 
 {
@@ -258,42 +243,12 @@ extension Godot
             self.core.deinit()
         }
     }
-    /// class Godot.String
-    /// :   Godot.Variant 
-    /// final 
-    ///     The [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) type.
-    /// #   (10:godot-core-types)
-    /// #   (10:)
-    final 
-    class String 
-    {
-        // needs to be fileprivate so Swift.String.init(_:) can access it
-        fileprivate private(set)
-        var core:godot_string
-        
-        fileprivate 
-        init(retained core:godot_string) 
-        {
-            self.core = core
-        }
-        
-        private 
-        init(with initializer:(UnsafeMutablePointer<godot_string>) -> ()) 
-        {
-            self.core = .init(with: initializer)
-        }
-        
-        deinit 
-        {
-            self.core.deinit()
-        }
-    }
     /// class Godot.List
     /// :   Godot.Variant 
     /// final 
     ///     The [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) type.
-    /// #   (12:godot-core-types)
-    /// #   (12:)
+    /// #   (14:godot-core-types)
+    /// #   (14:)
     final 
     class List 
     {
@@ -321,8 +276,8 @@ extension Godot
     /// :   Godot.Variant 
     /// final 
     ///     The [`Godot::Dictionary`](https://docs.godotengine.org/en/stable/classes/class_dictionary.html) type.
-    /// #   (13:godot-core-types)
-    /// #   (13:)
+    /// #   (15:godot-core-types)
+    /// #   (15:)
     final 
     class Map 
     {
@@ -973,39 +928,6 @@ extension Godot.NodePath
         string.deinit()
     }
 }
-extension Godot.String 
-{
-    convenience
-    init(_ swift:Swift.String)
-    {
-        self.init(retained: godot_string.init(packing: swift))
-    }
-}
-extension String:Godot.VariantRepresentable 
-{
-    init(_ godot:Godot.String)
-    {
-        self = withExtendedLifetime(godot) 
-        {
-            godot.core.unpacked
-        }
-    } 
-    
-    static 
-    var variantType:Godot.VariantType 
-    {
-        Godot.String.variantType
-    }
-    static 
-    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-    {
-        value.take(unretained: Godot.String.self).map(Self.init(_:))
-    }
-    func passRetained() -> Godot.Unmanaged.Variant 
-    {
-        .pass(retaining: Godot.String.init(self))
-    }
-} 
 
 extension Godot.VariadicArguments:RandomAccessCollection, MutableCollection
 {

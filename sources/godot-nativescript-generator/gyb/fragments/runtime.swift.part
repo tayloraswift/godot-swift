@@ -737,7 +737,6 @@ protocol _GodotSignal:Godot.AnySignal
     typealias Interface = Godot.SignalInterface<Value>
     
     /// associatedtype Godot.Signal.Value 
-    /// required 
     ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
     associatedtype Value 
     

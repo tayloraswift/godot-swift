@@ -41,7 +41,7 @@ let package = Package(
             path: "sources/godot-nativescript-generator",
             exclude: 
             [
-                "fragments/", "api/", 
+                "gyb/fragments/", "api/", 
             ]),
         .plugin(name: "GodotNativeScript", capability: .buildTool(),
             dependencies: 

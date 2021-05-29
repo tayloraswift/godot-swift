@@ -1,0 +1,221 @@
+extension godot_string 
+{
+    fileprivate 
+    init(packing string:String) 
+    {
+        self = Godot.api.1.0.godot_string_chars_to_utf8(string)
+    }
+    fileprivate 
+    var unpacked:String 
+    {
+        var utf8:godot_char_string = 
+            withUnsafePointer(to: self, Godot.api.1.0.godot_string_utf8)
+        defer { Godot.api.1.0.godot_char_string_destroy(&utf8)  }
+        return .init(cString: unsafeBitCast(utf8, to: UnsafePointer<Int8>.self))
+    }
+}
+
+extension Godot 
+{
+    /// struct Godot.String
+    /// :   Godot.Variant 
+    /// :   Godot.StringRepresentable
+    ///     The [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) type.
+    /// #   (10:godot-core-types)
+    /// #   (10:)
+    struct String 
+    {
+        private final 
+        class Storage 
+        {
+            var core:godot_string
+            
+            init(core:godot_string)
+            {
+                self.core = core 
+            }
+            
+            deinit 
+            {
+                self.core.deinit()
+            }
+        }
+        
+        private 
+        var storage:Storage
+        // needs to be fileprivate so Swift.String.init(_:) can access it
+        fileprivate 
+        var core:godot_string
+        {
+            self.storage.core
+        }
+        
+        private 
+        init(storage:Storage) 
+        {
+            self.storage = storage 
+        }
+        
+        fileprivate 
+        init(retained core:godot_string) 
+        {
+            self.init(storage: .init(core: core))
+        }
+        
+        /* private 
+        init(with initializer:(UnsafeMutablePointer<godot_string>) -> ()) 
+        {
+            self.core = .init(with: initializer)
+        } */
+    }
+}
+
+extension Godot 
+{
+    typealias StringRepresentable = _GodotStringRepresentable
+}
+/// protocol Godot.StringRepresentable
+/// :   Godot.VariantRepresentable
+///     A type that can be losslessly converted to an from a Godot string.
+protocol _GodotStringRepresentable:Godot.VariantRepresentable
+{
+    /// init Godot.StringRepresentable.init(_:)
+    /// required 
+    ///     Creates an instance of [`Self`] from a Godot string.
+    /// - string:Godot.String
+    init(_:Godot.String) 
+    
+    /// func Godot.StringRepresentable.as(_:)
+    /// required 
+    ///     Returns this value as a Godot string.
+    /// 
+    ///     Avoid calling this method directly; using the generic 
+    ///     [`Godot.String.init(_:)#(godot-string-init-from-stringrepresentable)`] 
+    ///     initializer is the preferred form.
+    /// 
+    ///     **Warning:** When implementing this method, make sure you 
+    ///     do not call [`Godot.String.init(_:)#(godot-string-init-from-stringrepresentable)`] 
+    ///     with an instance of type [`Self`] — this will cause infinite 
+    ///     recursion.
+    /// - type  :Godot.String.Type
+    /// - ->    :Godot.String
+    func `as`(_:Godot.String.Type) -> Godot.String
+}
+
+extension Godot.String:Godot.StringRepresentable 
+{
+    /// init Godot.String.init<Other>(_:)
+    /// where Other:Godot.StringRepresentable
+    ///     Creates a Godot string from another 
+    ///     [`Godot.StringRepresentable`] value.
+    /// 
+    ///     This initializer can be used to convert native Swift strings 
+    ///     to Godot strings.
+    /// - other:Other
+    /// #   (godot-string-init-from-stringrepresentable)
+    init<Other>(_ other:Other)
+        where Other:Godot.StringRepresentable
+    {
+        self = other.as(Self.self)
+    }
+    
+    /// init Godot.String.init(_:)
+    /// ?:  Godot.StringRepresentable
+    ///     Assigns a Godot string to a new expression.
+    /// 
+    ///     This function is a hook used by the [`Godot.StringRepresentable`]
+    ///     protocol. Because Godot strings are copy-on-write types, this 
+    ///     initializer does not copy the storage of `other`. It has the same 
+    ///     semantics as assigning `other` to a new variable.
+    /// - other :Self
+    init(_ other:Self) 
+    {
+        self = other
+    }
+    
+    /// func Godot.String.as(_:)
+    /// ?:  Godot.StringRepresentable
+    ///     Returns `self`.
+    /// 
+    ///     This function is a hook used by the [`Godot.StringRepresentable`]
+    ///     protocol.
+    /// - type  :Self.Type
+    /// - ->    :Self
+    func `as`(_:Self.Type) -> Self 
+    {
+        self 
+    }
+}
+/// extension String 
+/// :   Godot.StringRepresentable 
+/// #   (11:)
+extension Swift.String:Godot.StringRepresentable 
+{
+    /// init String.init(_:)
+    /// ?:  Godot.StringRepresentable 
+    ///     Creates a native Swift string from a Godot string.
+    /// 
+    ///     This initializer copies the storage of `string`, so the 
+    ///     newly-initialized Swift string is completely 
+    ///     independent of the original Godot string.
+    /// - string:Godot.String
+    ///     A Godot string.
+    init(_ string:Godot.String)
+    {
+        self = withExtendedLifetime(string) 
+        {
+            string.core.unpacked
+        }
+    } 
+    
+    /// func String.as(_:)
+    /// ?:  Godot.StringRepresentable 
+    ///     Returns this string as a Godot string.
+    /// 
+    ///     This method copies the storage of this string, so the returned Godot 
+    ///     string is completely independent of the original Swift string.
+    /// 
+    ///     Avoid calling this method directly; using the generic 
+    ///     [`Godot.String.init(_:)#(godot-string-init-from-stringrepresentable)`] 
+    ///     initializer is the preferred form.
+    /// - type  :Godot.String.Type
+    /// - ->    :Godot.String
+    func `as`(_:Godot.String.Type) -> Godot.String
+    {
+        .init(retained: godot_string.init(packing: self))
+    }
+    
+    /// static var String.variantType:Godot.VariantType { get }
+    /// ?:  Godot.VariantRepresentable 
+    static 
+    var variantType:Godot.VariantType 
+    {
+        Godot.String.variantType
+    }
+    /// static func String.takeUnretained(_:)
+    /// ?:  Godot.VariantRepresentable 
+    ///     Attempts to load a Swift string from a variant value.
+    /// 
+    ///     This function copies the string’s storage, so the 
+    ///     returned Swift string is completely independent of the original 
+    ///     Godot string.
+    /// - value :Godot.Unmanaged.Variant 
+    /// - ->    :Self? 
+    static 
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
+    {
+        value.take(unretained: Godot.String.self).map(Self.init(_:))
+    }
+    /// func String.passRetained()
+    /// ?:  Godot.VariantRepresentable 
+    ///     Stores this Swift string as a variant value.
+    /// 
+    ///     This method copies the storage of this string, so the 
+    ///     returned variant value is completely independent of the original 
+    ///     Swift string.
+    /// - ->    :Godot.Unmanaged.Variant 
+    func passRetained() -> Godot.Unmanaged.Variant 
+    {
+        .pass(retaining: Godot.String.init(self))
+    }
+} 

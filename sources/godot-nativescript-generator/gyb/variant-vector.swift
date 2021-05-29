@@ -117,14 +117,15 @@ enum VariantVector
             }
             """
         }
-        for type:String in ["Float16", "Float32", "Float64"] 
+        // already provided for by Godot.RectangleElement conformances
+        /* for type:String in ["Float16", "Float32", "Float64"] 
         {
             """
             /// extension \(type)
             /// :   Godot.VectorElement
             extension \(type):Godot.VectorElement {}
             """
-        }
+        } */
         """
         extension Vector:Godot.VariantRepresentable 
             where Storage:Godot.VectorStorage
