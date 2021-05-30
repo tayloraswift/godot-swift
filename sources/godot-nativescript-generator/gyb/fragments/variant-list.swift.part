@@ -1,0 +1,191 @@
+extension Godot 
+{
+    /// class Godot.List
+    /// :   Godot.Variant 
+    /// :   RandomAccessCollection 
+    /// :   MutableCollection
+    /// :   ExpressibleByArrayLiteral
+    /// final 
+    ///     The [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) type.
+    /// #   (14:godot-core-types)
+    /// #   (14:)
+    final 
+    class List 
+    {
+        private 
+        var core:godot_array
+        
+        fileprivate 
+        init(retained core:godot_array) 
+        {
+            self.core = core
+        }
+        
+        private 
+        init(with initializer:(UnsafeMutablePointer<godot_array>) -> ()) 
+        {
+            self.core = .init(with: initializer)
+        }
+        
+        deinit 
+        {
+            self.core.deinit()
+        }
+    }
+}
+
+extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArrayLiteral
+{
+    convenience 
+    init() 
+    {
+        self.init(with: Godot.api.1.0.godot_array_new)
+    }
+    convenience 
+    init(count:Int) 
+    {
+        self.init()
+        self.resize(to: count)
+    }
+    convenience 
+    init<C>(_ elements:C) where C:Collection, C.Element == Godot.Variant?
+    {
+        self.init(count: elements.count)
+        for (i, element):(Int, Godot.Variant?) in elements.enumerated()
+        {
+            // it should be okay to assign here because godot default-initializes 
+            // the array elements to void’s
+            self[i] = element
+        }
+    }
+    convenience 
+    init(arrayLiteral elements:Godot.Variant?...) 
+    {
+        self.init(elements)
+    }
+    
+    convenience 
+    init<C>(consuming elements:C) where C:Collection, C.Element == Godot.Unmanaged.Variant
+    {
+        self.init(count: elements.count)
+        withExtendedLifetime(self) 
+        {
+            for (i, unmanaged):(Int, Godot.Unmanaged.Variant) in elements.enumerated()
+            {
+                // it should be okay to initialize here (the `=` operator does a 
+                // trivial bit copy, so it does not actually do an assignment)
+                // because the existing array elements should all be void’s, 
+                // which do not require deinitialization
+                self[unmanaged: i] = unmanaged 
+            }
+        }
+    }
+    convenience 
+    init(consuming elements:Godot.Unmanaged.Variant...)
+    {
+        self.init(consuming: elements)
+    }
+    
+    func resize(to count:Int) 
+    {
+        withExtendedLifetime(self) 
+        {
+            Godot.api.1.0.godot_array_resize(&self.core, .init(count))
+        }
+    }
+    
+    var startIndex:Int 
+    {
+        0
+    }
+    var endIndex:Int 
+    {
+        withExtendedLifetime(self)
+        {
+            .init(withUnsafePointer(to: self.core, Godot.api.1.0.godot_array_size))
+        }
+    }
+    
+    func take<T>(unretained _:T.Type, at index:Int) -> T? 
+        where T:Godot.VariantRepresentable 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].take(unretained: T.self) 
+        }
+    } 
+    func take(unretained _:Void.Type, at index:Int) -> Void? 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].take(unretained: Void.self) 
+        }
+    } 
+    func assign<T>(retaining value:T, at index:Int) 
+        where T:Godot.VariantRepresentable 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].assign(retaining: value) 
+        }
+    } 
+    func assign(retaining value:Void, at index:Int) 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].assign(retaining: value) 
+        }
+    } 
+    
+    subscript(index:Int) -> Godot.Variant? 
+    {
+        get 
+        {
+            withExtendedLifetime(self) 
+            {
+                self[unmanaged: index].take(unretained: Godot.Variant?.self) 
+            }
+        }
+        set(value) 
+        {
+            withExtendedLifetime(self) 
+            {
+                // deinitialize the existing value 
+                self[unmanaged: index].assign(retaining: value)
+            }
+        }
+    } 
+    // this subscript does not retain the variants! callers *must* surround it 
+    // with a `withExtendedLifetime(_:)` fence!
+    private 
+    subscript(unmanaged index:Int) -> Godot.Unmanaged.Variant 
+    {
+        get 
+        {
+            withUnsafePointer(to: self.core)
+            {
+                guard let pointer:UnsafePointer<godot_variant> = 
+                    Godot.api.1.0.godot_array_operator_index_const($0, .init(index))
+                else 
+                {
+                    fatalError("nil pointer to list element (\(index))")
+                }
+                
+                return UnsafeRawPointer.init(pointer)
+                    .load(as: Godot.Unmanaged.Variant.self)
+            }
+        }
+        set(value)
+        {
+            guard let pointer:UnsafeMutablePointer<godot_variant> = 
+                Godot.api.1.0.godot_array_operator_index(&self.core, .init(index))
+            else 
+            {
+                fatalError("nil pointer to list element (\(index))")
+            }
+            
+            UnsafeMutableRawPointer.init(pointer)
+                .storeBytes(of: value, as: Godot.Unmanaged.Variant.self)
+        } 
+    } 
+}

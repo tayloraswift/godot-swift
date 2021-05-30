@@ -14,7 +14,7 @@ import GodotNative
 ///     A namespace for Godot-related functionality.
 /// #   [Namespaces](godot-namespaces)
 /// #   [Working with variants](godot-variant-usage, godot-variant-protocols)
-/// #   [Engine types](godot-core-types)
+/// #   [Core types](godot-core-types)
 /// #   [Engine protocols](godot-core-protocols)
 /// #   [Working with signals](godot-signal-usage)
 /// #   [Global constants](godot-global-constants)

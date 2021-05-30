@@ -353,13 +353,21 @@ extension Godot.Class.Node
                 // fix problematic labels 
                 let label:Words, 
                     name:Words
-                // quirk: 
+                // quirks: 
                 if      self.symbol     == "VisualServer", 
                         method.name     == "request_frame_drawn_callback", 
                         argument.name   == "where"
                 {
                     label   = ["On"]
                     name    = ["Object"]
+                }
+                // set the label to '_', to avoid conflicting with TranslationServer.translate(message:)
+                else if self.symbol     == "Object", 
+                        method.name     == "tr", 
+                        argument.name   == "message"
+                {
+                    label   = ["_"]
+                    name    = ["Message"]
                 }
                 else if argument.name.prefix(3) == "arg", 
                         argument.name.dropFirst(3).allSatisfy(\.isNumber)
@@ -651,7 +659,11 @@ extension Godot.Class.Node
         // hide builtins 
         for symbol:(class:String, function:String) in 
         [
+            ("Object",      "connect"),
+            ("Object",      "disconnect"),
+            ("Object",      "is_connected"),
             ("Object",      "emit_signal"),
+            
             ("Reference",   "unreference"),
             ("Reference",   "reference"),
         ]
