@@ -1109,6 +1109,19 @@ extension Godot.Class.Node.Method
                 $0 == "_" ? "-" : $0
             }))) instance method.
             """
+            // specific remarks 
+            if host.name == ["Any", "Delegate"], symbol == "is_class"
+            {
+                """
+                /// 
+                ///     All Godot classes are bridged to the Swift type system, 
+                ///     and can be dynamically type-checked using the 
+                ///     Swift [`as`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html) 
+                ///     and [`is`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html) 
+                ///     operators. There is rarely a good reason to use this 
+                ///     method.
+                """
+            }
             for (label, name, type):(String, String?, Godot.Function.Scalar) in arguments
             {
                 """

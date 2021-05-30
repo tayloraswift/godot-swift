@@ -33,9 +33,17 @@ extension Godot.Class
             struct Key:Hashable 
             {
                 let symbol:String 
-                var name:Words 
+                let name:Words 
+                
+                init(symbol:String, name:Words)
                 {
-                    Words.split(snake: self.symbol)
+                    self.symbol = symbol 
+                    self.name   = name 
+                }
+                init(symbol:String)
+                {
+                    self.symbol = symbol 
+                    self.name   = Words.split(snake: self.symbol)
                         .normalized(patterns: Words.Normalization.general) 
                 }
             }
@@ -59,9 +67,18 @@ extension Godot.Class
             struct Key:Hashable 
             {
                 let symbol:String 
-                var name:Words 
+                let name:Words 
+                
+                init(symbol:String, name:Words)
                 {
-                    Words.split(snake: self.symbol)
+                    self.symbol = symbol 
+                    self.name   = name 
+                }
+                
+                init(symbol:String)
+                {
+                    self.symbol = symbol 
+                    self.name   = Words.split(snake: self.symbol)
                         .normalized(patterns: Words.Normalization.general) 
                 }
             }
@@ -311,7 +328,16 @@ extension Godot.Class.Node
                 "method 'Godot::\(self.symbol)::\(method.name)'"
             }
             
-            let key:Method.Key = .init(symbol: method.name)
+            let key:Method.Key
+            // quirk: 
+            if  self.symbol == "Object", method.name == "tr"
+            {
+                key = .init(symbol: method.name, name: ["Translate"])
+            }
+            else 
+            {
+                key = .init(symbol: method.name)
+            }
             
             var parameters:[(label:String, name:String, type:Godot.KnownType)]  = []
             var forbidden:Set<Words>                                            = []
