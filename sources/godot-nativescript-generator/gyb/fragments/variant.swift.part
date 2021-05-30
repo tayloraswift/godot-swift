@@ -94,7 +94,7 @@ extension Godot.AnyDelegate:Godot.Variant
                 return nil
             }
             // `godot_variant_as_object` passes object unretained
-            return Godot.type(of: core).init(unretained: core) as? Self
+            return Godot.type(of: core).init(retaining: core) as? Self
         } ?? nil
     }
     func passRetained() -> Godot.Unmanaged.Variant 
@@ -901,7 +901,7 @@ extension Godot.Unmanaged.Variant
                 }
                 // loading an object pointer from a variant does not seem to 
                 // increment its reference count, so we take it unretained
-                return Godot.type(of: core).init(unretained: core)
+                return Godot.type(of: core).init(retaining: core)
             
             case let type:
                 Godot.print(error: "unknown variant type (\(type)), check version compatibility!")

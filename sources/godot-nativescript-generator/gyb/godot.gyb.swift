@@ -457,6 +457,15 @@ extension Godot.Class.Node
         "https://docs.godotengine.org/en/stable/classes/class_\(self.symbol.lowercased()).html"
     }
     
+    // creates an entrapta page tag. replaces underscores with "-" hyphens
+    func tag(_ components:String...) -> String 
+    {
+        .init("class-\(self.symbol)-\(components.joined(separator: "-"))".map 
+        {
+            $0 == "_" ? "-" : $0
+        })
+    }
+    
     var functions:String?
     {
         guard !self.methods.isEmpty
@@ -501,6 +510,17 @@ extension Godot.Class.Node
             $0.key.name < $1.key.name
         }
         
+        // only used for the `symbol` computed property, since classes themselves 
+        // cannot be marked `override`
+        let modifiers:String? 
+        switch (self.children.isEmpty, self.parent)
+        {
+        case (true , nil  ):    modifiers = "final"
+        case (true , _?   ):    modifiers = "final override"
+        case (false, _?   ):    modifiers = "override"
+        case (false, nil  ):    modifiers = nil 
+        }
+        
         return Source.fragment
         {
             "extension \(self.namespace)"
@@ -524,6 +544,28 @@ extension Godot.Class.Node
                 }
                 """
                 ///     The [`Godot::\(self.symbol)`](\(self.url)) class.
+                /// #   [Getting the GDScript class name of a delegate](\(self.tag("class", "name", "builtin")))
+                """
+                if      self.namespace  == .root, 
+                        self.name       == ["Any", "Delegate"]
+                {
+                    """
+                    /// #   [Low-level functionality](\(self.tag("builtins")))
+                    /// #   [Emitting signals](\(self.tag("emit", "signal", "usage")))
+                    """
+                }
+                else if self.namespace  == .root, 
+                        self.name       == ["Any", "Object"]
+                {
+                    """
+                    /// #   [Low-level functionality](\(self.tag("builtins")))
+                    /// #   [Manual memory management](\(self.tag("manual", "reference", "counting")))
+                    """
+                }
+                """
+                /// #   [Constants](\(self.tag("constants")))
+                /// #   [Properties](\(self.tag("properties")))
+                /// #   [Generic property accessors](\(self.tag("property", "accessors")))
                 """
                 
                 if let parent:Godot.Class.Node = self.parent 
@@ -541,25 +583,79 @@ extension Godot.Class.Node
                 Source.block 
                 {
                     """
-                    \(self.parent == nil ? "" : "override ")class 
+                    /// class var \(self.namespace).\(self.name).symbol:Swift.String { get }
+                    """
+                    if let modifiers:String = modifiers 
+                    {
+                        """
+                        /// \(modifiers)
+                        """
+                    }
+                    """
+                    ///     The GDScript name (`"\(self.symbol)"`) of this class.
+                    /// 
+                    ///     This property is is provided as a *Godot Swift* builtin.
+                    ///     Accessing it is roughly equivalent to calling 
+                    ///     the [`AnyDelegate.getClass(as:)`] method, but does not 
+                    ///     call into game engine runtime.
+                    /// #   (\(self.tag("class", "name", "builtin")))
+                    \(modifiers.map{ "\($0) " } ?? "")class 
                     var symbol:Swift.String { "\(self.symbol)" }
                     """
                     
                     if      self.namespace  == .root, 
-                            self.name       == .split(pascal: "AnyDelegate")
+                            self.name       == ["Any", "Delegate"]
                     {
                         // Godot.AnyDelegate has special behavior:
                         """
+                        /// let \(self.namespace).\(self.name).core:UnsafeMutableRawPointer 
+                        /// final 
+                        ///     The raw pointer to the delegate instance 
+                        ///     wrapped by this Swift class instance.
+                        /// 
+                        ///     This pointer is not the same as the Swift instance 
+                        ///     pointer to `self`.
+                        /// 
+                        ///     Do not use this pointer unless you really know what 
+                        ///     you are doing.
+                        /// #   (\(self.tag("builtins")))
                         final 
                         let core:UnsafeMutableRawPointer 
-                        // non-failable init assumes instance has been type-checked!
+                        
+                        /// required init \(self.namespace).\(self.name).init(retained:)
+                        ///     Unsafely creates an instance of this class from 
+                        ///     a raw delegate pointer. 
+                        /// 
+                        ///     The `core` pointer is assumed to have been properly 
+                        ///     type-checked. If [`Self`] is [`Godot.AnyObject`], or 
+                        ///     one of its subclasses, it is also assumed to have 
+                        ///     already been retained, and will be released when 
+                        ///     `self` is deinitialized.
+                        /// 
+                        ///     Do not use this initializer unless you really know 
+                        ///     what you are doing.
+                        /// - core:UnsafeMutableRawPointer
+                        /// #   (\(self.tag("builtins")))
                         required
                         init(retained core:UnsafeMutableRawPointer) 
                         {
                             self.core = core
                         }
+                        /// required init \(self.namespace).\(self.name).init(retaining:)
+                        ///     Unsafely creates an instance of this class from 
+                        ///     a raw delegate pointer. 
+                        /// 
+                        ///     The `core` pointer is assumed to have been properly 
+                        ///     type-checked. If [`Self`] is [`Godot.AnyObject`], or 
+                        ///     one of its subclasses, it will be retained, and 
+                        ///     will be released when `self` is deinitialized.
+                        /// 
+                        ///     Do not use this initializer unless you really know 
+                        ///     what you are doing.
+                        /// - core:UnsafeMutableRawPointer
+                        /// #   (\(self.tag("builtins")))
                         required
-                        init(unretained core:UnsafeMutableRawPointer) 
+                        init(retaining core:UnsafeMutableRawPointer) 
                         {
                             self.core = core
                         }
@@ -572,6 +668,7 @@ extension Godot.Class.Node
                         ///     A signal value.
                         /// - _     :   Signal.Type 
                         ///     The signal type to emit the given `value` as.
+                        /// #   (\(self.tag("emit", "signal", "usage")))
                         final 
                         func emit<Signal>(signal value:Signal.Value, as _:Signal.Type)
                             where Signal:Godot.Signal 
@@ -596,19 +693,45 @@ extension Godot.Class.Node
                         """
                     }
                     else if self.namespace  == .root, 
-                            self.name       == .split(pascal: "AnyObject")
+                            self.name       == ["Any", "Object"]
                     {
                         // Godot.AnyObject has special behavior:
                         """
+                        /// required init \(self.namespace).\(self.name).init(retained:)
+                        ///     Unsafely creates an instance of this class from 
+                        ///     a raw delegate pointer, without performing a 
+                        ///     balanced retain.
+                        /// 
+                        ///     The `core` pointer is assumed to have been properly 
+                        ///     type-checked, and is also assumed to have 
+                        ///     already been retained. It will be released when 
+                        ///     `self` is deinitialized.
+                        /// 
+                        ///     Do not use this initializer unless you really know 
+                        ///     what you are doing.
+                        /// - core:UnsafeMutableRawPointer
+                        /// #   (\(self.tag("builtins")))
                         required
                         init(retained core:UnsafeMutableRawPointer) 
                         {
                             super.init(retained: core)
                         }
+                        /// required init \(self.namespace).\(self.name).init(retaining:)
+                        ///     Unsafely creates an instance of this class from 
+                        ///     a raw delegate pointer, performing a balanced retain.
+                        /// 
+                        ///     The `core` pointer is assumed to have been properly 
+                        ///     type-checked. It will be retained by this initializer, and 
+                        ///     will be released when `self` is deinitialized.
+                        /// 
+                        ///     Do not use this initializer unless you really know 
+                        ///     what you are doing.
+                        /// - core:UnsafeMutableRawPointer
+                        /// #   (\(self.tag("builtins")))
                         required 
-                        init(unretained core:UnsafeMutableRawPointer) 
+                        init(retaining core:UnsafeMutableRawPointer) 
                         {
-                            super.init(unretained: core)
+                            super.init(retaining: core)
                             guard self.retain()
                             else 
                             {
@@ -630,6 +753,7 @@ extension Godot.Class.Node
                         ///     Performs an unbalanced retain.
                         /// - ->    : Bool 
                         ///     This method should always return `true`.
+                        /// #   (\(self.tag("manual", "reference", "counting")))
                         @discardableResult
                         final
                         func retain() -> Bool 
@@ -643,6 +767,7 @@ extension Godot.Class.Node
                         /// - ->    : Bool 
                         ///     `true` if `self` was uniquely-referenced before performing 
                         ///     the release, `false` otherwise.
+                        /// #   (\(self.tag("manual", "reference", "counting")))
                         @discardableResult
                         final
                         func release() -> Bool 
@@ -661,6 +786,7 @@ extension Godot.Class.Node
                         ///     The [`\(key.symbol)`](\(self.url)#constants) constant. 
                         /// 
                         ///     The raw value of this constant is `\(constant.value)`.
+                        /// #   (1:\(self.tag("constants")))
                         static 
                         let \(constant.name.camelcased):Int = \(constant.value)
                         """
@@ -672,6 +798,7 @@ extension Godot.Class.Node
                         /// :   Swift.Hashable
                         ///     The [`\(enumeration.symbol)`](\(self.url)#enumerations)
                         ///     enumeration.
+                        /// #   (0:\(self.tag("constants")))
                         struct \(enumeration.name):Hashable  
                         """
                         Source.block 
@@ -682,10 +809,13 @@ extension Godot.Class.Node
                             let value:Int
                             
                             """
-                            for (name, value):(Words, Int) in enumeration.cases 
+                            for (symbol, name, value):(String, Words, Int) in enumeration.cases 
                             {
                                 """
                                 /// static let \(self.namespace).\(self.name).\(enumeration.name).\(name.camelcased):Self 
+                                ///     The [`\(symbol)`](\(self.url)#enumerations) constant.
+                                /// 
+                                ///     The raw value of this constant is `\(value)`.
                                 static 
                                 let \(name.camelcased):Self = .init(value: \(value))
                                 """
@@ -760,12 +890,8 @@ extension Godot.Class.Node.Property
         }
         return Source.fragment 
         {
-            // create doccomment tag for this accessor group. we need to replace 
-            // underscores with "-" hyphens
-            let tag:String = .init("class-\(host.symbol)-\(symbol)-accessor".map 
-            {
-                $0 == "_" ? "-" : $0
-            })
+            // create doccomment tag for this accessor group. 
+            let tag:String = host.tag(symbol, "accessor")
             // emit doccomment 
             """
             /// var \(host.namespace).\(host.name).\(name):\(function.range.canonical) \
@@ -780,6 +906,7 @@ extension Godot.Class.Node.Property
             """
             ///     The [`\(symbol)`](\(host.url)#properties) instance property.
             /// #   [See also](\(tag))
+            /// #   (0:\(host.tag("properties")))
             /// #   (\(tag))
             """
             
@@ -850,6 +977,7 @@ extension Godot.Class.Node.Property
                 /// - type  :\(function.range.outer).Type
                 /// - ->    :\(function.range.outer)
                 /// #   [See also](\(tag))
+                /// #   (0:\(host.tag("property", "accessors")))
                 /// #   (\(tag))
                 """
                 
@@ -879,6 +1007,7 @@ extension Godot.Class.Node.Property
                     ///     Sets this delegate’s [`\(name)`] property to the given value. 
                     /// - value :\(function.range.outer)
                     /// #   [See also](\(tag))
+                    /// #   (0:\(host.tag("property", "accessors")))
                     /// #   (\(tag))
                     """
                     if let modifiers:String = modifiers 

@@ -2,87 +2,91 @@ struct Words:Hashable, Comparable, CustomStringConvertible
 {
     enum Normalization 
     {
-        typealias Patterns = [String: (tail:[String], normalized:[String])] 
+        typealias Patterns = [String: [(tail:[String], normalized:[String])]] 
         
         static 
         let general:Patterns = 
         [
-            "Anti"      : (["Aliasing"],    ["Antialiasing"]),
-            "Counter"   : (["Clockwise"],   ["Counterclockwise"]),
-            "Ycbcr"     : (["Sep"],         ["Ycbcr", "Separate"]),
-            "Hi"        : (["Limit"],       ["High", "Limit"]),
-            "Lo"        : (["Limit"],       ["Low", "Limit"]),
-            "Get"       : (["Var"],         ["Get", "Variant"]),
-            "Put"       : (["Var"],         ["Put", "Variant"]),
-            "Local"     : (["Var"],         ["Local", "Variable"]),
-            "Var"       : (["Name"],        ["Variable", "Name"]),
+            "Anti"      : [(["Aliasing"],   ["Antialiasing"])],
+            "Counter"   : [(["Clockwise"],  ["Counterclockwise"])],
+            "Ycbcr"     : [(["Sep"],        ["Ycbcr", "Separate"])],
+            "Hi"        : [(["Limit"],      ["High", "Limit"])],
+            "Lo"        : [(["Limit"],      ["Low", "Limit"])],
+            "Get"       : [(["Var"],        ["Get", "Variant"])],
+            "Local"     : [(["Var"],        ["Local", "Variable"])],
+            "Put"       : [(["Var"],        ["Put", "Variant"])],
+            "Reg"       : [(["Ex"],         ["Regular", "Expression"])],
+            "Var"       : [(["Name"],       ["Variable", "Name"])],
             
-            "Accel"     : ([], ["Acceleration"]),
-            "Anim"      : ([], ["Animation"]),
-            "Arg"       : ([], ["Argument"]),
-            "Assign"    : ([], ["Assignment"]),
-            "Brothers"  : ([], ["Siblings"]),
-            "Char"      : ([], ["Character"]),
-            "Coord"     : ([], ["Coordinate"]),
-            "Coords"    : ([], ["Coordinates"]),
-            "Dest"      : ([], ["Destination"]),
-            "Dir"       : ([], ["Directory"]),
-            "Dirs"      : ([], ["Directories"]),
-            "Elem"      : ([], ["Element"]),
-            "Env"       : ([], ["Environment"]),
-            "Expo"      : ([], ["Exponential"]),
-            "Fract"     : ([], ["Fractional"]),
-            "Func"      : ([], ["Function"]),
-            "Funcv"     : ([], ["Functionv"]),
-            "Idx"       : ([], ["Index"]),
-            "Interp"    : ([], ["Interpolation"]),
-            "Jpg"       : ([], ["Jpeg"]),
-            "Len"       : ([], ["Length"]),
-            "Lib"       : ([], ["Library"]),
-            //"Mult"      : ([], ["Multiply"]),
-            "Maximum"   : ([], ["Max"]),
-            "Minimum"   : ([], ["Min"]),
-            "Mem"       : ([], ["Memory"]),
-            "Mul"       : ([], ["Multiply"]),
-            "Op"        : ([], ["Operator"]),
-            "Param"     : ([], ["Parameter"]),
-            "Poly"      : ([], ["Polygon"]),
-            "Pos"       : ([], ["Position"]),
-            "Premult"   : ([], ["Premultiply"]),
-            "Rect"      : ([], ["Rectangle"]),
-            "Ref"       : ([], ["Reference"]),
-            "Regen"     : ([], ["Regenerate"]),
-            "Src"       : ([], ["Source"]),
-            "Subdiv"    : ([], ["Subdivision"]),
-            "Surf"      : ([], ["Surface"]),
+            "Accel"     : [([], ["Acceleration"])],
+            "Anim"      : [([], ["Animation"])],
+            "Arg"       : [([], ["Argument"])],
+            "Assign"    : [([], ["Assignment"])],
+            "Brothers"  : [([], ["Siblings"])],
+            "Char"      : [([], ["Character"])],
+            "Coord"     : [([], ["Coordinate"])],
+            "Coords"    : [([], ["Coordinates"])],
+            "Dst"       : [([], ["Destination"])],
+            "Dest"      : [([], ["Destination"])],
+            "Dir"       : [([], ["Directory"])],
+            "Dirs"      : [([], ["Directories"])],
+            "Elem"      : [([], ["Element"])],
+            "Env"       : [([], ["Environment"])],
+            "Expo"      : [([], ["Exponential"])],
+            "Fract"     : [([], ["Fractional"])],
+            "Func"      : [([], ["Function"])],
+            "Funcv"     : [([], ["Functionv"])],
+            "Id"        : [([], ["Identifier"])],
+            "ID"        : [([], ["Identifier"])],
+            "Idx"       : [([], ["Index"])],
+            "Interp"    : [([], ["Interpolation"])],
+            "Jpg"       : [([], ["Jpeg"])],
+            "Len"       : [([], ["Length"])],
+            "Lib"       : [([], ["Library"])],
+            //"Mult"      : [([], ["Multiply"])],
+            "Maximum"   : [([], ["Max"])],
+            "Minimum"   : [([], ["Min"])],
+            "Mem"       : [([], ["Memory"])],
+            "Mul"       : [([], ["Multiply"])],
+            "Op"        : [([], ["Operator"])],
+            "Param"     : [([], ["Parameter"])],
+            "Poly"      : [([], ["Polygon"])],
+            "Pos"       : [([], ["Position"])],
+            "Premult"   : [([], ["Premultiply"])],
+            "Rect"      : [([], ["Rectangle"])],
+            "Ref"       : [([], ["Reference"])],
+            "Regen"     : [([], ["Regenerate"])],
+            "Src"       : [([], ["Source"])],
+            "Subdiv"    : [([], ["Subdivision"])],
+            "Surf"      : [([], ["Surface"])],
             //"Sub"       : ([], ["Subtract"]),
-            "Tex"       : ([], ["Texture"]),
-            "Vec"       : ([], ["Vector"]),
-            "Verts"     : ([], ["Vertices"]),
+            "Tex"       : [([], ["Texture"])],
+            "Vec"       : [([], ["Vector"])],
+            "Verts"     : [([], ["Vertices"])],
             
-            "Areaangular"   : ([], ["Area", "Angular"]),
-            "Fadein"        : ([], ["Fade", "In"]),
-            "Fadeout"       : ([], ["Fade", "Out"]),
-            "Minsize"       : ([], ["Min", "Size"]),
-            "Maxsize"       : ([], ["Max", "Size"]),
-            "Navpoly"       : ([], ["Navigation", "Polygon"]),
-            "Rid"           : ([], ["Resource", "Identifier"]),
-            "Texid"         : ([], ["Texture", "Id"]),
+            "Areaangular"   : [([], ["Area", "Angular"])],
+            "Fadein"        : [([], ["Fade", "In"])],
+            "Fadeout"       : [([], ["Fade", "Out"])],
+            "Minsize"       : [([], ["Min", "Size"])],
+            "Maxsize"       : [([], ["Max", "Size"])],
+            "Navpoly"       : [([], ["Navigation", "Polygon"])],
+            "Rid"           : [([], ["Resource", "Identifier"])],
+            "Texid"         : [([], ["Texture", "Identifier"])],
         ]
         static 
         let constants:Patterns = 
         [
-            "Kp"        : ([], ["Keypad"]),
-            "Xbutton1"  : ([], ["Back"]),
-            "Xbutton2"  : ([], ["Forward"]),
-            "Exp"       : ([], ["Exponential"]),
-            "Enum"      : ([], ["Enumeration"]),
-            "Accel"     : ([], ["Acceleration"]),
-            "Dir"       : ([], ["Directory"]),
-            "Concat"    : ([], ["Concatenation"]),
-            "Intl"      : ([], ["Internationalized"]),
-            "Noeditor"  : ([], ["No", "Editor"]),
-            "Noscript"  : ([], ["No", "Script"]),
+            "Kp"        : [([], ["Keypad"])],
+            "Xbutton1"  : [([], ["Back"])],
+            "Xbutton2"  : [([], ["Forward"])],
+            "Exp"       : [([], ["Exponential"])],
+            "Enum"      : [([], ["Enumeration"])],
+            "Accel"     : [([], ["Acceleration"])],
+            "Dir"       : [([], ["Directory"])],
+            "Concat"    : [([], ["Concatenation"])],
+            "Intl"      : [([], ["Internationalized"])],
+            "Noeditor"  : [([], ["No", "Editor"])],
+            "Noscript"  : [([], ["No", "Script"])],
         ]
     }
     
@@ -208,22 +212,23 @@ struct Words:Hashable, Comparable, CustomStringConvertible
     {
         var components:[String] = []
         var i:Int               = self.components.startIndex 
+        outer:
         while i < self.components.endIndex 
         {
             let original:String = self.components[i]
             
             i += 1
             
-            if  let pattern:(tail:[String], normalized:[String]) = patterns[original], 
-                self.components.dropFirst(i).prefix(pattern.tail.count) == pattern.tail[...]
+            for pattern:(tail:[String], normalized:[String]) in patterns[original] ?? [] 
             {
-                components.append(contentsOf: pattern.normalized)
-                i += pattern.tail.count
+                if self.components.dropFirst(i).starts(with: pattern.tail)
+                {
+                    components.append(contentsOf: pattern.normalized)
+                    i += pattern.tail.count
+                    continue outer 
+                }
             }
-            else 
-            {
-                components.append(original)
-            }
+            components.append(original)
         }
         
         return .init(components: components)

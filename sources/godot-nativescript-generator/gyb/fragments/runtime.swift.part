@@ -928,7 +928,7 @@ extension Godot.NativeScriptInterface
         }
         // allow recovery on mismatched delegate type
         let metatype:Godot.AnyDelegate.Type = Godot.type(of: core)
-        guard let delegate:T.Delegate = metatype.init(unretained: core) as? T.Delegate
+        guard let delegate:T.Delegate = metatype.init(retaining: core) as? T.Delegate
         else 
         {
             Godot.print(error: 
@@ -1069,7 +1069,7 @@ extension Godot.NativeScriptInterface
         // load `delegate`
         guard   let core:UnsafeMutableRawPointer    = delegate, 
                 let delegate:T.Delegate             = Godot.type(of: core)
-                    .init(unretained: core) as? T.Delegate
+                    .init(retaining: core) as? T.Delegate
         else 
         {
             fatalError("(swift) \(description) received nil or invalid delegate pointer")

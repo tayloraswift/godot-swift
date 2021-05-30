@@ -81,7 +81,7 @@ extension Godot.Class
         {
             let symbol:String
             let name:Words 
-            let cases:[(name:Words, rawValue:Int)]
+            let cases:[(symbol:String, name:Words, rawValue:Int)]
         }
         
         let symbol:String 
@@ -149,29 +149,45 @@ extension Godot.Class
                 
                 enumerationConstants.merge(enumeration.cases){ (keep:Int, _:Int) in keep }
                 
-                let unfactored:[(name:Words, rawValue:Int)] = enumeration.cases.map 
+                let name:Words = .name(enumeration: enumeration.name, scope: name)
+                let unfactored:[(symbol:String, name:Words, rawValue:Int)] = 
+                    enumeration.cases.map 
                 {
                     (
+                        $0.key,
                         Words.split(snake: $0.key)
                             .normalized(patterns: Words.Normalization.general), 
                         $0.value
                     )
                 }
-                let prefix:Words = .greatestCommonPrefix(among: unfactored.map(\.name))
-                let cases:[(name:Words, rawValue:Int)] = unfactored.map 
+                let cases:[(symbol:String, name:Words, rawValue:Int)]
+                if name == ["Flags"]
                 {
-                    ($0.name.factoring(out: prefix), $0.rawValue)
+                    // special handling for enums called ‘Flags’
+                    cases               = unfactored.map 
+                    {
+                        (
+                            $0.symbol, 
+                            $0.name == ["Flags", "Default"] ? ["Default"] : $0.name.factoring(out: ["Flag"]), 
+                            $0.rawValue
+                        )
+                    }
                 }
-                .sorted 
+                else 
                 {
-                    // it is not enough to sort by raw value, since there are 
-                    // multipel cases with the same raw value 
-                    $0 < $1
+                    let prefix:Words    = .greatestCommonPrefix(among: unfactored.map(\.name))
+                    cases               = unfactored.map 
+                    {
+                        ($0.symbol, $0.name.factoring(out: prefix), $0.rawValue)
+                    }
                 }
                 
-                return .init(symbol: enumeration.name, 
-                    name: .name(enumeration: enumeration.name, scope: name), 
-                    cases: cases)
+                return .init(symbol: enumeration.name, name: name, cases: cases.sorted 
+                {
+                    // it is not enough to sort by raw value, since there are 
+                    // multiple cases with the same raw value 
+                    ($0.name, $0.rawValue) < ($1.name, $1.rawValue)
+                })
             }
             
             self.namespace  = namespace 
