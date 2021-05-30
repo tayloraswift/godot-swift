@@ -6,7 +6,14 @@ extension Godot
     /// :   MutableCollection
     /// :   ExpressibleByArrayLiteral
     /// final 
-    ///     The [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) type.
+    ///     A heterogenous collection of GDScript variant values.
+    /// 
+    ///     This type corresponds to the 
+    ///     [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) 
+    ///     type in GDScript. It has reference semantics, so modifications to 
+    ///     an instance of [`List`] will be seen by all values referring to it.
+    /// 
+    ///     Instances of this type are memory-managed by Swift.
     /// #   (14:godot-core-types)
     /// #   (14:)
     final 
@@ -36,17 +43,27 @@ extension Godot
 
 extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArrayLiteral
 {
+    /// convenience init Godot.List.init()
+    ///     Creates an empty list.
     convenience 
     init() 
     {
         self.init(with: Godot.api.1.0.godot_array_new)
     }
+    /// convenience init Godot.List.init(count:)
+    ///     Creates a list with `count` elements, all initialized to `nil`.
+    /// - count:Int 
     convenience 
     init(count:Int) 
     {
         self.init()
         self.resize(to: count)
     }
+    /// convenience init Godot.List.init<C>(_:)
+    /// where C:Collection, C.Element == Godot.Variant?
+    ///     Creates a list from the given collection.
+    /// - elements:C 
+    ///     A collection containing the elements to form a the list from.
     convenience 
     init<C>(_ elements:C) where C:Collection, C.Element == Godot.Variant?
     {
@@ -58,6 +75,10 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
             self[i] = element
         }
     }
+    /// convenience init Godot.List.init(arrayLiteral:)
+    /// ?:  ExpressibleByArrayLiteral
+    ///     Creates a list from an array literal.
+    /// - elements:Godot.Variant?...
     convenience 
     init(arrayLiteral elements:Godot.Variant?...) 
     {
