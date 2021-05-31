@@ -19,8 +19,12 @@ extension Godot
 {
     /// struct Godot.String
     /// :   Godot.Variant 
-    /// :   Godot.StringRepresentable
-    ///     The [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) type.
+    /// :   StringRepresentable
+    ///     An opaque Godot string value.
+    /// 
+    ///     This type corresponds to the 
+    ///     [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) 
+    ///     GDScript type.
     /// #   (10:godot-core-types)
     /// #   (10:)
     struct String 
@@ -105,9 +109,8 @@ protocol _GodotStringRepresentable:Godot.VariantRepresentable
 extension Godot.String:Godot.StringRepresentable 
 {
     /// init Godot.String.init<Other>(_:)
-    /// where Other:Godot.StringRepresentable
-    ///     Creates a Godot string from another 
-    ///     [`Godot.StringRepresentable`] value.
+    /// where Other:StringRepresentable
+    ///     Creates a Godot string from another [`StringRepresentable`] value.
     /// 
     ///     This initializer can be used to convert native Swift strings 
     ///     to Godot strings.
@@ -120,10 +123,10 @@ extension Godot.String:Godot.StringRepresentable
     }
     
     /// init Godot.String.init(_:)
-    /// ?:  Godot.StringRepresentable
+    /// ?:  StringRepresentable
     ///     Assigns a Godot string to a new expression.
     /// 
-    ///     This function is a hook used by the [`Godot.StringRepresentable`]
+    ///     This function is a hook used by the [`StringRepresentable`]
     ///     protocol. Because Godot strings are copy-on-write types, this 
     ///     initializer does not copy the storage of `other`. It has the same 
     ///     semantics as assigning `other` to a new variable.
@@ -134,10 +137,10 @@ extension Godot.String:Godot.StringRepresentable
     }
     
     /// func Godot.String.as(_:)
-    /// ?:  Godot.StringRepresentable
+    /// ?:  StringRepresentable
     ///     Returns `self`.
     /// 
-    ///     This function is a hook used by the [`Godot.StringRepresentable`]
+    ///     This function is a hook used by the [`StringRepresentable`]
     ///     protocol.
     /// - type  :Self.Type
     /// - ->    :Self

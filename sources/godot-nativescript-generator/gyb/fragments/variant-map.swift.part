@@ -1,0 +1,140 @@
+extension Godot 
+{
+    /// class Godot.Map
+    /// :   Godot.Variant 
+    /// :   ExpressibleByDictionaryLiteral
+    /// final 
+    ///     An unordered collection mapping variant keys to variant values.
+    /// 
+    ///     This type corresponds to the 
+    ///     [`Godot::Dictionary`](https://docs.godotengine.org/en/stable/classes/class_dictionary.html) 
+    ///     type in GDScript. It has reference semantics, so modifications to 
+    ///     an instance of [`Map`] will be seen by all values referring to it.
+    /// #   [Creating a map](godot-map-initializer-usage)
+    /// #   [Accessing values](godot-map-element-access)
+    /// #   (15:godot-core-types)
+    /// #   (15:)
+    final 
+    class Map 
+    {
+        private 
+        var core:godot_dictionary
+        
+        fileprivate 
+        init(retained core:godot_dictionary) 
+        {
+            self.core = core
+        }
+        
+        private 
+        init(with initializer:(UnsafeMutablePointer<godot_dictionary>) -> ()) 
+        {
+            self.core = .init(with: initializer)
+        }
+        
+        deinit 
+        {
+            self.core.deinit()
+        }
+    }
+}
+extension Godot.Map:ExpressibleByDictionaryLiteral
+{
+    /// convenience init Godot.Map.init()
+    ///     Creates an empty map.
+    /// #   (0:godot-map-initializer-usage)
+    convenience 
+    init() 
+    {
+        self.init(with: Godot.api.1.0.godot_dictionary_new)
+    }
+    /// convenience init Godot.Map.init(dictionaryLiteral:)
+    /// ?:  ExpressibleByDictionaryLiteral
+    ///     Creates a map from a dictionary literal.
+    /// 
+    ///     If there are duplicate keys in `items`, the value associated with 
+    ///     its last occurrence in `items` is used.
+    /// - items:(Godot.Variant?, Godot.Variant?)...
+    ///     A list of key-value pairs.
+    /// #   (0:godot-map-initializer-usage)
+    convenience 
+    init(dictionaryLiteral items:(Godot.Variant?, Godot.Variant?)...) 
+    {
+        self.init()
+        for (key, value):(Godot.Variant?, Godot.Variant?) in items 
+        {
+            // same assumptions should apply here as with `Godot.List`
+            self[key] = value
+        }
+    }
+    /// subscript Godot.Map[_:] { get set }
+    ///     Accesses the value associated with the given key.
+    /// - key:Godot.Variant?
+    ///     The key to look up.
+    /// - -> :Godot.Variant?
+    /// #   (0:godot-map-element-access)
+    subscript(key:Godot.Variant?) -> Godot.Variant? 
+    {
+        get 
+        {
+            withExtendedLifetime(self) 
+            {
+                self[unmanaged: key].take(unretained: Godot.Variant?.self) 
+            }
+        }
+        set(value) 
+        {
+            withExtendedLifetime(self) 
+            {
+                // deinitialize the existing value 
+                self[unmanaged: key].assign(retaining: value)
+            }
+        }
+    } 
+    // this subscript does not retain the variants! callers *must* surround it 
+    // with a `withExtendedLifetime(_:)` fence!
+    private 
+    subscript(unmanaged key:Godot.Variant?) -> Godot.Unmanaged.Variant 
+    {
+        get 
+        {
+            Godot.Unmanaged.Variant.pass(guaranteeing: key)
+            {
+                (key:UnsafePointer<godot_variant>) in 
+                
+                withUnsafePointer(to: self.core)
+                {
+                    guard let pointer:UnsafePointer<godot_variant> = 
+                        Godot.api.1.0.godot_dictionary_operator_index_const($0, key)
+                    else 
+                    {
+                        // key not found. the method is labeled `retaining` but 
+                        // no retain actually takes place for a void variant
+                        return .pass(retaining: ())
+                    }
+                    
+                    return UnsafeRawPointer.init(pointer)
+                        .load(as: Godot.Unmanaged.Variant.self)
+                }
+            }
+        }
+        set(value)
+        {
+            Godot.Unmanaged.Variant.pass(guaranteeing: key)
+            {
+                (key:UnsafePointer<godot_variant>) in 
+                
+                guard let pointer:UnsafeMutablePointer<godot_variant> = 
+                    Godot.api.1.0.godot_dictionary_operator_index(&self.core, key)
+                else 
+                {
+                    // not sure what it means if this method returns `nil`
+                    fatalError("nil pointer to unordered map element (\(key))")
+                }
+                
+                UnsafeMutableRawPointer.init(pointer)
+                    .storeBytes(of: value, as: Godot.Unmanaged.Variant.self)
+            }
+        }
+    } 
+} 

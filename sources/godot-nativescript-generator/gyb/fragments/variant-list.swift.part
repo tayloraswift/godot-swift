@@ -6,7 +6,7 @@ extension Godot
     /// :   MutableCollection
     /// :   ExpressibleByArrayLiteral
     /// final 
-    ///     A heterogenous collection of GDScript variant values.
+    ///     A heterogenous collection of variant values.
     /// 
     ///     This type corresponds to the 
     ///     [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) 
@@ -14,6 +14,10 @@ extension Godot
     ///     an instance of [`List`] will be seen by all values referring to it.
     /// 
     ///     Instances of this type are memory-managed by Swift.
+    /// #   [Creating lists](godot-list-initializer-usage)
+    /// #   [Creating lists from unmanaged values](godot-list-manual-memory-management)
+    /// #   [Resizing lists](godot-list-resize-usage)
+    /// #   [Accessing list elements](godot-list-element-access)
     /// #   (14:godot-core-types)
     /// #   (14:)
     final 
@@ -45,6 +49,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
 {
     /// convenience init Godot.List.init()
     ///     Creates an empty list.
+    /// #   (0:godot-list-initializer-usage)
     convenience 
     init() 
     {
@@ -53,6 +58,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
     /// convenience init Godot.List.init(count:)
     ///     Creates a list with `count` elements, all initialized to `nil`.
     /// - count:Int 
+    /// #   (0:godot-list-initializer-usage)
     convenience 
     init(count:Int) 
     {
@@ -61,9 +67,15 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
     }
     /// convenience init Godot.List.init<C>(_:)
     /// where C:Collection, C.Element == Godot.Variant?
-    ///     Creates a list from the given collection.
+    ///     Initializes a list from the given variants.
+    /// 
+    ///     After calling this initializer, each variant element is retained 
+    ///     to reflect the fact that this list instance now holds a strong reference 
+    ///     to it. This does not affect variant elements holding unmanaged values, 
+    ///     such as [`Unmanaged.Node`] instances.
     /// - elements:C 
-    ///     A collection containing the elements to form a the list from.
+    ///     A collection containing the elements to form the list from.
+    /// #   (1:godot-list-initializer-usage)
     convenience 
     init<C>(_ elements:C) where C:Collection, C.Element == Godot.Variant?
     {
@@ -78,15 +90,30 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
     /// convenience init Godot.List.init(arrayLiteral:)
     /// ?:  ExpressibleByArrayLiteral
     ///     Creates a list from an array literal.
+    /// 
+    ///     After calling this initializer, each variant element is retained 
+    ///     to reflect the fact that this list instance now holds a strong reference 
+    ///     to it. This does not affect variant elements holding unmanaged values, 
+    ///     such as [`Unmanaged.Node`] instances.
     /// - elements:Godot.Variant?...
+    /// #   (1:godot-list-initializer-usage)
     convenience 
     init(arrayLiteral elements:Godot.Variant?...) 
     {
         self.init(elements)
     }
-    
+    /// convenience init Godot.List.init<C>(moving:)
+    /// where C:Collection, C.Element == Unmanaged.Variant
+    ///     Move-initializes a list from the given unmanaged variants.
+    /// 
+    ///     This initializer transfers ownership of the variant elements to the 
+    ///     newly-initialized list instance. When the list is deinitialized, 
+    ///     all of its elements will be deinitialized as well, which means that 
+    ///     the original unmanaged variant values will no longer be valid. 
+    /// - elements:C 
+    /// #   (0:godot-list-manual-memory-management)
     convenience 
-    init<C>(consuming elements:C) where C:Collection, C.Element == Godot.Unmanaged.Variant
+    init<C>(moving elements:C) where C:Collection, C.Element == Godot.Unmanaged.Variant
     {
         self.init(count: elements.count)
         withExtendedLifetime(self) 
@@ -101,12 +128,28 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
             }
         }
     }
+    /// convenience init Godot.List.init<C>(moving:)
+    ///     Move-initializes a list from the given unmanaged variants.
+    /// 
+    ///     This initializer transfers ownership of the variant elements to the 
+    ///     newly-initialized list instance. When the list is deinitialized, 
+    ///     all of its elements will be deinitialized as well, which means that 
+    ///     the original unmanaged variant values will no longer be valid. 
+    /// - elements:Unmanaged.Variant...
+    /// #   (0:godot-list-manual-memory-management)
     convenience 
-    init(consuming elements:Godot.Unmanaged.Variant...)
+    init(moving elements:Godot.Unmanaged.Variant...)
     {
-        self.init(consuming: elements)
+        self.init(moving: elements)
     }
     
+    /// func Godot.List.resize(to:)
+    ///     Resizes this list to the given length.
+    /// 
+    ///     Any new element positions will be initialized to `nil`.
+    /// - count:Int 
+    ///     The length to resize this list to.
+    /// #   (0:godot-list-resize-usage)
     func resize(to count:Int) 
     {
         withExtendedLifetime(self) 
@@ -114,11 +157,16 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
             Godot.api.1.0.godot_array_resize(&self.core, .init(count))
         }
     }
-    
+    /// var Godot.List.startIndex:Int { get }
+    /// ?:  RandomAccessCollection 
+    /// #   (0:godot-list-element-access)
     var startIndex:Int 
     {
         0
     }
+    /// var Godot.List.endIndex:Int { get }
+    /// ?:  RandomAccessCollection 
+    /// #   (0:godot-list-element-access)
     var endIndex:Int 
     {
         withExtendedLifetime(self)
@@ -127,37 +175,15 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
         }
     }
     
-    func take<T>(unretained _:T.Type, at index:Int) -> T? 
-        where T:Godot.VariantRepresentable 
-    {
-        withExtendedLifetime(self) 
-        {
-            self[unmanaged: index].take(unretained: T.self) 
-        }
-    } 
-    func take(unretained _:Void.Type, at index:Int) -> Void? 
-    {
-        withExtendedLifetime(self) 
-        {
-            self[unmanaged: index].take(unretained: Void.self) 
-        }
-    } 
-    func assign<T>(retaining value:T, at index:Int) 
-        where T:Godot.VariantRepresentable 
-    {
-        withExtendedLifetime(self) 
-        {
-            self[unmanaged: index].assign(retaining: value) 
-        }
-    } 
-    func assign(retaining value:Void, at index:Int) 
-    {
-        withExtendedLifetime(self) 
-        {
-            self[unmanaged: index].assign(retaining: value) 
-        }
-    } 
-    
+    /// subscript Godot.List[_:] { get set }
+    /// ?:  RandomAccessCollection 
+    /// ?:  MutableCollection
+    ///     Accesses the list element at the given index. 
+    /// - index :Int 
+    ///     The index of the element to access, which must be in the valid 
+    ///     index range of this list. Subscripting with out-of-range indices is an error.
+    /// - ->    :Godot.Variant?
+    /// #   (1:godot-list-element-access)
     subscript(index:Int) -> Godot.Variant? 
     {
         get 
@@ -176,6 +202,7 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
             }
         }
     } 
+    
     // this subscript does not retain the variants! callers *must* surround it 
     // with a `withExtendedLifetime(_:)` fence!
     private 
@@ -208,5 +235,83 @@ extension Godot.List:RandomAccessCollection, MutableCollection, ExpressibleByArr
             UnsafeMutableRawPointer.init(pointer)
                 .storeBytes(of: value, as: Godot.Unmanaged.Variant.self)
         } 
+    } 
+    
+    /// func Godot.List.take<T>(unretained:at:)
+    /// where T:VariantRepresentable 
+    ///     Attempts to load the element at the given index as the specified type.
+    /// - type  :T.Type 
+    /// - index :Int 
+    ///     The index of the element to access, which must be in the valid 
+    ///     index range of this list. Passing an out-of-range index is an error.
+    /// - ->    :T?
+    ///     An instance of [`T`], if it was possible to load it from the variant 
+    ///     value at `index`; otherwise `nil`.
+    /// #   (1:godot-list-element-access)
+    func take<T>(unretained _:T.Type, at index:Int) -> T? 
+        where T:Godot.VariantRepresentable 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].take(unretained: T.self) 
+        }
+    } 
+    /// func Godot.List.take(unretained:at:)
+    ///     Attempts to load the element at the given index as an instance of [`Void`].
+    /// 
+    ///     Don’t confuse the `nil` case of [[`Void?`]] returned by this 
+    ///     method with the `nil` case of [[`Godot.Variant?`]] returned by the 
+    ///     [`[_:]`] subscript. This method returns a non-nil value of `()` when 
+    ///     the corresponding variant value is `nil`, because the `nil` case of 
+    ///     a [[`Godot.Variant?`]] value represents a value of type [`Void`].
+    /// - type  :Void.Type 
+    /// - index :Int 
+    ///     The index of the element to access, which must be in the valid 
+    ///     index range of this list. Passing an out-of-range index is an error.
+    /// - ->    :Void?
+    ///     An instance of [`Void`], if the variant value at `index` was a null variant; 
+    ///     otherwise `nil`.
+    /// #   (1:godot-list-element-access)
+    func take(unretained _:Void.Type, at index:Int) -> Void? 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].take(unretained: Void.self) 
+        }
+    } 
+    /// func Godot.List.assign<T>(retaining:at:)
+    /// where T:VariantRepresentable 
+    ///     Assigns the given value to the list element at the given index.
+    /// - value :T 
+    ///     The value to assign. 
+    /// - index :Int 
+    ///     The index of the element to access, which must be in the valid 
+    ///     index range of this list. Passing an out-of-range index is an error.
+    /// #   (2:godot-list-element-access)
+    func assign<T>(retaining value:T, at index:Int) 
+        where T:Godot.VariantRepresentable 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].assign(retaining: value) 
+        }
+    } 
+    /// func Godot.List.assign(retaining:at:)
+    ///     Assigns a [`Void`] value to the list element at the given index.
+    /// 
+    ///     This method is equivalent to assigning `nil` through the  
+    ///     [`[_:]`] subscript, but is slightly more efficient.
+    /// - value :Void 
+    ///     An empty tuple. 
+    /// - index :Int 
+    ///     The index of the element to access, which must be in the valid 
+    ///     index range of this list. Passing an out-of-range index is an error.
+    /// #   (2:godot-list-element-access)
+    func assign(retaining value:Void, at index:Int) 
+    {
+        withExtendedLifetime(self) 
+        {
+            self[unmanaged: index].assign(retaining: value) 
+        }
     } 
 }

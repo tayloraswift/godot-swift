@@ -1,0 +1,53 @@
+extension Godot 
+{
+    /// class Godot.NodePath
+    /// :   Godot.Variant 
+    /// final 
+    ///     The [`Godot::NodePath`](https://docs.godotengine.org/en/stable/classes/class_nodepath.html) type.
+    /// #   (-2:godot-core-types)
+    /// #   (-2:)
+    final 
+    class NodePath 
+    {
+        private 
+        var core:godot_node_path
+        
+        fileprivate 
+        init(retained core:godot_node_path) 
+        {
+            self.core = core
+        }
+        
+        private 
+        init(with initializer:(UnsafeMutablePointer<godot_node_path>) -> ()) 
+        {
+            self.core = .init(with: initializer)
+        }
+        
+        deinit 
+        {
+            self.core.deinit()
+        }
+    }
+}
+extension Godot.NodePath
+{
+    /// convenience init Godot.NodePath.init(parsing:)
+    ///     Creates a node path by parsing the given string. 
+    /// - string:Swift.String 
+    ///     A node path string. Passing an ill-formed node path string is an error.
+    convenience
+    init(parsing string:Swift.String)
+    {
+        var string:godot_string = .init(packing: string)
+        self.init
+        {
+            (data:UnsafeMutablePointer<godot_node_path>) in 
+            withUnsafePointer(to: string)
+            {
+                Godot.api.1.0.godot_node_path_new(data, $0)
+            }
+        }
+        string.deinit()
+    }
+}

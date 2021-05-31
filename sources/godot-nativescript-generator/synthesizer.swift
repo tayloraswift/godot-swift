@@ -815,7 +815,7 @@ extension Main.Synthesizer.Form
         case .tuple(let elements):
             return Source.fragment
             {
-                "Godot.Unmanaged.Variant.pass(retaining: \(list).init(consuming: "
+                "Godot.Unmanaged.Variant.pass(retaining: \(list).init(moving: "
                 Source.fragment(indent: 1) 
                 {
                     elements.enumerated().map

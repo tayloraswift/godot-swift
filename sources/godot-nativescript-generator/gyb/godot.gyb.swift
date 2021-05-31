@@ -33,6 +33,8 @@ extension Godot
         Source.text(from: "fragments",  "runtime.swift.part")
         Source.text(from: "fragments",  "variant.swift.part")
         Source.text(from: "fragments",  "variant-list.swift.part")
+        Source.text(from: "fragments",  "variant-map.swift.part")
+        Source.text(from: "fragments",  "variant-nodepath.swift.part")
         Source.text(from: "fragments",  "aggregate.swift.part")
         
         Source.section(name:            "variant-raw.swift.part")
