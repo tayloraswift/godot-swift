@@ -112,31 +112,6 @@ code.signature, code.declaration
     margin-left: -2em;
 }
 
-/* raspberry pink */
-code .syntax-keyword, code .signature-highlight, p a
-{
-    color: #ff4086;
-}
-code.signature a
-{
-    outline-color: #ff4086;
-}
-/* dark gray */
-code .syntax-identifier
-{
-    color: #333333;
-}
-/* medium gray */
-code .signature-text, code .signature-punctuation
-{
-    color: #666666;
-}
-/* light gray */
-code .syntax-punctuation
-{
-    color: #888888;
-}
-
 
 code span.syntax-group:after
 {
@@ -173,18 +148,6 @@ a:focus
 {
     outline-style: dashed;
     outline-width: 1px;
-}
-code a.syntax-type
-{
-    color: #ffa010;
-}
-code a.syntax-imported-type
-{
-    color: #ff8135;
-}
-code a.syntax-swift-type
-{
-    color: #ff5840;
 }
 
 
@@ -273,8 +236,47 @@ nav li.github-icon-container .github-icon
 }
 .discussion p, .introduction p
 {
-    padding-right: 5em;
+    margin-right: 5em;
+    line-height: 135%; 
 }
+
+.discussion aside 
+{
+    margin-right: 5em;
+    padding: 0.6em 1.25em;
+    border-left-width: 0.4em;
+    border-left-style: solid;
+    border-radius: 0.3em;
+    color: #555555;
+    background-color: #f4f4f4;
+}
+.discussion aside.notice-note 
+{
+    border-color: #cccccc;
+}
+.discussion aside.notice-warning 
+{
+    border-color: #ffa070;
+    /*border-color: #ff8070;*/
+}
+.discussion aside p.notice-label 
+{
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+    font-weight: 600;
+}
+.discussion aside.notice-warning p.notice-label 
+{
+    /*color: #ff6050;*/
+    /*color: #ff9060;*/
+}
+.discussion aside p
+{
+    margin-top: 0em;
+    margin-bottom: 0.5em;
+    margin-right: 0.5em;
+}
+
 
 .topic 
 {
@@ -363,6 +365,87 @@ p code
 p strong 
 {
     font-weight: 600;
+}
+
+/* syntax colors */
+/* raspberry pink */
+code .syntax-keyword, code .signature-highlight, p a
+{
+    color: #ff4086;
+}
+code.signature a
+{
+    outline-color: #ff4086;
+}
+/* dark gray */
+code .syntax-identifier
+{
+    color: #333333;
+}
+/* medium gray */
+code .signature-text, code .signature-punctuation
+{
+    color: #666666;
+}
+/* light gray */
+code .syntax-punctuation
+{
+    color: #888888;
+}
+/* lavender */
+code .syntax-literal
+{
+    color: #8060ff;
+}
+/* medium gray */
+code .syntax-operator
+{
+    color: #555555;
+}
+code a.syntax-type
+{
+    color: #ffa010;
+}
+code a.syntax-imported-type
+{
+    color: #ff8135;
+}
+code a.syntax-swift-type, pre code .syntax-type-identifier
+{
+    color: #ff5840;
+}
+/* inline code */
+pre code 
+{
+    font-family: 'Source Code Pro', monospace;
+    font-weight: 500;
+    line-height: 135%;
+}
+/* disable punctuation kerning */
+pre code * 
+{
+    margin: 0 !important;
+}
+/* code blocks */
+pre 
+{
+    background-color: rgb(242, 242, 242);
+    padding: 1em 1em; 
+    border-radius: 0.3em;
+    margin: 2em 0em;
+}
+pre code 
+{
+    font-size: 1em;
+    
+}
+pre code span 
+{
+    margin: 0;
+}
+pre code syntax-type 
+{
+    
 }
 
 /* underlining */
