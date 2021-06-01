@@ -10,10 +10,86 @@ extension Godot
     /// 
     ///     This type corresponds to the 
     ///     [`Godot::Array`](https://docs.godotengine.org/en/stable/classes/class_array.html) 
-    ///     type in GDScript. It has reference semantics, so modifications to 
-    ///     an instance of [`List`] will be seen by all values referring to it.
+    ///     type in GDScript.
     /// 
-    ///     Instances of this type are memory-managed by Swift.
+    ///     Despite its name, the `Godot::Array` type is semantically equivalent 
+    ///     to an `inout` Swift tuple, and in many situations, *Godot Swift* allows 
+    ///     you to bridge `Godot::Array`’s directly to Swift tuple types, without 
+    ///     having to go through [`List`] intermediates.
+    /// 
+    ///     > warning:
+    ///     Do not confuse [`Godot.List`] with [`Godot.Array`]. 
+    ///     The [`Godot.Array`] type corresponds to the *pooled* array types 
+    ///     in GDScript.
+    /// 
+    ///     This type is an opaque wrapper around a `Godot::Array` object, 
+    ///     and it supports no functionality other than minimal conformances 
+    ///     to [`RandomAccessCollection`] and [`MutableCollection`]. 
+    ///     The main purpose of this type is to allow lists and variant existentials 
+    ///     to be moved or subscripted without copying the entire underlying list 
+    ///     buffer, in situations where it is not necessary to interact with all 
+    ///     of the actual elements of the list.
+    ///
+    ///     The [`Element`] type of a [`List`] is a [[`Godot.Variant?`]] existential. 
+    ///     (Note the double optional returned by the [`Collection`first`] property.)
+    /**     
+            ```swift 
+            let list:Godot.List         = ... 
+            let element:Godot.Variant?? = list.first 
+            ```
+    **/
+    ///     Instances of [`List`] have reference semantics. 
+    ///     (Note the `let` declaration, as opposed to a `var` declaration.)
+    /**     
+            ```swift 
+            let list:Godot.List     = ... 
+            list[list.startIndex]   = nil 
+            ```
+    **/
+    ///     Create a list with capacity for a specified number of elements using 
+    ///     the [`init(count:)`] convenience initializer:
+    /**     
+            ```swift 
+            let count:Int       = ...
+            let list:Godot.List = .init(count: count)
+            ```
+    **/
+    ///     > note: 
+    ///     This initializer is called [`init(count:)`] and not 
+    ///     `init(capacity:)`, because all list elements are initialized — to `nil`. 
+    ///     Godot has no concept of uninitialized list memory.
+    ///
+    ///     You can also dynamically resize a list using the [`resize(to:)`] method.
+    /**     
+            ```swift 
+            let count:Int       = ...
+            let list:Godot.List = .init()
+            list.resize(to: count)
+            ```
+    **/
+    ///     All newly-allocated positions in a list are initialized to `nil`.
+    /// 
+    ///     The [`List`] type is [`ExpressibleByArrayLiteral`].
+    /**     
+            ```swift 
+            let list:Godot.List = 
+            [
+                nil  as Godot.Variant?, 
+                3.14 as Godot.Variant?,
+                5    as Godot.Variant?
+            ]
+            ```
+    **/
+    ///     You can convert a [[`List`]] to a [[`[Godot.Variant?]`]] array, just 
+    ///     like any other Swift [`Sequence`].
+    /**     
+            ```swift 
+            let list:Godot.List             = ... 
+            let variants:[Godot.Variant?]   = .init(list)
+            ```
+    **/
+    ///     Instances of [`List`] are memory-managed by Swift. When a list is 
+    ///     deinitialized by the Swift runtime, all of its elements are also deinitialized.
     /// #   [Creating lists](godot-list-initializer-usage)
     /// #   [Creating lists from unmanaged values](godot-list-manual-memory-management)
     /// #   [Resizing lists](godot-list-resize-usage)

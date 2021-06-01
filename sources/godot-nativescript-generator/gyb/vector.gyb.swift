@@ -107,7 +107,8 @@ enum Vector
                 {
                     """
                     ///
-                    ///     **Note:** Using the [`(Vector\(n - 1)).(||)(prefix:tail:)#(arity-\(n))`]
+                    ///     > note:
+                    ///     Using the [`(Vector\(n - 1)).(||)(prefix:tail:)#(arity-\(n))`]
                     ///     operator is the preferred form of appending a scalar value 
                     ///     to a [[`Vector\(n - 1)<T>`]] instance.
                     """
@@ -832,11 +833,13 @@ enum Vector
             ///     given vector, clamping the result to the range of values 
             ///     representable by [[`T`]].
             /// 
-            ///     **Note:** Elements with the value `T.min` are mapped to 
+            ///     > note:
+            ///     Elements with the value `T.min` are mapped to 
             ///     the value `T.max`. All other values are transformed according 
             ///     to the mathematical definition of absolute value.
             /// 
-            ///     **Note:** To obtain the scalar magnitude of an integer vector, 
+            ///     > note:
+            ///     To obtain the scalar magnitude of an integer vector, 
             ///     convert it to floating point vector, and use the 
             ///     [`norm`] instance property.
             /// - value :Self
@@ -858,12 +861,14 @@ enum Vector
             ///     given vector, with two’s-complement wraparound if the resulting 
             ///     elements are not representable by [[`T`]].
             /// 
-            ///     **Note:** Elements with the value `T.min` will remain `T.min`, 
+            ///     > note:
+            ///     Elements with the value `T.min` will remain `T.min`, 
             ///     as the value `-T.min` is equivalent to `T.max` when truncated 
             ///     to the bit width of [[`T`]]. All other values are transformed according 
             ///     to the mathematical definition of absolute value.
             /// 
-            ///     **Note:** To obtain the scalar magnitude of an integer vector, 
+            ///     > note:
+            ///     To obtain the scalar magnitude of an integer vector, 
             ///     convert it to floating point vector, and use the 
             ///     [`norm`] instance property.
             /// - value :Self
@@ -886,7 +891,8 @@ enum Vector
             ///     Performs an elementwise absolute value operation on the 
             ///     given vector.
             ///
-            ///     **Note:** To obtain the scalar magnitude of a vector, use the 
+            ///     > note:
+            ///     To obtain the scalar magnitude of a vector, use the 
             ///     [`norm`] instance property.
             /// - value :Self
             ///     A vector. 
@@ -1504,7 +1510,8 @@ enum Vector
                 /// ?   where T:Numerics.Real
                 ///     Returns the elementwise `\(function)` of the given vector. 
                 /// 
-                ///     **Note:** This operation is not hardware-vectorized; it is 
+                ///     > note:
+                ///     This operation is not hardware-vectorized; it is 
                 ///     implemented through scalar operations.
                 /// - vector:Self 
                 ///     A vector. 
@@ -1634,7 +1641,8 @@ enum Vector
                     ///     Calling this operator is more efficient than taking 
                     ///     the [`norm`] of `lhs` and comparing it with `radius`.
                     /// 
-                    ///     **Note:** Due to floating point precision error, 
+                    ///     > note:
+                    ///     Due to floating point precision error, 
                     ///     this operator may still indicate points on the sphere 
                     ///     boundary as being outside the sphere. Consider 
                     ///     adding a small epsilon-margin to `radius` to account 
@@ -1662,7 +1670,8 @@ enum Vector
                     ///     Calling this operator is more efficient than taking 
                     ///     the [`norm`] of `lhs` and comparing it with `radius`.
                     /// 
-                    ///     **Note:** Due to floating point precision error, 
+                    ///     > note:
+                    ///     Due to floating point precision error, 
                     ///     this operator may still indicate points on the sphere 
                     ///     boundary as being inside the sphere. Consider 
                     ///     adding a small epsilon-margin to `radius` to account 
@@ -1765,7 +1774,8 @@ enum Vector
             ///     A type representing the transposed form of this vector storage 
             ///     type. 
             /// 
-            ///     **Note:** When conforming additional types to [`Transposable`], 
+            ///     > note:
+            ///     When conforming additional types to [`Transposable`], 
             ///     we recommend setting this `associatedtype` to a tuple type with 
             ///     *n* elements of type [`(SIMD).Scalar`].
             associatedtype Transpose
@@ -2184,7 +2194,8 @@ enum Vector
                 ///     Computes the matrix product of an *n*\\ ×\\ \(n) matrix, and 
                 ///     an \(n)-element column vector, returning an *n*-element column vector.
                 /// 
-                ///     **Note:** This operation is vectorized in the vertical direction, 
+                ///     > note:
+                ///     This operation is vectorized in the vertical direction, 
                 ///     which means it is most efficient when the `matrix` type has more 
                 ///     rows than columns.
                 /// - matrix:Vector<Column, T>.Matrix\(n)
@@ -2213,7 +2224,8 @@ enum Vector
                     ///     Computes the matrix product of a 1\\ ×\\ \(n) row vector, and 
                     ///     a \(n)\\ ×\\ \(m) matrix, returning a 1\\ ×\\ \(m) row vector.
                     /// 
-                    ///     **Note:** This operation is less efficient than a 
+                    ///     > note:
+                    ///     This operation is less efficient than a 
                     ///     similarly-sized matrix-vector multiplication. Consider 
                     ///     rewriting linear algebra expressions that use this operation 
                     ///     in order to take full advantage of hardware acceleration.
@@ -2241,7 +2253,8 @@ enum Vector
                     ///     Computes the matrix product of an *n*\\ ×\\ \(n) matrix, 
                     ///     and a \(n)\\ ×\\ \(m) matrix, returning an *n*\\ ×\\ \(m) matrix.
                     /// 
-                    ///     **Note:** This operation is vectorized in the vertical direction 
+                    ///     > note:
+                    ///     This operation is vectorized in the vertical direction 
                     ///     along its left-hand-operand, which means it is most efficient 
                     ///     when the `lhs` matrix has more rows than columns.
                     /// - lhs:Vector<Column, T>.Matrix\(n)
@@ -2284,7 +2297,8 @@ enum Vector
                 ///     its rows scaled by the corresponding elements along the 
                 ///     diagonal of `diagonal`.
                 /// 
-                ///     **Note:** This operation is much more efficient than 
+                ///     > note:
+                ///     This operation is much more efficient than 
                 ///     performing a full matrix multiplication.
                 /// - diagonal  :Vector<Column, T>.Diagonal
                 /// - rhs       :Vector<Column, T>.Matrix\(m)
@@ -2325,7 +2339,8 @@ enum Vector
                 ///     its columns scaled by the corresponding elements along the 
                 ///     diagonal of `diagonal`.
                 /// 
-                ///     **Note:** This operation is much more efficient than 
+                ///     > note:
+                ///     This operation is much more efficient than 
                 ///     performing a full matrix multiplication.
                 /// - lhs       :Vector<Column, T>.Matrix\(m)
                 /// - diagonal  :Vector\(m)<T>.Diagonal
@@ -2771,7 +2786,8 @@ enum Vector
                         ///     Loads the elements of this vector at the given indices 
                         ///     as a \(m)-element vector.
                         /// 
-                        ///     **Note:** unlike the [`[_:]#(arity-1)`] subscript, 
+                        ///     > note:
+                        ///     Unlike the [`[_:]#(arity-1)`] subscript, 
                         ///     this subscript will never trap, because all possible 
                         ///     values of its `selector` parameter are valid.
                         /// - selector  :Vector\(m)<Index>
@@ -2802,7 +2818,8 @@ enum Vector
                         ///     [`(VectorSwizzle\(m)).selector`] value of `swizzle`
                         ///     to the [`[_:]#(arity-\(m))`] subscript.
                         ///     
-                        ///     **Note:** This subscript will never trap, even if 
+                        ///     > note:
+                        ///     This subscript will never trap, even if 
                         ///     the specified vector swizzle references elements 
                         ///     not present in [[`Self`]].
                         /// - swizzle   :VectorSwizzle\(m)

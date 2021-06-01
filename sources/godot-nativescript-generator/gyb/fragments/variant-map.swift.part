@@ -8,8 +8,53 @@ extension Godot
     /// 
     ///     This type corresponds to the 
     ///     [`Godot::Dictionary`](https://docs.godotengine.org/en/stable/classes/class_dictionary.html) 
-    ///     type in GDScript. It has reference semantics, so modifications to 
-    ///     an instance of [`Map`] will be seen by all values referring to it.
+    ///     type in GDScript. It has no semantic equivalent in Swift, but it 
+    ///     behaves somewhat similarly to a severely type-erased `inout` Swift 
+    ///     [`Dictionary`].
+    ///
+    ///     This type is an opaque wrapper around a `Godot::Dictionary` 
+    ///     object, and it supports no functionality other than basic key-to-value 
+    ///     subscripts.
+    /// 
+    ///     This type cannot store [`Void`] values, because it uses the 
+    ///     `nil` case of [[`Godot.Variant?`]] to represent key-value pairs not 
+    ///     present in the unordered map. Accordingly, its key-to-value subscript 
+    ///     is *non-optional* with respect to [[`Godot.Variant?`]]. 
+    ///     (Note the single optional in its return type.)
+    /**
+            ```swift 
+            let map:Godot.Map           = ...
+            let key:Godot.Variant?      = ... 
+            let value:Godot.Variant?    = map[key]
+            ```
+    **/
+    ///     Instances of [`Map`] have reference semantics. 
+    ///     (Note the `let` declaration, as opposed to a `var` declaration.)
+    /**
+            ```swift 
+            let map:Godot.List      = ... 
+            let key:Godot.Variant?  = ... 
+            map[key]                = nil 
+            ```
+    **/
+    ///     It is currently not possible to convert a [`Map`] instance to a Swift 
+    ///     [[`[Godot.Variant?: Godot.Variant]`]] dictionary, because protocol 
+    ///     existential types are not [`Hashable`].
+    /// 
+    ///     The [`Map`] type is [`ExpressibleByDictionaryLiteral`].
+    /**
+            ```swift 
+            let map:Godot.Map = 
+            [
+                nil  as Godot.Variant?: 5     as Godot.Variant, 
+                3.14 as Godot.Variant?: 3.14  as Godot.Variant,
+                5    as Godot.Variant?: false as Godot.Variant
+            ]
+            ```
+    **/
+    ///     Instances of [`Map`] are memory-managed by Swift. When a map is 
+    ///     deinitialized by the Swift runtime, all of its keys and values are 
+    ///     also deinitialized.
     /// #   [Creating a map](godot-map-initializer-usage)
     /// #   [Accessing values](godot-map-element-access)
     /// #   (15:godot-core-types)

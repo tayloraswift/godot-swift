@@ -251,7 +251,8 @@ enum VariantArray
         /// 
         ///     This type is automatically memory-managed by Swift.
         /// 
-        ///     **Warning:** Godot pooled arrays have copy-on-write semantics 
+        ///     > warning:
+        ///     Godot pooled arrays have copy-on-write semantics 
         ///     in GDScript. Mutating a pooled array in GDScript will unlink it 
         ///     from any instances of this Swift class that hold a reference to 
         ///     it. 
@@ -355,7 +356,8 @@ enum VariantArray
             ///     [`Godot.Array.init(_:)#(godot-array-init-from-arrayrepresentable)`] 
             ///     initializer is the preferred form.
             /// 
-            ///     **Warning:** When implementing this method, make sure you 
+            ///     > warning:
+            ///     When implementing this method, make sure you 
             ///     do not call [`Godot.Array.init(_:)#(godot-array-init-from-arrayrepresentable)`] 
             ///     with an instance of type [`Self`] — this will cause infinite 
             ///     recursion.

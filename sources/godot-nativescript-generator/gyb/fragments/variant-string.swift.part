@@ -97,7 +97,8 @@ protocol _GodotStringRepresentable:Godot.VariantRepresentable
     ///     [`Godot.String.init(_:)#(godot-string-init-from-stringrepresentable)`] 
     ///     initializer is the preferred form.
     /// 
-    ///     **Warning:** When implementing this method, make sure you 
+    ///     > warning:
+    ///     When implementing this method, make sure you 
     ///     do not call [`Godot.String.init(_:)#(godot-string-init-from-stringrepresentable)`] 
     ///     with an instance of type [`Self`] — this will cause infinite 
     ///     recursion.
