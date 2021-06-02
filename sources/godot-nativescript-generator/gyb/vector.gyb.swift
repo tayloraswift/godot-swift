@@ -1,5 +1,17 @@
 enum Vector 
 {
+    static 
+    let components:
+    (
+        cartesian:[String], 
+        _:Void 
+    ) 
+    = 
+    (
+        cartesian: ["x", "y", "z", "w"], 
+        ()
+    )
+    
     private static 
     func permutations(_ n:Int, k:Int) -> [[Int]] 
     {
@@ -32,7 +44,7 @@ enum Vector
         case 3:
             patterns = 
             [
-                [2, 1], 
+                //[2, 1], // handled by generic SIMD.Extendable-driven initializer
                 [1, 2],
             ]
         case 4:
@@ -42,7 +54,7 @@ enum Vector
                 [1, 2, 1],
                 [1, 1, 2],
                 [2, 2],
-                [3, 1],
+                //[3, 1], // handled by generic SIMD.Extendable-driven initializer
                 [1, 3],
             ]
         default:
@@ -56,8 +68,9 @@ enum Vector
             /// ?   where Storage == SIMD\(n)<T>
             ///     Creates a \(n)-element vector from scalar arguments. 
             /// 
-            ///     Using the [`(*)(row:)#(arity-\(n))`] 
-            ///     operator is the preferred form of expressing vector literals.
+            ///     > note:
+            ///     Using the postfix [`(*)(row:)`] operator is the preferred 
+            ///     form of expressing vector literals.
             """
             for component:String in components 
             {
@@ -66,7 +79,7 @@ enum Vector
                 """
             }
             """
-            /// #   (2:vector-initializer-usage)
+            /// #   (1\(n):vector-initializer-usage)
             init(\(components.map{ "_ \($0):T" }.joined(separator: ", "))) 
             {
                 self.init(storage: .init(\(components.joined(separator: ", "))))
@@ -103,16 +116,6 @@ enum Vector
                 /// ?   where Storage == SIMD\(n)<T> 
                 ///     Creates a \(n)-element vector by concatenating vector and scalar arguments.
                 """
-                if pattern == [n - 1, 1] 
-                {
-                    """
-                    ///
-                    ///     > note:
-                    ///     Using the [`(Vector\(n - 1)).(||)(prefix:tail:)#(arity-\(n))`]
-                    ///     operator is the preferred form of appending a scalar value 
-                    ///     to a [[`Vector\(n - 1)<T>`]] instance.
-                    """
-                }
                 for container:String in containers 
                 {
                     """
@@ -120,7 +123,7 @@ enum Vector
                     """
                 }
                 """
-                /// #   (3:vector-initializer-usage)
+                /// #   (1\(n):vector-initializer-usage)
                 init(\(containers.map{ "_ \($0)" }.joined(separator: ", "))) 
                 {
                     self.init(\(accessors.joined(separator: ", ")))
@@ -184,20 +187,9 @@ enum Vector
     }
     
     @Source.Code 
-    private static 
-    var code:String 
+    static 
+    var swift:String 
     {
-        let components:
-        (
-            cartesian:[String], 
-            _:Void 
-        ) 
-        = 
-        (
-            cartesian: ["x", "y", "z", "w"], 
-            ()
-        )
-        
         let numeric:[String] = ["FixedWidthInteger", "BinaryFloatingPoint"]
         
         """
@@ -314,6 +306,7 @@ enum Vector
         /// #   [Comparing vectors](vector-comparison-usage)
         /// #   [Testing for region membership](vector-region-test-usage)
         /// #   (0:math-types)
+        /// #   (20:godot-core-types)
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
         {
@@ -412,6 +405,23 @@ enum Vector
             {
                 self.init(storage: .init(repeating: value))
             }
+            
+            /// init Vector.init<Prefix>(_:_:)
+            /// where Prefix:SIMD.Extendable, Prefix.Extended == Storage 
+            ///     Creates an *n*-element vector by concatenating vector and scalar arguments.
+            /// 
+            ///     > note:
+            ///     Using the [`(Vector).(||)(prefix:tail:)`]
+            ///     operator is the preferred form of appending a scalar value 
+            ///     to an (*n* – 1)-element vector.
+            /// - prefix:Vector<Prefix, T> 
+            /// - tail  :T 
+            /// #   (-3:vector-initializer-usage)
+            init<Prefix>(_ prefix:Vector<Prefix, T>, _ tail:T) 
+                where Prefix:SIMD.Extendable, Prefix.Extended == Storage 
+            {
+                self = prefix || tail
+            }
         }
         extension Vector where T:AdditiveArithmetic 
         {
@@ -431,6 +441,24 @@ enum Vector
             init(to value:T, where mask:Mask, else empty:T = .zero) 
             {
                 self.init(storage: .init(repeating: empty).replacing(with: value, where: mask.storage))
+            }
+        }
+        extension Vector where Storage:SIMD.Extendable 
+        {
+            /// static func Vector.(||)(prefix:tail:)
+            /// ?   where Storage:SIMD.Extendable
+            ///     Appends the given scalar value to the given *n*-element 
+            ///     vector instance, returning an (*n* + 1)-element vector.
+            /// - prefix:Self 
+            /// - tail  :T 
+            /// - ->    :Vector<Storage.Extended, T> 
+            ///     An (*n* + 1)-element vector with `prefix` in its first 
+            ///     *n* positions, and `tail` in its last position.
+            /// #   (-2:vector-initializer-usage)
+            static 
+            func || (prefix:Self, tail:T) -> Vector<Storage.Extended, T> 
+            {
+                .init(storage: prefix.storage.extended(with: tail))
             }
         }
         // assignments
@@ -522,241 +550,10 @@ enum Vector
         }
         
         // `Comparable`-related functionality
-        /// protocol VectorRangeExpression 
-        ///     A type representing an *n*-dimensional axis-aligned region.
-        /// #   (1:vector-range-types)
-        /// #   (0:math-protocols)
-        protocol VectorRangeExpression
-        {
-            /// associatedtype VectorRangeExpression.Storage 
-            /// where Storage:SIMD 
-            
-            /// associatedtype VectorRangeExpression.T 
-            /// where T:SIMDScalar, T == Storage.Scalar  
-            
-            associatedtype Storage  where Storage:SIMD 
-            associatedtype T        where T:SIMDScalar, T == Storage.Scalar 
-            
-            /// typealias VectorRangeExpression.Bound = Vector<Storage, T>
-            ///     The vector type representing the bounds of this vector 
-            ///     range expression.
-            typealias Bound = Vector<Storage, T>
-            
-            /// func VectorRangeExpression.contains(_:)
-            /// required 
-            ///     Returns a boolean value indicating whether the given element 
-            ///     is contained within the vector range expression.
-            /// - element   :Bound 
-            ///     The element to check for containment.
-            /// - ->        :Bool 
-            ///     `true` if `element` is contained in this vector range; 
-            ///     otherwise, `false`.
-            func contains(_ element:Bound) -> Bool 
-        }
-        extension VectorRangeExpression 
-        {
-            /// static func VectorRangeExpression.(~=)(pattern:element:) 
-            ///     Returns a boolean value indicating whether a value is 
-            ///     included in a vector range.
-            /// - pattern   :Self
-            ///     A vector range.
-            /// - element   :Bound 
-            ///     A value to match against `pattern`.
-            /// - ->        :Bool 
-            ///     `true` if `element` is contained in the vector range `pattern`; 
-            ///     otherwise, `false`.
-            /// #   (0:vector-region-test-usage)
-            static 
-            func ~= (pattern:Self, element:Bound) -> Bool 
-            {
-                pattern.contains(element)
-            }
-        }
-        
-        /// protocol VectorFiniteRangeExpression
-        /// :   VectorRangeExpression 
-        ///     A type representing an *n*-dimensional axis-aligned rectangle.
-        /// #   [Creating a finite range expression](vectorfiniterangeexpression-required-init)
-        /// #   [Converting finite range expressions between scalar types](vectorfiniterangeexpression-type-conversion-usage)
-        /// #   [Getting the bounds of a finite range expression](vectorfiniterangeexpression-required-property)
-        /// #   (2:vector-range-types)
-        /// #   (0:math-protocols)
-        protocol VectorFiniteRangeExpression:VectorRangeExpression 
-        {
-            /// init VectorFiniteRangeExpression.init(lowerBound:upperBound:)
-            /// required 
-            ///     Creates a finite vector range with the given bounds.
-            /// - lowerBound    :Bound 
-            ///     The lower bound.
-            /// - upperBound    :Bound 
-            ///     The upper bound.
-            /// #   (vectorfiniterangeexpression-required-init)
-            init(lowerBound:Bound, upperBound:Bound)
-            
-            /// var VectorFiniteRangeExpression.lowerBound:Bound 
-            /// required 
-            ///     The lower bound of this vector range.
-            /// #   (vectorfiniterangeexpression-required-property)
-            var lowerBound:Bound 
-            {
-                get 
-            }
-            /// var VectorFiniteRangeExpression.upperBound:Bound 
-            /// required 
-            ///     The upper bound of this vector range.
-            /// #   (vectorfiniterangeexpression-required-property)
-            var upperBound:Bound 
-            {
-                get 
-            }
-        }
-        
         extension Vector where T:Comparable
         """
         Source.block 
         {
-            """
-            /// struct Vector.Rectangle 
-            /// :   VectorFiniteRangeExpression 
-            /// :   Hashable 
-            /// :   Godot.VariantRepresentable  where Storage:Godot.RectangleStorage
-            /// :   Godot.Variant               where Storage:Godot.RectangleStorage, T == Float32 
-            /// ?   where T:Comparable 
-            ///     An *n*-dimensional half-open axis-aligned region from a lower 
-            ///     bound up to, but not including, an upper bound.
-            /// 
-            ///     Create a rectangle using the [`(Vector).(..<)(lower:upper:)`] 
-            ///     operator. 
-            /// #   (0:vector-range-types)
-            /// #   (5:math-types)
-            struct Rectangle:VectorFiniteRangeExpression, Hashable
-            {
-                /// var Vector.Rectangle.lowerBound:Vector<Storage, T>
-                /// ?:  VectorFiniteRangeExpression
-                ///     The lower bound of this axis-aligned rectangle.
-                var lowerBound:Vector<Storage, T>
-                /// var Vector.Rectangle.upperBound:Vector<Storage, T>
-                /// ?:  VectorFiniteRangeExpression
-                ///     The upper bound of this axis-aligned rectangle.
-                var upperBound:Vector<Storage, T>
-                
-                /// func Vector.Rectangle.contains(_:)
-                /// ?:  VectorRangeExpression
-                ///     Indicates whether the given element is contained within 
-                ///     this half-open axis-aligned rectangle.
-                /// - element   :Vector<Storage, T> 
-                ///     The element to check for containment.
-                /// - ->        :Bool 
-                ///     `true` if `element` is contained in this half-open 
-                ///     axis-aligned rectangle; otherwise, `false`.
-                func contains(_ element:Vector<Storage, T>) -> Bool 
-                {
-                    Vector<Storage, T>.all(
-                        (self.lowerBound <= element) & (element < self.upperBound))
-                }
-            }
-            
-            /// struct Vector.ClosedRectangle 
-            /// :   VectorFiniteRangeExpression 
-            /// :   Hashable
-            /// :   Godot.VariantRepresentable where Storage:Godot.RectangleStorage
-            /// ?   where T:Comparable 
-            ///     An *n*-dimensional axis-aligned region from a lower 
-            ///     bound up to, and including, an upper bound.
-            /// 
-            ///     Create a closed rectangle using the [`(Vector).(...)(lower:upper:)`] 
-            ///     operator. 
-            /// #   (0:vector-range-types)
-            /// #   (5:math-types)
-            struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
-            {
-                /// var Vector.ClosedRectangle.lowerBound:Vector<Storage, T>
-                /// ?:  VectorFiniteRangeExpression
-                ///     The lower bound of this axis-aligned rectangle.
-                var lowerBound:Vector<Storage, T>
-                /// var Vector.ClosedRectangle.upperBound:Vector<Storage, T>
-                /// ?:  VectorFiniteRangeExpression
-                ///     The upper bound of this axis-aligned rectangle.
-                var upperBound:Vector<Storage, T>
-                
-                /// func Vector.ClosedRectangle.contains(_:)
-                /// ?:  VectorRangeExpression
-                ///     Indicates whether the given element is contained within 
-                ///     this axis-aligned rectangle.
-                /// - element   :Vector<Storage, T> 
-                ///     The element to check for containment.
-                /// - ->        :Bool 
-                ///     `true` if `element` is contained in this 
-                ///     axis-aligned rectangle; otherwise, `false`.
-                func contains(_ element:Vector<Storage, T>) -> Bool 
-                {
-                    Vector<Storage, T>.all(
-                        (self.lowerBound <= element) & (element <= self.upperBound))
-                }
-            }
-            
-            /// static func Vector.(..<)(lower:upper:)
-            /// ?   where T:Comparable 
-            ///     Returns a half-open axis-aligned rectangle with the given bounds.
-            /// - lower :Self 
-            ///     The lower bound.
-            /// - upper :Self 
-            ///     The upper bound.
-            /// - ->    :Rectangle 
-            ///     A half-open axis-aligned rectangle.
-            /// #   (0:vector-range-creation)
-            static 
-            func ..< (lower:Self, upper:Self) -> Rectangle
-            {
-                .init(lowerBound: lower, upperBound: upper)
-            }
-            /// static func Vector.(...)(lower:upper:)
-            /// ?   where T:Comparable 
-            ///     Returns an axis-aligned rectangle with the given bounds.
-            /// - lower :Self 
-            ///     The lower bound.
-            /// - upper :Self 
-            ///     The upper bound.
-            /// - ->    :ClosedRectangle 
-            ///     An axis-aligned rectangle.
-            /// #   (1:vector-range-creation)
-            static 
-            func ... (lower:Self, upper:Self) -> ClosedRectangle
-            {
-                .init(lowerBound: lower, upperBound: upper)
-            }
-            
-            /// func Vector.clamped(to:)
-            /// ?   where T:Comparable 
-            ///     Creates a new vector with each element clamped to the extents 
-            ///     of the given axis-aligned rectangle.
-            /// - rectangle :ClosedRectangle 
-            ///     An axis-aligned rectangle.
-            /// - ->        :Self 
-            ///     A new vector, where each element is contained within the 
-            ///     corresponding lanewise bounds of `rectangle`.
-            /// #   (0:vector-range-usage)
-            func clamped(to rectangle:ClosedRectangle) -> Self 
-            {
-                .init(storage: self.storage.clamped(
-                    lowerBound: rectangle.lowerBound.storage,
-                    upperBound: rectangle.upperBound.storage))
-            }
-            /// mutating func Vector.clamp(to:)
-            /// ?   where T:Comparable 
-            ///     Clamps each element of this vector to the extents 
-            ///     of the given axis-aligned rectangle.
-            /// - rectangle :ClosedRectangle 
-            ///     An axis-aligned rectangle.
-            /// #   (0:vector-range-usage)
-            mutating 
-            func clamp(to rectangle:ClosedRectangle) 
-            {
-                self.storage.clamp(
-                    lowerBound: rectangle.lowerBound.storage,
-                    upperBound: rectangle.upperBound.storage)
-            } 
-            """
             for (comparator, prose):(String, String) in 
             [
                 ("<",   "less than"), 
@@ -1757,245 +1554,6 @@ enum Vector
         }
         
         // linear aggregates
-        
-        /// extension SIMD 
-        
-        /// protocol SIMD.Transposable
-        /// :   SIMD 
-        ///     An SIMD backing storage type which has a transposed representation.
-        /// 
-        ///     You can conform additional types to this protocol to add linear algebra 
-        ///     support for 8-, 16-, etc. dimensional vectors. Only do this if you really 
-        ///     know what you are doing.
-        /// #   (1:math-protocols)
-        protocol _SIMDTransposable:SIMD 
-        {
-            /// associatedtype SIMD.Transposable.Transpose 
-            ///     A type representing the transposed form of this vector storage 
-            ///     type. 
-            /// 
-            ///     > note:
-            ///     When conforming additional types to [`Transposable`], 
-            ///     we recommend setting this `associatedtype` to a tuple type with 
-            ///     *n* elements of type [`(SIMD).Scalar`].
-            associatedtype Transpose
-            
-            /// associatedtype SIMD.Transposable.Square 
-            ///     A square matrix type which a type conforming to [`Transposable`] 
-            ///     supports extracting the diagonal of. 
-            associatedtype Square 
-            
-            /// static func SIMD.Transposable.transpose(_:) 
-            /// required
-            /// - column:Self 
-            /// - ->    :Transpose 
-            static 
-            func transpose(_ column:Self) -> Transpose 
-            
-            /// static func SIMD.Transposable.transpose(_:) 
-            /// required
-            /// - row   :Transpose 
-            /// - ->    :Self
-            static 
-            func transpose(_ row:Transpose) -> Self
-            
-            /// static func SIMD.Transposable.diagonal(trimming:)
-            ///     Extracts the diagonal from a square matrix.
-            /// required 
-            /// - matrix:Square 
-            /// - ->    :Self
-            static 
-            func diagonal(trimming matrix:Square) -> Self 
-            
-            /// static func SIMD.Transposable.diagonal(padding:with:)
-            ///     Creates a square matrix from a diagonal and a fill value.
-            /// required 
-            /// - diagonal  :Self 
-            /// - fill      :Scalar 
-            /// - ->        :Square
-            static 
-            func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
-        }
-        /// protocol SIMD.MatrixAlgebra 
-        /// :   SIMD.Transposable 
-        ///     An SIMD backing storage type which supports computing the determinant 
-        ///     and inverse of an appropriately-sized matrix type.
-        /// 
-        ///     You can conform additional types to this protocol to add linear algebra 
-        ///     support for additional matrix sizes. Only do this if you really 
-        ///     know what you are doing.
-        /// #   (2:math-protocols)
-        protocol _SIMDMatrixAlgebra:SIMD.Transposable 
-        {
-            /// static func SIMD.MatrixAlgebra.determinant(_:)
-            /// required 
-            ///     Computes the determinant of the given matrix.
-            /// - matrix:Square 
-            /// - ->    :Scalar 
-            static 
-            func determinant(_ matrix:Square) -> Scalar 
-            
-            /// static func SIMD.MatrixAlgebra.inverse(_:)
-            /// required 
-            ///     Computes the inverse of the given matrix.
-            /// - matrix:Square 
-            /// - ->    :Square 
-            static 
-            func inverse(_ matrix:Square) -> Square 
-        }
-        
-        extension SIMD 
-        {
-            typealias Transposable  = _SIMDTransposable 
-            typealias MatrixAlgebra = _SIMDMatrixAlgebra 
-        }
-        """
-        for n:Int in 2 ... 4 
-        {
-            """
-            /// extension SIMD\(n) 
-            /// :   SIMD.Transposable 
-            extension SIMD\(n):SIMD.Transposable 
-            """
-            Source.block 
-            {
-                """
-                /// typealias SIMD\(n).Transpose = (\(repeatElement("Scalar", count: n).joined(separator: ", ")))
-                /// ?:  SIMD.Transposable 
-                typealias Transpose = (\(repeatElement("Scalar", count: n).joined(separator: ", ")))
-                
-                /// typealias SIMD\(n).Square = (\(repeatElement("Vector<Self, Scalar>", count: n).joined(separator: ", ")))
-                /// ?:  SIMD.Transposable 
-                typealias Square    = 
-                """
-                Source.block(delimiters: ("(", ")"))
-                {
-                    repeatElement("Vector<Self, Scalar>", count: n).joined(separator: ",\n")
-                }
-                """
-                
-                /// static func SIMD\(n).transpose(_:) 
-                /// ?:  SIMD.Transposable 
-                /// - row   :Transpose
-                /// - ->    :Self 
-                static 
-                func transpose(_ row:Transpose) -> Self
-                {
-                    .init(\((0 ..< n).map{ "row.\($0)" }.joined(separator: ", ")))
-                } 
-                /// static func SIMD\(n).transpose(_:) 
-                /// ?:  SIMD.Transposable 
-                /// - column:Self
-                /// - ->    :Transpose
-                static 
-                func transpose(_ column:Self) -> Transpose 
-                {
-                    (\(components.cartesian.prefix(n).map{ "column.\($0)" }.joined(separator: ", ")))
-                } 
-                
-                /// static func SIMD\(n).diagonal(trimming:)
-                /// ?:  SIMD.Transposable 
-                /// - matrix:Square 
-                /// - ->    :Self
-                static 
-                func diagonal(trimming matrix:Square) -> Self 
-                {
-                    .init(\(components.cartesian.prefix(n).enumerated()
-                        .map{ "matrix.\($0.0).\($0.1)" }
-                        .joined(separator: ", ")))
-                }
-                /// static func SIMD\(n).diagonal(padding:with:)
-                /// ?:  SIMD.Transposable 
-                /// - diagonal  :Self 
-                /// - fill      :Scalar 
-                /// - ->        :Square
-                static 
-                func diagonal(padding diagonal:Self, with fill:Scalar) -> Square 
-                """
-                Source.block 
-                {
-                    Source.block(delimiters: ("(", ")"))
-                    {
-                        (0 ..< n).map
-                        {
-                            (j:Int) in 
-                            """
-                            .init(\(components.cartesian.prefix(n).enumerated()
-                                .map{ $0.0 == j ? "diagonal.\($0.1)" : "fill" } 
-                                .joined(separator: ", ")))
-                            """
-                        }.joined(separator: ",\n")
-                    }
-                }
-            }
-        }
-        """
-        /// extension SIMD2 
-        /// :   SIMD.MatrixAlgebra 
-        /// where Scalar:BinaryFloatingPoint 
-        extension SIMD2:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-        {
-            /// static func SIMD2.determinant(_:)
-            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-            /// - A     :Square 
-            /// - ->    :Scalar 
-            static 
-            func determinant(_ A:Square) -> Scalar 
-            {
-                A.0 >|< A.1
-            }
-            /// static func SIMD2.inverse(_:)
-            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-            /// - A     :Square 
-            /// - ->    :Square 
-            static 
-            func inverse(_ A:Square) -> Square 
-            {
-                let column:(Vector<Self, Scalar>, Vector<Self, Scalar>)
-                let determinant:Scalar = A.0 >|< A.1
-                
-                column.0 = .init( A.1.y, -A.0.y)
-                column.1 = .init(-A.1.x,  A.0.x)
-                
-                return (column.0 / determinant, column.1 / determinant)
-            }
-        }
-        /// extension SIMD3 
-        /// :   SIMD.MatrixAlgebra 
-        /// where Scalar:BinaryFloatingPoint 
-        extension SIMD3:SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-        {
-            /// static func SIMD3.determinant(_:)
-            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-            /// - A     :Square 
-            /// - ->    :Scalar 
-            static 
-            func determinant(_ A:Square) -> Scalar 
-            {
-                A.0 >|< A.1 <> A.2
-            }
-            /// static func SIMD3.inverse(_:)
-            /// ?:  SIMD.MatrixAlgebra where Scalar:BinaryFloatingPoint
-            /// - A     :Square 
-            /// - ->    :Square 
-            static 
-            func inverse(_ A:Square) -> Square
-            {
-                let row:(Vector<Self, Scalar>, Vector<Self, Scalar>, Vector<Self, Scalar>)
-                let determinant:Scalar 
-                // can re-use this cross product computation 
-                row.0       = A.1 >|< A.2
-                row.1       = A.2 >|< A.0
-                row.2       = A.0 >|< A.1 
-                
-                determinant = row.2 <> A.2
-                
-                return (row.0 / determinant, row.1 / determinant, row.2 / determinant)*
-            }
-        }
-        """
-        
-        """
         extension Vector where Storage:SIMD.Transposable
         {
             /// typealias Vector.Row    = Storage.Transpose 
@@ -2084,38 +1642,36 @@ enum Vector
         """
         
         // transpose operator 
+        
+        /// postfix func (*)<Storage, T>(row:)
+        /// where Storage:SIMD.Transposable, Storage.Scalar == T, T:SIMDScalar 
+        ///     Creates an *n*-element vector from an *n*-element tuple.
+        /// - row   :Vector<Storage, T>.Row 
+        /// - ->    :Vector<Storage, T>
+        /// #   (-1:vector-initializer-usage)
+        postfix 
+        func * <Storage, T>(row:Vector<Storage, T>.Row) -> Vector<Storage, T>
+            where Storage:SIMD.Transposable, Storage.Scalar == T, T:SIMDScalar 
+        {
+            .init(storage: Storage.transpose(row))
+        } 
+        
+        /// postfix func (*)<Storage, T>(column:)
+        /// where Storage:SIMD.Transposable, Storage.Scalar == T, T:SIMDScalar 
+        ///     Creates an *n*-element tuple from an *n*-element vector.
+        /// - column:Vector<Storage, T>
+        /// - ->    :Vector<Storage, T>.Row 
+        /// #   (0:vector-transposition-usage)
+        postfix 
+        func * <Storage, T>(column:Vector<Storage, T>) -> Vector<Storage, T>.Row
+            where Storage:SIMD.Transposable, Storage.Scalar == T, T:SIMDScalar 
+        {
+            Storage.transpose(column.storage)
+        } 
         """
         for n:Int in 2 ... 4 
         {
-            let components:ArraySlice<String> = components.cartesian.prefix(n)
-            """
-            /// postfix func (*)<T>(row:)
-            /// where T:SIMDScalar 
-            ///     Creates a \(n)-element vector from a \(n)-element tuple.
-            /// - row   :Vector\(n)<T>.Row 
-            /// - ->    :Vector\(n)<T>
-            /// #   (-1:vector-initializer-usage)
-            /// #   (arity-\(n))
-            postfix 
-            func * <T>(row:Vector\(n)<T>.Row) -> Vector\(n)<T>
-                where T:SIMDScalar
-            {
-                .init(storage: SIMD\(n)<T>.transpose(row))
-            } 
-            
-            /// postfix func (*)<T>(column:)
-            /// where T:SIMDScalar 
-            ///     Converts a \(n)-element vector to a \(n)-element tuple.
-            /// - column:Vector\(n)<T>
-            /// - ->    :Vector\(n)<T>.Row 
-            /// #   (0:vector-transposition-usage)
-            postfix 
-            func * <T>(column:Vector\(n)<T>) -> Vector\(n)<T>.Row
-                where T:SIMDScalar
-            {
-                SIMD\(n)<T>.transpose(column.storage)
-            } 
-            """
+            let components:ArraySlice<String> = Self.components.cartesian.prefix(n)
             for m:Int in 2 ... 4 
             {
                 """
@@ -2180,7 +1736,7 @@ enum Vector
                 """
                 // matrix-vector product
                 """
-                let components:ArraySlice<String> = components.cartesian.prefix(n)
+                let components:ArraySlice<String> = Self.components.cartesian.prefix(n)
                 """
                 @available(*, unavailable, message: "outer product of row vector `lhs` and column vector `rhs` is better expressed as the inner product `lhs* <> rhs`")
                 func >< <T>(lhs:Vector\(n)<T>.Row, rhs:Vector\(n)<T>) -> T
@@ -2353,7 +1909,7 @@ enum Vector
                 Source.block
                 {
                     """
-                    (\(components.cartesian.prefix(m).enumerated()
+                    (\(Self.components.cartesian.prefix(m).enumerated()
                         .map{ "lhs.\($0.0) * diagonal.diagonal.\($0.1)" }
                         .joined(separator: ", ")))
                     """
@@ -2481,7 +2037,7 @@ enum Vector
         """
         for n:Int in 2 ... 4 
         {
-            let components:ArraySlice<String> = components.cartesian.prefix(n)
+            let components:ArraySlice<String> = Self.components.cartesian.prefix(n)
             """
             
             // initializers 
@@ -2490,28 +2046,6 @@ enum Vector
             Source.block 
             {
                 Self.initializers(n: n, components: components)
-                if n < 4 
-                {
-                    """
-                    
-                    /// static func Vector.(||)(prefix:tail:)
-                    /// ?   where Storage == SIMD\(n)<T>
-                    ///     Appends the given scalar value to the given \(n)-element 
-                    ///     vector instance, returning a \(n + 1)-element vector.
-                    /// - prefix:Self 
-                    /// - tail  :T 
-                    /// - ->    :Vector\(n + 1)<T> 
-                    ///     A \(n + 1)-element vector with `prefix` in its first 
-                    ///     \(n) positions, and `tail` in its last position.
-                    /// #   (-2:vector-initializer-usage)
-                    /// #   (arity-\(n + 1))
-                    static 
-                    func || (prefix:Self, tail:T) -> Vector\(n + 1)<T> 
-                    {
-                        .init(prefix, tail)
-                    }
-                    """
-                }
             }
             """
             
@@ -2884,7 +2418,7 @@ enum Vector
                 
                 for permutation:[Int] in Self.permutations(4, k: n)
                 {
-                    let name:String     = permutation.map{ components.cartesian[$0] }.joined()
+                    let name:String     = permutation.map{ Self.components.cartesian[$0] }.joined()
                     let indices:String  = permutation.map(String.init(_:)).joined(separator: ", ")
                     """
                     /// static let VectorSwizzle\(n).\(name):Self 
@@ -2893,182 +2427,6 @@ enum Vector
                     """
                 }
             }
-        }
-        
-        """
-        
-        // extra `Rectangle` functionality 
-        """
-        for domain:String in numeric 
-        {
-            """
-            extension VectorFiniteRangeExpression where T:\(domain) 
-            """
-            Source.block 
-            {
-                """
-                /// static var VectorFiniteRangeExpression.zero:Self { get }
-                /// ?   where T:\(domain)
-                ///     A finite vector range with zero in both its bounds.
-                static 
-                var zero:Self 
-                {
-                    .init(lowerBound: .zero, upperBound: .zero)
-                }
-                /// var VectorFiniteRangeExpression.size:Vector<Storage, T> { get }
-                /// ?   where T:\(domain)
-                ///     The dimensions of this finite vector range, obtained 
-                ///     by subtracting [`lowerBound`] from [`upperBound`].
-                var size:Vector<Storage, T> 
-                {
-                    self.upperBound - self.lowerBound
-                }
-                """
-                if domain == "BinaryFloatingPoint"
-                {
-                    """
-                    /// var VectorFiniteRangeExpression.midpoint:Vector<Storage, T> { get }
-                    /// ?   where T:\(domain)
-                    ///     The midpoint of this finite vector range, obtained 
-                    ///     by interpolating halfway between [`lowerBound`] and [`upperBound`].
-                    var midpoint:Vector<Storage, T> 
-                    {
-                        (self.lowerBound .. self.upperBound)(0.5)
-                    }
-                    """
-                }
-            }
-        }
-        """
-        
-        // type conversions 
-        """
-        for n:Int in 2 ... 4 
-        {
-            """
-            extension VectorFiniteRangeExpression where Storage == SIMD\(n)<T>, T:FixedWidthInteger
-            """
-            Source.block
-            {
-                """
-                /// init VectorFiniteRangeExpression.init<Other, U>(clamping:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
-                ///     Converts a finite integer vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite integer vector range with 
-                ///     bounds with elements of type [[`T`]], with each element of 
-                ///     each bound clamped to the range of values representable 
-                ///     by [[`T`]].
-                /// - other :Other
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(clamping other:Other) 
-                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                {
-                    self.init(
-                        lowerBound: .init(clamping: other.lowerBound),
-                        upperBound: .init(clamping: other.upperBound))
-                }
-                /// init VectorFiniteRangeExpression.init<Other, U>(truncatingIfNeeded:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
-                ///     Converts a finite integer vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite integer vector range with 
-                ///     bounds with elements of type [[`T`]], with each element of 
-                ///     each bound truncated to the bit width of [[`T`]].
-                /// - other :Other
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(truncatingIfNeeded other:Other)
-                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                {
-                    self.init(
-                        lowerBound: .init(truncatingIfNeeded: other.lowerBound),
-                        upperBound: .init(truncatingIfNeeded: other.upperBound))
-                }
-                
-                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
-                ///     Converts a finite floating point vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite integer vector range with 
-                ///     bounds with elements of type [[`T`]].
-                /// - other :Other
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
-                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                {
-                    self.init(
-                        lowerBound: .init(other.lowerBound),
-                        upperBound: .init(other.upperBound))
-                }
-                /// init VectorFiniteRangeExpression.init<Other, U>(_:rounding:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                /// ?   where Storage == SIMD\(n)<T>, T:FixedWidthInteger
-                ///     Converts a finite floating point vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite integer vector range with 
-                ///     bounds with elements of type [[`T`]], with each element of 
-                ///     each bound rounded according to the given floating point 
-                ///     rounding rule.
-                /// - other :Other
-                /// - rule  :FloatingPointRoundingRule
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(_ other:Other, 
-                    rounding rule:FloatingPointRoundingRule) 
-                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                {
-                    self.init(
-                        lowerBound: .init(other.lowerBound, rounding: rule),
-                        upperBound: .init(other.upperBound, rounding: rule))
-                } 
-                """
-            }
-            """
-            extension VectorFiniteRangeExpression where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
-            """
-            Source.block
-            {
-                """
-                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
-                ///     Converts a finite integer vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite floating point vector range with 
-                ///     bounds with elements of type [[`T`]].
-                /// - other :Other
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
-                    where Other.Storage == SIMD\(n)<U>, U:FixedWidthInteger
-                {
-                    self.init(
-                        lowerBound: .init(other.lowerBound),
-                        upperBound: .init(other.upperBound))
-                }
-                /// init VectorFiniteRangeExpression.init<Other, U>(_:) 
-                /// where Other:VectorFiniteRangeExpression, Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                /// ?   where Storage == SIMD\(n)<T>, T:BinaryFloatingPoint
-                ///     Converts a finite floating point vector range with bounds with 
-                ///     elements of type [[`U`]] to a finite floating point vector range with 
-                ///     bounds with elements of type [[`T`]].
-                /// - other :Other
-                /// #   (\(n):vectorfiniterangeexpression-type-conversion-usage)
-                init<Other:VectorFiniteRangeExpression, U>(_ other:Other) 
-                    where Other.Storage == SIMD\(n)<U>, U:BinaryFloatingPoint
-                {
-                    self.init(
-                        lowerBound: .init(other.lowerBound),
-                        upperBound: .init(other.upperBound))
-                }
-                """
-            }
-        }
-    }
-    
-    @Source.Code 
-    static 
-    var swift:String 
-    {
-        Source.section(name: "vector.swift.part")
-        {
-            Self.code
         }
     }
 }

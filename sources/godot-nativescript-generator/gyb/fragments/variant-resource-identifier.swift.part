@@ -1,0 +1,35 @@
+extension Godot 
+{
+    /// class Godot.ResourceIdentifier
+    /// :   Godot.Variant 
+    /// final 
+    ///     A unique identifier for a [`Resource`]. 
+    /// 
+    ///     This type corresponds to the 
+    ///     [`Godot::RID`](https://docs.godotengine.org/en/stable/classes/class_rid.html) 
+    ///     type in GDScript.
+    /// 
+    ///     Create a [`ResourceIdentifier`] from a raw [`Int`] bit-pattern using 
+    ///     the memberwise `init(bitPattern:)` initializer. 
+    ///     Only use this if you really know what you are doing.
+    /** 
+            ```swift 
+            let bits:Int = ...
+            let rid:Godot.ResourceIdentifier = .init(bitPattern: bits)
+            ```
+    **/
+    ///     > warning: 
+    ///     Godot resource identifiers are semantically similar to opaque pointers, 
+    ///     and resource identifiers with invalid bit-patterns may cause runtime crashes.
+    /// 
+    ///     The [`ResourceIdentifier`] type is a trivial type, and therefore does 
+    ///     not require memory management.
+    /// #   (-2:godot-core-types)
+    /// #   (-2:)
+    struct ResourceIdentifier:Hashable 
+    {
+        /// let Godot.ResourceIdentifier.bitPattern:Int 
+        ///     The raw bit-pattern of this resource identifier.
+        let bitPattern:Int
+    }
+}

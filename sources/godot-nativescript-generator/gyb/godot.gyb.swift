@@ -34,7 +34,8 @@ extension Godot
         Source.text(from: "fragments",  "variant.swift.part")
         Source.text(from: "fragments",  "variant-list.swift.part")
         Source.text(from: "fragments",  "variant-map.swift.part")
-        Source.text(from: "fragments",  "variant-nodepath.swift.part")
+        Source.text(from: "fragments",  "variant-node-path.swift.part")
+        Source.text(from: "fragments",  "variant-resource-identifier.swift.part")
         Source.text(from: "fragments",  "aggregate.swift.part")
         
         Source.section(name:            "variant-raw.swift.part")
@@ -323,14 +324,15 @@ extension Godot.Class.Node
                 ///     type conversions by providing generic getter and setter 
                 ///     methods. 
                 /// 
-                ///     Generic getters are spelled `\\(property name)(as:)`, 
-                ///     and generic setters are spelled `set(\\(property name):)`.
+                ///     Generic getters are spelled *(property name)*`(as:)`, 
+                ///     and generic setters are spelled `set(`*(property name)*`:)`.
                 /**
                         ```swift 
                         let mesh:Godot.ArrayMesh = ... 
 
                         let float32:Vector3<Float32>.Rectangle = mesh.customAabb 
-                        let float64:Vector3<Float64>.Rectangle = mesh.customAabb(as: Vector3<Float64>.Rectangle.self)
+                        let float64:Vector3<Float64>.Rectangle = mesh.customAabb(as: 
+                            Vector3<Float64>.Rectangle.self)
                         mesh.set(customAabb: float64)
                         ```
                 **/
@@ -379,6 +381,7 @@ extension Godot.Class.Node
                 ///     its subclasses. Make sure an delegate of static type 
                 ///     [`AnyDelegate`] is actually an unmanaged delegate before 
                 ///     manually deallocating it.
+                /// #   (-1:godot-core-types)
                 /// #   [Getting the GDScript class name of a delegate](\(self.tag("class", "name", "builtin")))
                 /// #   [Low-level functionality](\(self.tag("builtins")))
                 /// #   [Using signals](\(self.tag("signal", "usage")))

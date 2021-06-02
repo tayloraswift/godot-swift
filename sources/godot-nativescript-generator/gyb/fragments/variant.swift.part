@@ -450,16 +450,6 @@ extension Godot
             }
         }
     }
-    /// class Godot.ResourceIdentifier
-    /// :   Godot.Variant 
-    /// final 
-    ///     The [`Godot::RID`](https://docs.godotengine.org/en/stable/classes/class_rid.html) type.
-    /// #   (-1:godot-core-types)
-    /// #   (-1:)
-    struct ResourceIdentifier:Hashable 
-    {
-        let bitPattern:Int
-    }
 }
 
 extension Quaternion:Godot.VariantRepresentable 

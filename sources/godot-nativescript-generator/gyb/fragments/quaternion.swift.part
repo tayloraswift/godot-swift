@@ -1,8 +1,11 @@
 /// struct Quaternion<T>
 /// :   Hashable 
+/// :   Godot.VariantRepresentable 
+/// :   Godot.Variant where T == Float32
 /// where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
 ///     An SIMD-backed quaternion.
 /// #   (20:math-types)
+/// #   (23:godot-core-types)
 struct Quaternion<T>:Hashable 
     where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
 {

@@ -20,11 +20,35 @@ extension Godot
     /// struct Godot.String
     /// :   Godot.Variant 
     /// :   StringRepresentable
-    ///     An opaque Godot string value.
+    ///     An opaque string value.
     /// 
     ///     This type corresponds to the 
     ///     [`Godot::String`](https://docs.godotengine.org/en/stable/classes/class_string.html) 
-    ///     GDScript type.
+    ///     type in GDScript. It is rarely necessary to use [`Godot.String`] 
+    ///     directly in user code, as Swift’s native [`(Swift).String`] type 
+    ///     conforms to [`VariantRepresentable`] and [`StringRepresentable`]. 
+    /// 
+    ///     This type is an opaque wrapper around a `Godot::String` object, 
+    ///     and it supports no functionality other than converting to and from 
+    ///     a native Swift `String` (or any other [`StringRepresentable`] type). 
+    ///     The main purpose of this type is to allow strings and variant 
+    ///     existentials to be moved without copying the underlying string buffer, 
+    ///     in situations where it is not necessary to interact with the actual 
+    ///     contents of the string.
+    /// 
+    ///     Convert between [`(Swift).String`] and [`Godot.String`] using the 
+    ///     `init(_:)`’s on each type:
+    /** 
+            ```swift 
+            let godot:Godot.String = ...
+            let swift:Swift.String = .init(godot)
+            ```
+            ```swift 
+            let swift:Swift.String = ...
+            let godot:Godot.String = .init(swift)
+            ```
+    **/
+    ///     Instances of [`Godot.String`] are memory-managed by Swift.
     /// #   (10:godot-core-types)
     /// #   (10:)
     struct String 

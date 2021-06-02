@@ -249,23 +249,18 @@ enum VariantArray
         /// where Element:ArrayElement
         ///     One of the Godot pooled array types.
         /// 
-        ///     This type is automatically memory-managed by Swift.
-        /// 
-        ///     > warning:
-        ///     Godot pooled arrays have copy-on-write semantics 
-        ///     in GDScript. Mutating a pooled array in GDScript will unlink it 
-        ///     from any instances of this Swift class that hold a reference to 
-        ///     it. 
+        ///     Pooled arrays in GDScript are represented in *Godot Swift* as 
+        ///     generic specializations of [[`Godot.Array<Element>`]].
         """
         for (godot, element):(String, String) in 
         [
-            ("String",  "Swift.String"), // `String` shadowed by `Godot.String`
             ("Byte",    "UInt8"),
             ("Int",     "Int32"),
             ("Real",    "Float32"),
             ("Vector2", "Vector2<Float32>"),
             ("Vector3", "Vector3<Float32>"),
             ("Color",   "Vector4<Float32>"),
+            ("String",  "Swift.String"), // `String` shadowed by `Godot.String`
         ]
         {
             """
@@ -275,6 +270,46 @@ enum VariantArray
             """
         }
         """
+        ///     
+        ///     > note: 
+        ///     The element type of [[`Godot.Array<Swift.String>`]] is 
+        ///     the native Swift [`(Swift).String`] type, *not* [`Godot.String`].
+        /// 
+        ///     This type is an opaque wrapper around a Godot pooled array, 
+        ///     and it supports no functionality other than converting to and 
+        ///     from a native Swift [`(Swift).Array`]. The main purpose of this 
+        ///     type is to allow arrays and variant existentials to be moved 
+        ///     without copying the underlying array buffer, in situations where 
+        ///     it is not necessary to interact with the actual contents of the 
+        ///     array. 
+        /// 
+        ///     > note: 
+        ///     Pooled arrays can be thought of as a generalization of 
+        ///     [`Godot.String`]. However, they have no direct type-system 
+        ///     relationship to the [`Godot.String`] type.
+        /// 
+        ///     You can convert between Godot arrays and native Swift arrays 
+        ///     using the `init(_:)` initializers on each type.
+        /** 
+                ```swift 
+                let array:[Element]             = ... 
+
+                let godot:Godot.Array<Element>  = .init(array)
+                let swift:[Element]             = .init(godot)
+                ```
+        **/
+        ///     All Godot engine APIs that take pooled array arguments can also 
+        ///     take native Swift arrays (and any other [`ArrayRepresentable`] type), 
+        ///     so it is rarely necessary to directly create instances of 
+        ///     [[`Godot.Array<Element>`]].
+        /// 
+        ///     Instances of [[`Godot.Array<Element>`]] are memory-managed by Swift.
+        /// 
+        ///     > warning:
+        ///     Godot pooled arrays have copy-on-write semantics 
+        ///     in GDScript. Mutating a pooled array in GDScript will unlink it 
+        ///     from any instances of this Swift class that hold a reference to 
+        ///     it. 
         /// #   (12:godot-core-types)
         /// #   (12:)
         extension Godot 

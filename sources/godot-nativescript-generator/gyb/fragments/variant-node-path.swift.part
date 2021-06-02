@@ -3,9 +3,23 @@ extension Godot
     /// class Godot.NodePath
     /// :   Godot.Variant 
     /// final 
-    ///     The [`Godot::NodePath`](https://docs.godotengine.org/en/stable/classes/class_nodepath.html) type.
-    /// #   (-2:godot-core-types)
-    /// #   (-2:)
+    ///     A pre-parsed scene tree path.
+    /// 
+    ///     This type corresponds to the 
+    ///     [`Godot::NodePath`](https://docs.godotengine.org/en/stable/classes/class_nodepath.html) 
+    ///     type in GDScript.
+    ///
+    ///     Create a [`NodePath`] instance from a string using the [`init(parsing:)`] 
+    ///     initializer.
+    /** 
+            ```swift 
+            let string:Swift.String = ...
+            let path:Godot.NodePath = .init(parsing: string)
+            ```
+    **/
+    ///     Instances of [`NodePath`] are memory-managed by Swift.
+    /// #   (-3:godot-core-types)
+    /// #   (-3:)
     final 
     class NodePath 
     {
