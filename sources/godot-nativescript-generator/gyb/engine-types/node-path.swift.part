@@ -18,6 +18,7 @@ extension Godot
             ```
     **/
     ///     Instances of [`NodePath`] are memory-managed by Swift.
+    /// #   [Creating a node path](node-path-initializer-usage)
     /// #   (-3:godot-core-types)
     /// #   (-3:)
     final 
@@ -50,6 +51,7 @@ extension Godot.NodePath
     ///     Creates a node path by parsing the given string. 
     /// - string:Swift.String 
     ///     A node path string. Passing an ill-formed node path string is an error.
+    /// #   (node-path-initializer-usage)
     convenience
     init(parsing string:Swift.String)
     {

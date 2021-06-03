@@ -307,6 +307,7 @@ enum Vector
         /// #   [Testing for region membership](vector-region-test-usage)
         /// #   (0:math-types)
         /// #   (20:godot-core-types)
+        /// #   (20:)
         struct Vector<Storage, T>:Hashable 
             where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar
         {

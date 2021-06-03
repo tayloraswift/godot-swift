@@ -25,6 +25,7 @@ enum VariantVector
         ///     already been provided. You can add support for additional 
         ///     [`BinaryFloatingPoint`] types by explicitly declaring the conformance 
         ///     in user code.
+        /// #   (12:godot-generic-unification-protocols)
         protocol _GodotVectorElement:SIMDScalar 
         """
         Source.block 
@@ -53,6 +54,7 @@ enum VariantVector
         /// :   SIMD
         ///     A unification protocol providing support for converting qualifying 
         ///     instances of [[`Vector`]] to and from their GDScript representations.
+        /// #   (2:godot-generic-unification-protocols)
         protocol _GodotVectorStorage:SIMD where Scalar:SIMDScalar 
         {
             associatedtype VectorAggregate:Godot.RawAggregate

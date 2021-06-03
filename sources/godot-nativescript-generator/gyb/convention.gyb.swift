@@ -154,8 +154,10 @@ enum Convention
             """
             for (swift, godot, conditions):(String, String, String) in 
             [
+                // need to specify both type constraints separately, even though 
+                // it creates a compiler warning (otherwise the compiler crashes)
+                ("Vector.Plane",            "godot_plane",      "where Storage == SIMD3<T>, T == Float32"),
                 ("Quaternion",              "godot_quat",       "where T == Float32"),
-                ("Godot.Plane3",            "godot_plane",      "where T == Float32"),
                 ("Godot.Transform2.Affine", "godot_transform2d","where T == Float32"),
                 ("Godot.Transform3.Affine", "godot_transform",  "where T == Float32"),
                 ("Godot.Transform3.Linear", "godot_basis",      "where T == Float32"),

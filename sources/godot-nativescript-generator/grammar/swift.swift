@@ -342,6 +342,11 @@ extension Grammar.Token
         static 
         let token:String = "class"
     }
+    struct Convenience:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "convenience"
+    }
     struct Enum:Grammar.Parsable.Terminal
     {
         static 
@@ -387,6 +392,11 @@ extension Grammar.Token
         static 
         let token:String = "init"
     }
+    struct Required:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "required"
+    } 
     struct Rethrows:Grammar.Parsable.Terminal
     {
         static 
@@ -734,7 +744,8 @@ extension Grammar
     // Attribute           ::= '@' <Identifier>
     // CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']' 
     
-    // ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
+    //  ProtocolCompositionType ::= <Identifiers> <Whitespace> ? '&' <Whitespace> ? <Identifiers>
+    //                              ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
     
     enum SwiftType:Parsable, CustomStringConvertible
     {
@@ -817,7 +828,13 @@ extension Grammar
         init(parsing input:inout Input) throws
         {
             let start:String.Index      = input.index
-            if      let type:NamedType  = .init(parsing: &input)
+            // need to parse this *first*! else it’s ambiguous because it reaches 
+            // the ' ' space before the ampersand and thinks it’s done 
+            if      let type:ProtocolCompositionType = .init(parsing: &input)
+            {
+                self = .protocols(type)
+            }
+            else if let type:NamedType  = .init(parsing: &input)
             {
                 self = .named(type)
             }
@@ -835,10 +852,6 @@ extension Grammar
             {
                 self = .collection(type)
             }
-            else if let type:ProtocolCompositionType = .init(parsing: &input)
-            {
-                self = .protocols(type)
-            }
             else 
             {
                 throw input.expected(Self.self, from: start)
@@ -851,10 +864,15 @@ extension Grammar
             
         init(parsing input:inout Input) throws
         {
-            let head:Identifiers     = try .init(parsing: &input), 
+            let first:Identifiers   = try .init(parsing: &input), 
+                _:Whitespace?       =     .init(parsing: &input), 
+                _:Token.Ampersand   = try .init(parsing: &input), 
+                _:Whitespace?       =     .init(parsing: &input), 
+                second:Identifiers  = try .init(parsing: &input),
                 body:[List<Whitespace?, List<Token.Ampersand, List<Whitespace?, Identifiers>>>] =
-                                                  .init(parsing: &input)
-            self.protocols = [head.identifiers] + body.map(\.body.body.body.identifiers)
+                                          .init(parsing: &input)
+            self.protocols = [first.identifiers, second.identifiers] + 
+                body.map(\.body.body.body.identifiers)
         }
     }
     struct NamedType:Parsable

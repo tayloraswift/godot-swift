@@ -1,0 +1,264 @@
+extension Godot 
+{
+    /// enum Godot.Transform2<T>
+    /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
+    ///     A namespace for 2-dimensional transforms.
+    /// #   (10:godot-namespaces)
+    enum Transform2<T> where T:SIMDScalar & BinaryFloatingPoint 
+    {
+        /// struct Godot.Transform2.Affine
+        /// :   Swift.Equatable
+        /// :   Godot.VariantRepresentable 
+        /// :   Godot.Variant where T == Swift.Float32
+        ///     A container for a 2\ ×\ 3 transformation matrix.
+        /// 
+        ///     This type wraps a matrix of type [[`Vector2<T>.Matrix3`]]. When 
+        ///     [`T`] is [`Float32`], this type corresponds to the 
+        ///     [`Godot::Transform2D`](https://docs.godotengine.org/en/stable/classes/class_transform2d.html) 
+        ///     type in GDScript. Accordingly, the specialization for [`Float32`] 
+        ///     forms the canonical [`Godot.Variant`] type, with all other 
+        ///     specializations conforming to [`VariantRepresentable`]. This 
+        ///     makes it possible to write user code that is generic over 
+        ///     [[`BinaryFloatingPoint & SIMDScalar`]] in most situations. 
+        /// 
+        ///     > note: 
+        ///     Recall that [`Float32`] by itself is *not* a [`Godot.Variant`] type; 
+        ///     [`Float64`] ([`Double`]) is. The Godot engine stores scalar values 
+        ///     internally in higher precision than aggregate values.
+        /// 
+        ///     Create a [[`Transform2<T>.Affine`]] instance from column vectors 
+        ///     `a`, `b`, `c` using the [`init(matrix:)`] initializer:
+        /**
+                ```swift 
+                let a:Vector2<T> = ... , 
+                    b:Vector2<T> = ... ,
+                    c:Vector2<T> = ... 
+                let transform:Godot.Transform2<T>.Affine = .init(matrix: (a, b, c))
+                ```
+        **/
+        ///     Access the column vectors through the [`matrix`] property:
+        /** 
+                ```swift 
+                let transform:Godot.Transform2<T>.Affine    = ...
+                let (a, b, c):Vector2<Float32>.Matrix3      = transform.matrix 
+                ```
+        **/
+        ///     You can convert between floating point precisions with the 
+        ///     [`init(_:)`] initializer:
+        /** 
+                ```swift 
+                let float64:Godot.Transform2<Float64>.Affine = ... 
+                let float32:Godot.Transform2<Float32>.Affine = .init(float64)
+                ```
+        **/
+        /// #   [See also](godot-transforms)
+        /// #   (31:godot-core-types)
+        /// #   (0:godot-transforms)
+        /// #   (31:)
+        struct Affine:Equatable  
+        {
+            /// let Godot.Transform2.Affine.matrix:Vector2<T>.Matrix3
+            ///     The 2\ ×\ 3 matrix representation of this transformation.
+            let matrix:Vector2<T>.Matrix3
+            /// init Godot.Transform2.Affine.init(matrix:)
+            ///     Creates a transformation from the given 2\ ×\ 3 matrix.
+            /// - matrix:Vector2<T>.Matrix3
+            init(matrix:Vector2<T>.Matrix3) 
+            {
+                self.matrix = matrix
+            }
+            /// init Godot.Transform2.Affine.init<U>(_:)
+            /// where U:SIMDScalar & BinaryFloatingPoint 
+            ///     Creates a transformation of scalar type [`T`] from 
+            ///     a transformation of scalar type [`U`].
+            /// - other:Transform2<U>.Affine
+            init<U>(_ other:Transform2<U>.Affine) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector2<T>.cast(other.matrix))
+            }
+            /// static func Godot.Transform2.Affine.(==)(lhs:rhs:)
+            ///     Returns a boolean value indicating if two transformations 
+            ///     contain the same matrix value.
+            /// - lhs   :Self
+            /// - rhs   :Self
+            /// - ->    :Bool 
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
+        }
+    }
+    /// enum Godot.Transform3<T>
+    /// where T:Swift.SIMDScalar & Swift.BinaryFloatingPoint 
+    ///     A namespace for 3-dimensional transforms.
+    /// #   (11:godot-namespaces)
+    enum Transform3<T> where T:SIMDScalar & BinaryFloatingPoint 
+    {
+        /// struct Godot.Transform3.Linear
+        /// :   Swift.Equatable
+        /// :   Godot.VariantRepresentable 
+        /// :   Godot.Variant where T == Swift.Float32
+        ///     A container for a 3\ ×\ 3 transformation matrix.
+        /// 
+        ///     This type wraps a matrix of type [[`Vector3<T>.Matrix`]]. When 
+        ///     [`T`] is [`Float32`], this type corresponds to the 
+        ///     [`Godot::Basis`](https://docs.godotengine.org/en/stable/classes/class_basis.html) 
+        ///     type in GDScript. Accordingly, the specialization for [`Float32`] 
+        ///     forms the canonical [`Godot.Variant`] type, with all other 
+        ///     specializations conforming to [`VariantRepresentable`]. This 
+        ///     makes it possible to write user code that is generic over 
+        ///     [[`BinaryFloatingPoint & SIMDScalar`]] in most situations. 
+        /// 
+        ///     > note: 
+        ///     Recall that [`Float32`] by itself is *not* a [`Godot.Variant`] type; 
+        ///     [`Float64`] ([`Double`]) is. The Godot engine stores scalar values 
+        ///     internally in higher precision than aggregate values.
+        /// 
+        ///     Create a [[`Transform3<T>.Linear`]] instance from column vectors 
+        ///     `a`, `b`, `c` using the [`init(matrix:)`] initializer:
+        /**
+                ```swift 
+                let a:Vector3<T> = ... , 
+                    b:Vector3<T> = ... ,
+                    c:Vector3<T> = ... 
+                let transform:Godot.Transform3<T>.Linear = .init(matrix: (a, b, c))
+                ```
+        **/
+        ///     Access the column vectors through the [`matrix`] property:
+        /**
+                ```swift 
+                let transform:Godot.Transform3<T>.Linear    = ...
+                let (a, b, c):Vector3<Float32>.Matrix       = transform.matrix 
+                ```
+        **/
+        ///     You can convert between floating point precisions with the 
+        ///     [`init(_:)`] initializer:
+        /**
+                ```swift 
+                let float64:Godot.Transform3<Float64>.Linear = ... 
+                let float32:Godot.Transform3<Float32>.Linear = .init(float64)
+                ```
+        **/
+        /// #   [See also](godot-transforms)
+        /// #   (33:godot-core-types)
+        /// #   (1:godot-transforms)
+        /// #   (33:)
+        struct Linear:Equatable 
+        {
+            /// let Godot.Transform3.Linear.matrix:Vector3<T>.Matrix
+            ///     The 3\ ×\ 3 matrix representation of this transformation.
+            let matrix:Vector3<T>.Matrix 
+            /// init Godot.Transform3.Linear.init(matrix:)
+            ///     Creates a transformation from the given 3\ ×\ 3 matrix.
+            /// - matrix:Vector3<T>.Matrix
+            init(matrix:Vector3<T>.Matrix) 
+            {
+                self.matrix = matrix
+            }
+            /// init Godot.Transform3.Linear.init<U>(_:)
+            /// where U:SIMDScalar & BinaryFloatingPoint 
+            ///     Creates a transformation of scalar type [`T`] from 
+            ///     a transformation of scalar type [`U`].
+            /// - other:Transform3<U>.Linear
+            init<U>(_ other:Transform3<U>.Linear) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector3<T>.cast(other.matrix))
+            }
+            /// static func Godot.Transform3.Linear.(==)(lhs:rhs:)
+            ///     Returns a boolean value indicating if two transformations 
+            ///     contain the same matrix value.
+            /// - lhs   :Self
+            /// - rhs   :Self
+            /// - ->    :Bool 
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
+        }
+        /// struct Godot.Transform3.Affine
+        /// :   Swift.Equatable
+        /// :   Godot.VariantRepresentable 
+        /// :   Godot.Variant where T == Swift.Float32
+        ///     A container for a 3\ ×\ 4 transformation matrix.
+        /// 
+        ///     This type wraps a matrix of type [[`Vector3<T>.Matrix4`]]. When 
+        ///     [`T`] is [`Float32`], this type corresponds to the 
+        ///     [`Godot::Transform`](https://docs.godotengine.org/en/stable/classes/class_transform.html) 
+        ///     type in GDScript. Accordingly, the specialization for [`Float32`] 
+        ///     forms the canonical [`Godot.Variant`] type, with all other 
+        ///     specializations conforming to [`VariantRepresentable`]. This 
+        ///     makes it possible to write user code that is generic over 
+        ///     [[`BinaryFloatingPoint & SIMDScalar`]] in most situations. 
+        /// 
+        ///     > note: 
+        ///     Recall that [`Float32`] by itself is *not* a [`Godot.Variant`] type; 
+        ///     [`Float64`] ([`Double`]) is. The Godot engine stores scalar values 
+        ///     internally in higher precision than aggregate values.
+        /// 
+        ///     Create a [[`Transform3<T>.Affine`]] instance from column vectors 
+        ///     `a`, `b`, `c`, `d` using the [`init(matrix:)`] initializer:
+        /**
+                ```swift 
+                let a:Vector3<T> = ... , 
+                    b:Vector3<T> = ... ,
+                    c:Vector3<T> = ... ,
+                    d:Vector3<T> = ... 
+                let transform:Godot.Transform3<T>.Affine = .init(matrix: (a, b, c, d))
+                ```
+        **/
+        ///     Access the column vectors through the [`matrix`] property:
+        /**
+                ```swift 
+                let transform:Godot.Transform3<T>.Affine    = ...
+                let (a, b, c, d):Vector3<Float32>.Matrix4   = transform.matrix 
+                ```
+        **/
+        ///     You can convert between floating point precisions with the 
+        ///     [`init(_:)`] initializer:
+        /**
+                ```swift 
+                let float64:Godot.Transform3<Float64>.Affine = ... 
+                let float32:Godot.Transform3<Float32>.Affine = .init(float64)
+                ```
+        **/
+        /// #   [See also](godot-transforms)
+        /// #   (34:godot-core-types)
+        /// #   (2:godot-transforms)
+        /// #   (34:)
+        struct Affine:Equatable  
+        {
+            /// let Godot.Transform3.Affine.matrix:Vector3<T>.Matrix4
+            ///     The 3\ ×\ 4 matrix representation of this transformation.
+            let matrix:Vector3<T>.Matrix4
+            /// init Godot.Transform3.Affine.init(matrix:)
+            ///     Creates a transformation from the given 3\ ×\ 4 matrix.
+            /// - matrix:Vector3<T>.Matrix4
+            init(matrix:Vector3<T>.Matrix4) 
+            {
+                self.matrix = matrix
+            }
+            /// init Godot.Transform3.Affine.init<U>(_:)
+            /// where U:SIMDScalar & BinaryFloatingPoint 
+            ///     Creates a transformation of scalar type [`T`] from 
+            ///     a transformation of scalar type [`U`].
+            /// - other:Transform3<U>.Affine
+            init<U>(_ other:Transform3<U>.Affine) where U:SIMDScalar & BinaryFloatingPoint 
+            {
+                self.init(matrix: Vector3<T>.cast(other.matrix))
+            }
+            /// static func Godot.Transform3.Affine.(==)(lhs:rhs:)
+            ///     Returns a boolean value indicating if two transformations 
+            ///     contain the same matrix value.
+            /// - lhs   :Self
+            /// - rhs   :Self
+            /// - ->    :Bool 
+            static 
+            func == (lhs:Self, rhs:Self) -> Bool 
+            {
+                lhs.matrix == rhs.matrix
+            }
+        }
+    }
+}

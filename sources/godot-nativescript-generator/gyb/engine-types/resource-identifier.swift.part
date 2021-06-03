@@ -1,6 +1,7 @@
 extension Godot 
 {
     /// class Godot.ResourceIdentifier
+    /// :   Hashable 
     /// :   Godot.Variant 
     /// final 
     ///     A unique identifier for a [`Resource`]. 

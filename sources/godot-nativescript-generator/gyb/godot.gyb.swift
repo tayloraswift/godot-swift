@@ -29,40 +29,46 @@ extension Godot
             }
         }
         
-        Source.text(from: "fragments",  "external.swift.part")
-        Source.text(from: "fragments",  "runtime.swift.part")
-        Source.text(from: "fragments",  "variant.swift.part")
-        Source.text(from: "fragments",  "variant-list.swift.part")
-        Source.text(from: "fragments",  "variant-map.swift.part")
-        Source.text(from: "fragments",  "variant-node-path.swift.part")
-        Source.text(from: "fragments",  "variant-resource-identifier.swift.part")
-        Source.text(from: "fragments",  "aggregate.swift.part")
+        Source.text(from:                   "external.swift.part")
+        Source.text(from:                   "runtime.swift.part")
         
-        Source.section(name:            "variant-raw.swift.part")
+        Source.text(from: "engine-types",   "aggregate.swift.part")
+        Source.text(from: "engine-types",   "resource-identifier.swift.part")
+        Source.text(from: "engine-types",   "node-path.swift.part")
+        Source.text(from: "engine-types",   "map.swift.part")
+        Source.text(from: "engine-types",   "list.swift.part")
+        Source.text(from: "engine-types",   "string.swift.part")
+        Source.section(name:                "array.swift.part")
+        {
+            PoolArray.swift 
+        }
+        
+        Source.text(from: "variant",        "unmanaged.swift.part")
+        Source.text(from: "variant",        "variant.swift.part")
+        Source.section(name:                "variant-raw.swift.part")
         {
             VariantRaw.swift
         }
-        Source.section(name:            "variant-vector.swift.part")
+        Source.section(name:                "variant-vector.swift.part")
         {
             VariantVector.swift
         }
-        Source.section(name:            "variant-rectangle.swift.part")
+        Source.section(name:                "variant-rectangle.swift.part")
         {
             VariantRectangle.swift
         }
-        Source.text(from: "fragments",  "variant-string.swift.part")
-        Source.section(name:            "variant-array.swift.part")
+        Source.section(name:                "constants.swift.part")
         {
-            VariantArray.swift
+            GlobalConstants.swift(tree.constants)
         }
-        Source.section(name:            "convention.swift.part")
+        Source.section(name:                "convention.swift.part")
         {
             // determine longest required icall template 
             Convention.swift(arity: tree.root.preorder
                 .flatMap{ $0.methods.values.map(\.parameters.count) }
                 .max() ?? 0)
         }
-        Source.section(name:            "delegates.swift.part")
+        Source.section(name:                "delegates.swift.part")
         {
             "extension Godot"
             Source.block 
@@ -82,7 +88,7 @@ extension Godot
             }
         }
         
-        Source.section(name:            "functions.swift.part")
+        Source.section(name:                "functions.swift.part")
         {
             // cannot override static properties, so we need to store the 
             // method bindings out-of-line
@@ -113,10 +119,6 @@ extension Godot
                 }
             }
         }
-        Source.section(name:            "global.swift.part")
-        {
-            GlobalConstants.swift(tree.constants)
-        }
         // nest the classes in appropriate extension scopes, so we can omit `Godot`
         // prefixes 
         """
@@ -134,9 +136,9 @@ extension Godot
             }
             """
             /// enum Godot.Unmanaged 
-            ///     A namespace for Godot types that are not memory-managed by the 
-            ///     Godot engine.
-            /// #   (godot-namespaces)
+            ///     A namespace for manually-managed types.
+            /// #   [Working with variants](godot-unmanaged-variant) 
+            /// #   (1:godot-toplevel-namespaces)
             enum Unmanaged 
             """
             Source.block 
@@ -152,8 +154,8 @@ extension Godot
             }
             """
             /// enum Godot.Singleton 
-            ///     A namespace for Godot singleton classes.
-            /// #   (godot-namespaces)
+            ///     A namespace for Godot singleton types.
+            /// #   (2:godot-toplevel-namespaces)
             enum Singleton 
             """
             Source.block 
@@ -1318,13 +1320,12 @@ extension Godot.Function.Convention
         case .rectangle3:
             self =  .generic("T", as: "Float32"){ "Vector3<\($0)>.Rectangle" }
             constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
-        
+        case .plane3:
+            self =  .generic("T", as: "Float32"){ "Vector3<\($0)>.Plane" }
+            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
         case .quaternion:
             self =  .generic("T", as: "Float32"){ "Quaternion<\($0)>" }
             constraints:    { "\($0):BinaryFloatingPoint & Numerics.Real & SIMDScalar" }
-        case .plane3:
-            self =  .generic("T", as: "Float32"){ "Plane3<\($0)>" }
-            constraints:    { "\($0):BinaryFloatingPoint & SIMDScalar" }
 
         case .affine2:
             self =  .generic("T", as: "Float32"){ "Transform2<\($0)>.Affine" }

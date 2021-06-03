@@ -271,7 +271,8 @@ enum Rectangle
             ///     operator. 
             /// #   (0:vector-range-types)
             /// #   (5:math-types)
-            /// #   (21:godot-core-types)
+            /// #   (22:godot-core-types)
+            /// #   (22:)
             struct Rectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.Rectangle.lowerBound:Vector<Storage, T>
@@ -311,6 +312,7 @@ enum Rectangle
             ///     operator. 
             /// #   (0:vector-range-types)
             /// #   (5:math-types)
+            /// #   (23:)
             struct ClosedRectangle:VectorFiniteRangeExpression, Hashable
             {
                 /// var Vector.ClosedRectangle.lowerBound:Vector<Storage, T>

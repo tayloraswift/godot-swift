@@ -17,6 +17,7 @@ enum SIMDProtocols
         ///     An SIMD backing storage type from which a different 
         ///     SIMD backing storage type can be created by appending an additional 
         ///     scalar element.
+        /// #   (1:math-protocols)
         protocol _SIMDExtendable:SIMD 
         {
             /// associatedtype SIMD.Extendable.Extended 
@@ -55,7 +56,7 @@ enum SIMDProtocols
         ///     You can conform additional types to this protocol to add linear algebra 
         ///     support for 8-, 16-, etc. dimensional vectors. Only do this if you really 
         ///     know what you are doing.
-        /// #   (1:math-protocols)
+        /// #   (2:math-protocols)
         protocol _SIMDTransposable:SIMD 
         {
             /// associatedtype SIMD.Transposable.Transpose 
@@ -112,7 +113,7 @@ enum SIMDProtocols
         ///     You can conform additional types to this protocol to add linear algebra 
         ///     support for additional matrix sizes. Only do this if you really 
         ///     know what you are doing.
-        /// #   (2:math-protocols)
+        /// #   (3:math-protocols)
         protocol _SIMDMatrixAlgebra:SIMD.Transposable 
         {
             /// static func SIMD.MatrixAlgebra.determinant(_:)

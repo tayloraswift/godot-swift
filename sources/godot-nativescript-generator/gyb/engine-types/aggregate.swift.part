@@ -129,24 +129,24 @@ extension godot_plane:Godot.RawAggregatePrivate
 {
     typealias Packed = (Float32, Float32, Float32, Float32)
     
-    init(packing plane:Godot.Plane3<Float32>)
+    init(packing plane:Vector3<Float32>.Plane)
     {
-        self = unsafeBitCast(plane.composite*, to: Self.self)
+        self = unsafeBitCast(plane.affine*, to: Self.self)
     }
-    var unpacked:Godot.Plane3<Float32> 
+    var unpacked:Vector3<Float32>.Plane
     {
-        .init(composite: unsafeBitCast(self, to: Packed.self)*)
+        .init(affine: unsafeBitCast(self, to: Packed.self)*)
     }
     
     fileprivate static 
     func trace() -> Bool 
     {
-        let tracer:Godot.Plane3<Float32> = .init(composite: (1, 2, 3, 4)*)
+        let tracer:Vector3<Float32>.Plane = .init(affine: (1, 2, 3, 4)*)
         
         var data:Self = .init()
         withUnsafePointer(to: godot_vector3.init(packing: tracer.normal))
         {
-            Godot.api.1.0.godot_plane_new_with_normal(&data, $0, tracer.origin)
+            Godot.api.1.0.godot_plane_new_with_normal(&data, $0, tracer.bias)
         }
         
         return data.unpacked == tracer

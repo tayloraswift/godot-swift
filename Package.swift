@@ -41,7 +41,21 @@ let package = Package(
             path: "sources/godot-nativescript-generator",
             exclude: 
             [
-                "gyb/fragments/", "api/", 
+                "api/", 
+                "gyb/common-types/quaternion.swift.part",
+                "gyb/common-types/transform.swift.part",
+                "gyb/engine-types/aggregate.swift.part",
+                "gyb/engine-types/resource-identifier.swift.part",
+                "gyb/engine-types/node-path.swift.part",
+                "gyb/engine-types/map.swift.part",
+                "gyb/engine-types/list.swift.part",
+                "gyb/engine-types/string.swift.part",
+                "gyb/variant/unmanaged.swift.part",
+                "gyb/variant/variant.swift.part",
+                "gyb/synthesizer/common.swift.part",
+                "gyb/dsl.swift.part",
+                "gyb/external.swift.part",
+                "gyb/runtime.swift.part",
             ]),
         .plugin(name: "GodotNativeScript", capability: .buildTool(),
             dependencies: 

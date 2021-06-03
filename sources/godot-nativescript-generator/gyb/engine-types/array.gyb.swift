@@ -1,4 +1,4 @@
-enum VariantArray 
+enum PoolArray 
 {
     @Source.Code 
     static 
@@ -14,7 +14,8 @@ enum VariantArray
         ///     A type that can be used as an [`Godot.Array.Element`] type.
         /// 
         ///     Do not conform additional types to this protocol.
-        /// #   (godot-core-protocols)
+        /// #   [See also](godot-generic-abstractions)
+        /// #   (2:godot-generic-abstractions)
         protocol _GodotArrayElement 
         {
             /// associatedtype Godot.ArrayElement.RawArrayReference 
@@ -35,7 +36,7 @@ enum VariantArray
         ///     A type that can be used as vector backing storage for a [`Godot.Array.Element`] type.
         /// 
         ///     Do not conform additional types to this protocol.
-        /// #   (godot-core-protocols)
+        /// #   (0:godot-generic-unification-protocols)
         protocol _GodotArrayElementStorage:SIMD where Scalar:SIMDScalar
         {
             /// associatedtype Godot.ArrayElementStorage.RawArrayReference 
@@ -310,6 +311,8 @@ enum VariantArray
         ///     in GDScript. Mutating a pooled array in GDScript will unlink it 
         ///     from any instances of this Swift class that hold a reference to 
         ///     it. 
+        /// #   [Creating an array](godot-array-initializer-usage)
+        /// #   [Infrequently used functionality](godot-array-infrequently-used-functionality)
         /// #   (12:godot-core-types)
         /// #   (12:)
         extension Godot 
@@ -370,6 +373,8 @@ enum VariantArray
         /// :   Godot.VariantRepresentable
         ///     A type that can be losslessly converted to an from a Godot pooled 
         ///     array type.
+        /// #   [See also](godot-generic-abstractions)
+        /// #   (1:godot-generic-abstractions)
         protocol _GodotArrayRepresentable:Godot.VariantRepresentable
         {
             /// associatedtype Godot.ArrayRepresentable.Element 
@@ -412,6 +417,7 @@ enum VariantArray
             ///     to Godot pooled arrays.
             /// - other:Other
             /// #   (godot-array-init-from-arrayrepresentable)
+            /// #   (godot-array-initializer-usage)
             init<Other>(_ other:Other) 
                 where Other:Godot.ArrayRepresentable, Other.Element == Element 
             {
@@ -427,6 +433,7 @@ enum VariantArray
             ///     initializer does not copy the storage of `other`. It has the same 
             ///     semantics as assigning `other` to a new variable.
             /// - other :Self
+            /// #   (0:godot-array-infrequently-used-functionality)
             init(_ other:Self) 
             {
                 self = other
@@ -440,6 +447,7 @@ enum VariantArray
             ///     protocol.
             /// - type  :Self.Type
             /// - ->    :Self
+            /// #   (1:godot-array-infrequently-used-functionality)
             func `as`(_:Self.Type) -> Self 
             {
                 self 
@@ -488,49 +496,6 @@ enum VariantArray
             func `as`(_:Godot.Array<Element>.Type) -> Godot.Array<Element> 
             {
                 .init(retained: Element.convert(array: self))
-            }
-        }
-        
-        extension Godot.Array:Godot.Variant 
-        {
-            /// static var Godot.Array.variantType:VariantType { get }
-            /// ?:  VariantRepresentable 
-            static 
-            var variantType:Godot.VariantType 
-            {
-                Element.RawArrayReference.variantType
-            }
-            
-            /// static func Godot.Array.takeUnretained(_:)
-            /// ?:  VariantRepresentable 
-            ///     Attempts to load a pooled array instance from a variant value.
-            /// 
-            ///     This function does not (immediately) copy the array storage. 
-            ///     However, because Godot pooled arrays have copy-on-write semantics,
-            ///     modifications to the original pooled array in GDScript will 
-            ///     not be reflected in the returned Swift instance.
-            /// - value :Unmanaged.Variant 
-            /// - ->    :Self? 
-            static 
-            func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
-            {
-                Element.downcast(array: value).map(Self.init(retained:))
-            }
-            /// func Godot.Array.passRetained()
-            /// ?:  VariantRepresentable 
-            ///     Stores this pooled array instance as a variant value.
-            /// 
-            ///     This function does not (immediately) copy the array storage. 
-            ///     However, because Godot pooled arrays have copy-on-write semantics,
-            ///     modifications to the returned array in GDScript will not  
-            ///     be reflected in the original instance of `self`.
-            /// - ->    :Unmanaged.Variant 
-            func passRetained() -> Godot.Unmanaged.Variant 
-            {
-                withExtendedLifetime(self)
-                {
-                    Element.upcast(array: self.core)
-                }
             }
         }
         

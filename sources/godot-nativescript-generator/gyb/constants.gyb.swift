@@ -186,6 +186,7 @@ enum GlobalConstants
                 /// enum Godot.Error
                 /// :   Swift.Error 
                 ///     An engine error.
+                /// #   (godot-error)
                 enum Error:Swift.Error
                 """
                 Source.block 

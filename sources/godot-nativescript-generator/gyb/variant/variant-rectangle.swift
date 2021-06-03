@@ -25,6 +25,7 @@ enum VariantRectangle
         ///     already been provided. You can add support for additional 
         ///     [`BinaryFloatingPoint`] types by explicitly declaring the conformance 
         ///     in user code.
+        /// #   (11:godot-generic-unification-protocols)
         protocol _GodotRectangleElement:Godot.VectorElement 
         """
         Source.block 
@@ -55,6 +56,7 @@ enum VariantRectangle
         ///     [`Vector.ClosedRectangle`]. You can add support for additional 
         ///     [`VectorFiniteRangeExpression`] types by explicitly declaring the 
         ///     conformance to [`Godot.VariantRepresentable`] in user code.
+        /// #   (1:godot-generic-unification-protocols)
         protocol _GodotRectangleStorage:Godot.VectorStorage 
         {
             associatedtype RectangleAggregate:Godot.RawAggregate

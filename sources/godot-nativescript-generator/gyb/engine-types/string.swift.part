@@ -49,6 +49,8 @@ extension Godot
             ```
     **/
     ///     Instances of [`Godot.String`] are memory-managed by Swift.
+    /// #   [Creating a string](godot-string-initializer-usage)
+    /// #   [Infrequently used functionality](godot-string-infrequently-used-functionality)
     /// #   (10:godot-core-types)
     /// #   (10:)
     struct String 
@@ -105,6 +107,8 @@ extension Godot
 /// protocol Godot.StringRepresentable
 /// :   Godot.VariantRepresentable
 ///     A type that can be losslessly converted to an from a Godot string.
+/// #   [See also](godot-generic-abstractions)
+/// #   (2:godot-generic-abstractions)
 protocol _GodotStringRepresentable:Godot.VariantRepresentable
 {
     /// init Godot.StringRepresentable.init(_:)
@@ -141,6 +145,7 @@ extension Godot.String:Godot.StringRepresentable
     ///     to Godot strings.
     /// - other:Other
     /// #   (godot-string-init-from-stringrepresentable)
+    /// #   (godot-string-initializer-usage)
     init<Other>(_ other:Other)
         where Other:Godot.StringRepresentable
     {
@@ -156,6 +161,7 @@ extension Godot.String:Godot.StringRepresentable
     ///     initializer does not copy the storage of `other`. It has the same 
     ///     semantics as assigning `other` to a new variable.
     /// - other :Self
+    /// #   (0:godot-string-infrequently-used-functionality)
     init(_ other:Self) 
     {
         self = other
@@ -169,6 +175,7 @@ extension Godot.String:Godot.StringRepresentable
     ///     protocol.
     /// - type  :Self.Type
     /// - ->    :Self
+    /// #   (1:godot-string-infrequently-used-functionality)
     func `as`(_:Self.Type) -> Self 
     {
         self 

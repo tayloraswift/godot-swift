@@ -14,7 +14,7 @@ enum VariantRaw
         ///     A trivial GDScript type.
         /// 
         ///     Do not conform additional types to this protocol.
-        /// #   (godot-core-protocols)
+        /// #   (-2:godot-generic-unification-protocols)
         protocol _GodotRawValue
         {
             init()
@@ -39,7 +39,7 @@ enum VariantRaw
         ///     A non-trivial GDScript type.
         /// 
         ///     Do not conform additional types to this protocol.
-        /// #   (godot-core-protocols)
+        /// #   (-1:godot-generic-unification-protocols)
         protocol _GodotRawReference:Godot.RawValue
         {
             mutating
@@ -52,9 +52,9 @@ enum VariantRaw
             ("vector3",         "vector3",              "Vector3<Float32>"), 
             ("color",           "vector4",              "Vector4<Float32>"), 
             ("quat",            "quaternion",           "Quaternion<Float32>"), 
-            ("plane",           "plane3",               "Godot.Plane3<Float32>"), 
             ("rect2",           "rectangle2",           "Vector2<Float32>.Rectangle"), 
             ("aabb",            "rectangle3",           "Vector3<Float32>.Rectangle"), 
+            ("plane",           "plane3",               "Vector3<Float32>.Plane"), 
             ("transform2d",     "affine2",              "Godot.Transform2<Float32>.Affine"), 
             ("transform",       "affine3",              "Godot.Transform3<Float32>.Affine"), 
             ("basis",           "linear3",              "Godot.Transform3<Float32>.Linear"), 

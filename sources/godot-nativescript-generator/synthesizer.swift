@@ -404,6 +404,11 @@ extension Main.Synthesizer
         Source.generate(file: self.output)
         {
             """
+            import GodotNative
+            
+            """
+            Source.text(from: "gyb", "synthesizer", "common.swift.part")
+            """
             // placeholders to make inert library compile 
             func <- <T, Function>(method:@escaping (T) -> Function, symbol:String) 
                 -> Godot.NativeScriptInterface<T>.Method
@@ -1221,6 +1226,7 @@ extension Main.Synthesizer
             
             """
             
+            Source.text(from: "gyb", "synthesizer", "common.swift.part")
             // sort by function signatures, to provide some stability in the 
             // generated code. precompute the signatures to prevent O(n log n) 
             // signature computations 

@@ -90,9 +90,9 @@ extension Godot
     **/
     ///     Instances of [`List`] are memory-managed by Swift. When a list is 
     ///     deinitialized by the Swift runtime, all of its elements are also deinitialized.
-    /// #   [Creating lists](godot-list-initializer-usage)
-    /// #   [Creating lists from unmanaged values](godot-list-manual-memory-management)
-    /// #   [Resizing lists](godot-list-resize-usage)
+    /// #   [Creating a list](godot-list-initializer-usage)
+    /// #   [Creating a list from unmanaged values](godot-list-manual-memory-management)
+    /// #   [Resizing a list](godot-list-resize-usage)
     /// #   [Accessing list elements](godot-list-element-access)
     /// #   (14:godot-core-types)
     /// #   (14:)

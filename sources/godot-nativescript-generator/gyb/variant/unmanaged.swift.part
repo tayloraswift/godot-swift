@@ -1,0 +1,353 @@
+extension Godot.Unmanaged 
+{
+    /// struct Godot.Unmanaged.Variant 
+    ///     An unmanaged variant value.
+    /// #   [Loading values](godot-unmanaged-variant-take)
+    /// #   [Storing values](godot-unmanaged-variant-pass)
+    /// #   [Assigning values](godot-unmanaged-variant-assign)
+    /// #   [See also](godot-variant-usage)
+    /// #   (godot-unmanaged-variant)
+    /// #   (2:godot-variant-usage)
+    struct Variant 
+    {
+        private 
+        var data:godot_variant 
+        
+        init(unsafeData:godot_variant) 
+        {
+            self.data = unsafeData
+        }
+        var unsafeData:godot_variant 
+        {
+            self.data 
+        } 
+        
+        fileprivate 
+        func load<T>(where type:Godot.VariantType, _ body:(UnsafePointer<godot_variant>) throws -> T) 
+            rethrows -> T? 
+        {
+            try withUnsafePointer(to: self.data){ Self.type(of: $0) == type ? try body($0) : nil }
+        }
+        
+        fileprivate 
+        init<T>(value:T, _ body:(UnsafeMutablePointer<godot_variant>, T) throws -> ()) 
+            rethrows
+        {
+            self.data = .init()
+            try body(&self.data, value)
+        }
+        fileprivate 
+        init(with body:(UnsafeMutablePointer<godot_variant>) throws -> ()) 
+            rethrows
+        {
+            self.data = .init()
+            try body(&self.data)
+        }
+        
+        private static 
+        func type(of pointer:UnsafePointer<godot_variant>) -> Godot.VariantType 
+        {
+            .init(value: .init(Godot.api.1.0.godot_variant_get_type(pointer).rawValue))
+        }
+    }
+}
+extension Godot.Unmanaged.Variant 
+{
+    @available(*, unavailable, message: "unimplemented")
+    mutating 
+    func retain() 
+    {
+    }
+    /// mutating func Godot.Unmanaged.Variant.release()
+    ///     Performs an unbalanced release.
+    mutating 
+    func release() 
+    {
+        Godot.api.1.0.godot_variant_destroy(&self.data)
+    }
+}
+extension Godot.Unmanaged.Variant 
+{
+    // no corresponding method taking `Void`, as there is nowhere in the framework 
+    // this is required, yet at least.
+    /* fileprivate static 
+    func pass<T, R>(guaranteeing value:T, _ body:(Self) throws -> R) rethrows -> R
+        where T:Godot.VariantRepresentable 
+    {
+        var unmanaged:Self = .pass(retaining: value)
+        defer { unmanaged.release() }
+        return try body(unmanaged)
+    } */
+    
+    /// static func Godot.Unmanaged.Variant.pass<T>(retaining:)
+    /// where T:Godot.VariantRepresentable 
+    ///     Returns an unmanaged variant value holding the given value, performing 
+    ///     an unbalanced retain.
+    /// 
+    ///     This method calls the [`(T).passRetained()`] instance method on [`T`].
+    ///     Prefer calling this method over calling [`T.passRetained()`]
+    ///     directly.
+    /// - value :T
+    /// - ->    :Self 
+    ///     An unmanaged variant value. 
+    /// #   (1:godot-unmanaged-variant-pass)
+    /// #   (typed)
+    static 
+    func pass<T>(retaining value:T) -> Self 
+        where T:Godot.VariantRepresentable 
+    {
+        value.passRetained()
+    }
+    /// static func Godot.Unmanaged.Variant.pass(retaining:)
+    ///     Returns an unmanaged variant value holding a void value.
+    /// - value :Void
+    /// - ->    :Self 
+    ///     An unmanaged variant value. It will be seen as `null` by GDScript.
+    /// #   (0:godot-unmanaged-variant-pass)
+    /// #   (void)
+    static 
+    func pass(retaining _:Void) -> Self
+    {
+        .init(with: Godot.api.1.0.godot_variant_new_nil)
+    }
+    
+    // FIXME: this should really use an atomic swap
+    private mutating 
+    func assign(_ other:Self) 
+    {
+        // deinitialize existing value 
+        self.release() 
+        self = other
+    }
+    
+    /// mutating func Godot.Unmanaged.Variant.assign<T>(retaining:)
+    /// where T:Godot.VariantRepresentable 
+    ///     Deinitializes the value stored in this variant value, and replaces 
+    ///     it with the given value, performing an unbalanced retain on it.
+    /// - value:T 
+    /// #   (1:godot-unmanaged-variant-assign)
+    /// #   (typed)
+    mutating 
+    func assign<T>(retaining value:T) 
+        where T:Godot.VariantRepresentable 
+    {
+        self.assign(.pass(retaining: value))
+    }
+    /// mutating func Godot.Unmanaged.Variant.assign(retaining:)
+    ///     Deinitializes the value stored in this variant value, and replaces 
+    ///     it with a void value.
+    /// - value:Void
+    /// #   (0:godot-unmanaged-variant-assign)
+    /// #   (void)
+    mutating 
+    func assign(retaining value:Void) 
+    {
+        self.assign(.pass(retaining: value))
+    }
+    
+    /// func Godot.Unmanaged.Variant.take<T>(unretained:)
+    /// where T:Godot.VariantRepresentable 
+    ///     Attempts to load an instance of [`T`] from this value, without 
+    ///     consuming an unbalanced retain of it.
+    /// 
+    ///     The loaded instance of [`T`] is memory-managed by Swift. If this 
+    ///     variant value is manually deinitialized (for example, by calling 
+    ///     [`release()`]), the returned instance of [`T`] will still be valid.
+    ///
+    ///     > warning:
+    ///     If you use this method to load an instance of an unmanaged delegate type, 
+    ///     such as [`Unmanaged.Node`], the returned delegate is still unmanaged. 
+    ///     Instances of unmanaged Godot delegates are treated as opaque values, 
+    ///     just like any other unmanaged Swift reference.
+    /// 
+    ///     This method calls the [`(T).takeUnretained(_:)`] constructor on [`T`].
+    ///     Prefer calling this method over calling [`T.takeUnretained(_:)`]
+    ///     directly.
+    /// - type  :T.Type
+    /// - ->    :T? 
+    ///     An instance of [`T`], if it was possible to load it from from this.
+    ///     variant value, or `nil` otherwise.
+    /// #   (1:godot-unmanaged-variant-take)
+    /// #   (typed)
+    func take<T>(unretained _:T.Type) -> T? 
+        where T:Godot.VariantRepresentable 
+    {
+        // Optional<T> also has a `takeUnretained(_:)` method, which we do 
+        // not want to call here
+        T.takeUnretained(self)
+    }
+    /// func Godot.Unmanaged.Variant.take(unretained:)
+    ///     Attempts to load an instance of [`Void`] from this value.
+    /// - type  :Void.Type
+    /// - ->    :Void? 
+    ///     An empty tuple, if this variant value holds `null`, or `nil` otherwise.
+    /// #   (void)
+    /// #   (0:godot-unmanaged-variant-take)
+    func take(unretained _:Void.Type) -> Void?
+    {
+        withUnsafePointer(to: self.data, Self.type(of:)) == .void ? () : nil
+    }
+    
+    
+    fileprivate static 
+    func pass<R>(guaranteeing value:Godot.Variant?, _ body:(UnsafePointer<godot_variant>) throws -> R) rethrows -> R
+    {
+        try Self.pass(guaranteeing: value)
+        {
+            try withUnsafePointer(to: $0.data, body)
+        }
+    }
+    fileprivate static 
+    func pass<R>(guaranteeing value:Godot.Variant?, _ body:(Self) throws -> R) rethrows -> R
+    {
+        var unmanaged:Self = .pass(retaining: value)
+        defer { unmanaged.release() }
+        return try body(unmanaged)
+    }
+    /// static func Godot.Unmanaged.Variant.pass(retaining:)
+    ///     Returns an unmanaged variant value holding the given polymorphic value, 
+    ///     performing an unbalanced retain.
+    /// 
+    ///     If `value` is `nil`, calling this constructor is equivalent to 
+    ///     calling the statically-typed [`pass(retaining:)#(void)`] constructor 
+    ///     with an empty tuple argument.
+    /// - value :Godot.Variant?
+    ///     A variant existential. 
+    /// - ->    :Self 
+    ///     An unmanaged variant value. 
+    /// #   (2:godot-unmanaged-variant-pass)
+    static 
+    func pass(retaining value:Godot.Variant?) -> Self
+    {
+        value?.passRetained() ?? .pass(retaining: ())
+    }
+    
+    /// mutating func Godot.Unmanaged.Variant.assign(retaining:)
+    ///     Deinitializes the value stored in this variant value, and replaces 
+    ///     it with the given polymorphic value, performing an unbalanced retain on it.
+    /// 
+    ///     If `value` is `nil`, calling this method is equivalent to 
+    ///     calling the statically-typed [`assign(retaining:)#(void)`] method 
+    ///     with an empty tuple argument.
+    /// - value :Godot.Variant?
+    ///     A variant existential. 
+    /// #   (2:godot-unmanaged-variant-assign)
+    mutating 
+    func assign(retaining value:Godot.Variant?) 
+    {
+        self.assign(.pass(retaining: value))
+    }
+    
+    /// func Godot.Unmanaged.Variant.take(unretained:)
+    ///     Loads this variant value as a managed polymorphic variant, without 
+    ///     consuming an unbalanced retain of it.
+    /// 
+    ///     The returned [[`Godot.Variant?`]] existential is memory-managed by 
+    ///     Swift. If this unmanaged variant value is manually deinitialized 
+    ///     (for example, by calling [`release()`]), the returned 
+    ///     [[`Godot.Variant?`]] existential will still be valid.
+    ///
+    ///     > warning:
+    ///     If the (dynamic) type of the returned variant is an unmanaged delegate 
+    ///     type, such as [`Unmanaged.Node`], the returned delegate is still unmanaged. 
+    ///     Instances of unmanaged Godot delegates are treated as opaque values, 
+    ///     just like any other unmanaged Swift reference.
+    /// - type  :Godot.Variant.Type?
+    /// - ->    :Godot.Variant? 
+    ///     A managed variant existential.
+    /// #   (2:godot-unmanaged-variant-take)
+    func take(unretained _:Godot.Variant?.Type) -> Godot.Variant?
+    {
+        withUnsafePointer(to: self.data)
+        {
+            switch Self.type(of: $0)
+            {
+            case .void:
+                return nil
+            case .bool:
+                return Godot.api.1.0.godot_variant_as_bool($0)
+            case .int:
+                return Godot.api.1.0.godot_variant_as_int($0)
+            case .float:
+                return Godot.api.1.0.godot_variant_as_real($0)
+            
+            case .resourceIdentifier:
+                return Godot.api.1.0.godot_variant_as_rid($0).unpacked
+            
+            case .vector2:
+                return Godot.api.1.0.godot_variant_as_vector2($0).unpacked
+            case .vector3:
+                return Godot.api.1.0.godot_variant_as_vector3($0).unpacked
+            case .vector4:
+                return Godot.api.1.0.godot_variant_as_color($0).unpacked
+            case .quaternion:
+                return Godot.api.1.0.godot_variant_as_quat($0).unpacked
+            case .plane3:
+                return Godot.api.1.0.godot_variant_as_plane($0).unpacked
+            
+            case .rectangle2:
+                return Godot.api.1.0.godot_variant_as_rect2($0).unpacked
+            case .rectangle3:
+                return Godot.api.1.0.godot_variant_as_aabb($0).unpacked
+            
+            case .affine2:
+                return Godot.api.1.0.godot_variant_as_transform2d($0).unpacked
+            case .affine3:
+                return Godot.api.1.0.godot_variant_as_transform($0).unpacked
+            case .linear3:
+                return Godot.api.1.0.godot_variant_as_basis($0).unpacked
+            
+            case .nodePath:
+                return Godot.NodePath.init(retained: 
+                    Godot.api.1.0.godot_variant_as_node_path($0))
+            case .string:
+                return Godot.String.init(retained: 
+                    Godot.api.1.0.godot_variant_as_string($0))
+            case .list:
+                return Godot.List.init(retained: 
+                    Godot.api.1.0.godot_variant_as_array($0))
+            case .map:
+                return Godot.Map.init(retained: 
+                    Godot.api.1.0.godot_variant_as_dictionary($0))
+            
+            case .uint8Array:
+                return Godot.Array<UInt8>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_byte_array($0))
+        	case .int32Array:
+                return Godot.Array<Int32>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_int_array($0))
+        	case .float32Array:
+                return Godot.Array<Float32>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_real_array($0))
+        	case .stringArray:
+                return Godot.Array<Swift.String>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_string_array($0))
+        	case .vector2Array:
+                return Godot.Array<Vector2<Float32>>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_vector2_array($0))
+        	case .vector3Array:
+                return Godot.Array<Vector3<Float32>>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_vector3_array($0))
+        	case .vector4Array:
+                return Godot.Array<Vector4<Float32>>.init(retained: 
+                    Godot.api.1.0.godot_variant_as_pool_color_array($0))
+                    
+            case .delegate:
+                guard let core:UnsafeMutableRawPointer = 
+                    Godot.api.1.0.godot_variant_as_object($0)
+                else 
+                {
+                    Godot.print(error: "encountered nil delegate pointer while unwrapping variant")
+                    return nil
+                }
+                // loading an object pointer from a variant does not seem to 
+                // increment its reference count, so we take it unretained
+                return Godot.type(of: core).init(retaining: core)
+            
+            case let type:
+                Godot.print(error: "unknown variant type (\(type)), check version compatibility!")
+                return nil
+            }
+        }
+    }
+}

@@ -4,8 +4,18 @@
 /// :   Godot.Variant where T == Float32
 /// where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
 ///     An SIMD-backed quaternion.
+/// 
+///     When [`T`] is [`Float32`], this type corresponds to the 
+///     [`Godot::Quat`](https://docs.godotengine.org/en/stable/classes/class_quat.html) 
+///     type in GDScript. 
+/// #   [Creating a quaternion](quaternion-initializer-usage)
+/// #   [Converting quaternions between scalar types](quaternion-type-conversion-usage)
+/// #   [Getting the components of a quaternion](quaternion-accessors)
+/// #   [Normalizing a quaternion](quaternion-normalization)
+/// #   [Conjugating a quaternion](quaternion-conjugation)
 /// #   (20:math-types)
-/// #   (23:godot-core-types)
+/// #   (24:godot-core-types)
+/// #   (24:)
 struct Quaternion<T>:Hashable 
     where T:SIMDScalar & BinaryFloatingPoint & Numerics.Real 
 {
@@ -13,17 +23,20 @@ struct Quaternion<T>:Hashable
     ///     A 4-element vector with the [`real`] part of this quaternion 
     ///     in its [`(Vector4).w`] position, and the [`imaginary`] part 
     ///     of this quaternion in its [`(VectorSwizzle3).xyz`] positions.
+    /// #   (2:quaternion-accessors)
     private(set)
     var composite:Vector4<T> 
     
     /// var Quaternion.real:T { get }
     ///     The real part of this quaternion.
+    /// #   (0:quaternion-accessors)
     var real:T 
     {
         self.composite.w
     } 
     /// var Quaternion.imaginary:Vector3<T> { get }
     ///     The imaginary part of this quaternion.
+    /// #   (1:quaternion-accessors)
     var imaginary:Vector3<T> 
     {
         self.composite[.xyz]
@@ -32,6 +45,7 @@ struct Quaternion<T>:Hashable
     /// static var Quaternion.identity:Self { get }
     ///     The identity quaternion, which has zero in its imaginary parts, 
     ///     and a value of one in its real part.
+    /// #   (-1:quaternion-initializer-usage)
     static 
     var identity:Self
     {
@@ -44,26 +58,10 @@ struct Quaternion<T>:Hashable
     ///     A composite value. The [`(VectorSwizzle3).xyz`] elements 
     ///     provide the imaginary part, and the [`(Vector4).w`] element 
     ///     provides the real part.
+    /// #   (0:quaternion-initializer-usage)
     init(composite:Vector4<T>) 
     {
         self.composite = composite
-    }
-    
-    /// init Quaternion.init(from:to:)
-    ///     Creates a quaternion representing a 3D rotation between two 
-    ///     points on the unit sphere. 
-    /// 
-    ///     Both `start` and `end` should be unit vectors 
-    ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
-    ///     be meaningful.
-    /// - start :Vector3<T> 
-    ///     A unit vector representing the starting point of a 3D rotation.
-    /// - end   :Vector3<T> 
-    ///     A unit vector representing the ending point of a 3D rotation.
-    init(from start:Vector3<T>, to end:Vector3<T>) 
-    {
-        let a:T         = (2 * (1 + start <> end)).squareRoot()
-        self.composite  = start >|< end / a || 0.5 * a
     }
     
     /// init Quaternion.init(axis:angle:)
@@ -77,10 +75,29 @@ struct Quaternion<T>:Hashable
     ///     A unit vector specifying a rotation axis.
     /// - angle :T
     ///     The rotation angle, *in radians*.
+    /// #   (1:quaternion-initializer-usage)
     init(axis:Vector3<T>, angle:T)
     {
         let half:T      = 0.5 * angle 
         self.composite  = T.sin(half) * axis || T.cos(half)
+    }
+    
+    /// init Quaternion.init(from:to:)
+    ///     Creates a quaternion representing a 3D rotation between two 
+    ///     points on the unit sphere. 
+    /// 
+    ///     Both `start` and `end` should be unit vectors 
+    ///     (with [`(Vector).norm`] equal to `1.0`) for the result to 
+    ///     be meaningful.
+    /// - start :Vector3<T> 
+    ///     A unit vector representing the starting point of a 3D rotation.
+    /// - end   :Vector3<T> 
+    ///     A unit vector representing the ending point of a 3D rotation.
+    /// #   (2:quaternion-initializer-usage)
+    init(from start:Vector3<T>, to end:Vector3<T>) 
+    {
+        let a:T         = (2 * (1 + start <> end)).squareRoot()
+        self.composite  = start >|< end / a || 0.5 * a
     }
     
     /// init Quaternion.init<U>(_:)
@@ -88,6 +105,7 @@ struct Quaternion<T>:Hashable
     ///     Creates a quaternion from a quaternion of another 
     ///     floating point type.
     /// - other:Quaternion<U>
+    /// #   (quaternion-type-conversion-usage)
     init<U>(_ other:Quaternion<U>) 
         where U:SIMDScalar & Numerics.Real & BinaryFloatingPoint
     {
@@ -97,12 +115,14 @@ struct Quaternion<T>:Hashable
     /// func Quaternion.normalized() 
     ///     Returns this quaternion, normalized to unit length.
     /// - ->:Self
+    /// #   (0:quaternion-normalization)
     func normalized() -> Self
     {
         .init(composite: self.composite.normalized())
     }
     /// mutating func Quaternion.normalize() 
     ///     Normalizes this quaternion to unit length.
+    /// #   (1:quaternion-normalization)
     mutating 
     func normalize() 
     {
@@ -116,6 +136,7 @@ struct Quaternion<T>:Hashable
     ///     The conjugate of `quaternion`. Its [`imaginary`] part is 
     ///     the negative of the imaginary part of the original quaternion, 
     ///     and its [`real`] part remains unchanged.
+    /// #   (0:quaternion-conjugation)
     static 
     postfix func * (_ quaternion:Self) -> Self
     {
