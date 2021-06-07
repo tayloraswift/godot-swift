@@ -13,8 +13,10 @@ import GodotNative
 /// enum Godot 
 ///     A namespace for Godot-related functionality.
 /// #   [Namespaces](godot-toplevel-namespaces, godot-namespaces)
-/// #   [Working with variants](godot-variant-usage)
+/// #   [Creating Swift libraries](godot-library-usage)
+/// #   [Creating Swift nativescripts](godot-nativescript-usage)
 /// #   [Working with signals](godot-signal-usage)
+/// #   [Working with variants](godot-variant-usage)
 /// #   [Core types](godot-core-types)
 /// #   [Generic abstractions](godot-generic-abstractions)
 /// #   [Generic unifications](godot-generic-unification-protocols)

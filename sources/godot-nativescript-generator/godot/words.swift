@@ -108,8 +108,12 @@ struct Words:Hashable, Comparable, CustomStringConvertible
         {
         case "Object":          reconciled = "AnyDelegate"
         case "Reference":       reconciled = "AnyObject"
-        // fix problematic names 
-        case "NativeScript":    reconciled = "NativeScriptDelegate"
+        // metatype classes 
+        case "Script":          reconciled = "ScriptType"
+        case "GDScript":        reconciled = "GDScriptType"
+        case "PluginScript":    reconciled = "PluginScriptType"
+        case "VisualScript":    reconciled = "VisualScriptType"
+        case "NativeScript":    reconciled = "NativeScriptType"
         case let original:      reconciled = original 
         }
         
