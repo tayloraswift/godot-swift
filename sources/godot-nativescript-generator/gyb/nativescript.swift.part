@@ -1,0 +1,499 @@
+protocol _GodotNativeLibrary 
+{
+    static 
+    var interface:Godot.Library.Interface 
+    {
+        get
+    }
+}
+
+protocol _GodotAnyNativeScript
+{
+#if BUILD_STAGE_INERT
+    // must provide interfaces as Strings, using actual metatypes crashes the 
+    // swift compiler 
+    static 
+    var __properties__:Int
+    {
+        get 
+    }
+    static 
+    var __methods__:[String]
+    {
+        get 
+    }
+    static 
+    var __signals__:[String]
+    {
+        get 
+    }
+#else 
+    static 
+    func register(_ symbols:[String], with:Godot.Library)
+#endif 
+}
+
+protocol _GodotNativeScript:Godot.AnyNativeScript
+{
+    typealias Interface = Godot.NativeScriptInterface<Self>
+    
+    associatedtype Delegate:Godot.AnyDelegate
+    
+    init(delegate:Delegate)
+    
+    static 
+    var interface:Interface
+    {
+        get
+    }
+}
+extension Godot.NativeScript 
+{
+    static 
+    var interface:Interface 
+    {
+        .init(properties: [], methods: [], signals: [])
+    }
+}
+extension Godot 
+{
+    typealias AnyNativeScript   = _GodotAnyNativeScript
+    typealias NativeScript      = _GodotNativeScript
+    
+    typealias NativeLibrary     = _GodotNativeLibrary 
+    
+    struct Library:NativeLibrary 
+    {
+        private 
+        let handle:UnsafeMutableRawPointer 
+        
+        fileprivate static
+        func wrap(handle:UnsafeMutableRawPointer) -> Self
+        {
+            .init(handle: handle)
+        }
+    }
+}
+extension Godot.Library 
+{
+    typealias Initializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> UnsafeMutableRawPointer?
+    typealias Deinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> ()
+    typealias WitnessDeinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?
+        ) -> ()
+    typealias Dispatcher = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            Int32, 
+            UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
+        ) -> godot_variant
+    typealias Getter = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer? 
+        ) -> godot_variant
+    typealias Setter = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutablePointer<godot_variant>?
+        ) -> ()
+    
+    @resultBuilder 
+    struct Interface 
+    {
+        typealias Binding = (type:Godot.AnyNativeScript.Type, symbol:Swift.String)
+        
+        let types:[(type:Godot.AnyNativeScript.Type, symbols:[Swift.String])]
+    }
+    
+    fileprivate 
+    func initialize() 
+    {
+        for (type, symbols):(Godot.AnyNativeScript.Type, [Swift.String]) in Self.interface.types 
+        {
+        #if !BUILD_STAGE_INERT
+            type.register(symbols, with: self)
+        #endif
+        }
+        
+        // assert unsafebitcast memory layouts 
+        MemoryLayout<godot_vector2>.assert()
+        MemoryLayout<godot_vector3>.assert()
+        MemoryLayout<godot_color>.assert()
+        MemoryLayout<godot_quat>.assert()
+        MemoryLayout<godot_plane>.assert()
+        
+        MemoryLayout<godot_rect2>.assert()
+        MemoryLayout<godot_aabb>.assert()
+        
+        MemoryLayout<godot_transform2d>.assert()
+        MemoryLayout<godot_transform>.assert()
+        MemoryLayout<godot_basis>.assert() 
+        
+        MemoryLayout<godot_rid>.assert() 
+        
+        // assert variant type enum matches c headers 
+        for (swift, c):(Godot.VariantType, godot_variant_type) in 
+        [
+            (.void,                 GODOT_VARIANT_TYPE_NIL),
+        	(.bool,                 GODOT_VARIANT_TYPE_BOOL),
+        	(.int,                  GODOT_VARIANT_TYPE_INT),
+        	(.float,                GODOT_VARIANT_TYPE_REAL),
+        	(.string,               GODOT_VARIANT_TYPE_STRING),
+        	(.vector2,              GODOT_VARIANT_TYPE_VECTOR2),
+            (.vector3,              GODOT_VARIANT_TYPE_VECTOR3),
+            (.vector4,              GODOT_VARIANT_TYPE_COLOR),
+        	(.rectangle2,           GODOT_VARIANT_TYPE_RECT2),
+            (.rectangle3,           GODOT_VARIANT_TYPE_AABB),
+        	(.affine2,              GODOT_VARIANT_TYPE_TRANSFORM2D),
+            (.affine3,              GODOT_VARIANT_TYPE_TRANSFORM),
+            (.linear3,              GODOT_VARIANT_TYPE_BASIS),
+        	(.plane3,               GODOT_VARIANT_TYPE_PLANE),
+        	(.quaternion,           GODOT_VARIANT_TYPE_QUAT),
+        	(.nodePath,             GODOT_VARIANT_TYPE_NODE_PATH),
+        	(.resourceIdentifier,   GODOT_VARIANT_TYPE_RID),
+        	(.delegate,             GODOT_VARIANT_TYPE_OBJECT),
+        	(.map,                  GODOT_VARIANT_TYPE_DICTIONARY),
+        	(.list,                 GODOT_VARIANT_TYPE_ARRAY),
+        	(.uint8Array,           GODOT_VARIANT_TYPE_POOL_BYTE_ARRAY),
+        	(.int32Array,           GODOT_VARIANT_TYPE_POOL_INT_ARRAY),
+        	(.float32Array,         GODOT_VARIANT_TYPE_POOL_REAL_ARRAY),
+        	(.stringArray,          GODOT_VARIANT_TYPE_POOL_STRING_ARRAY),
+        	(.vector2Array,         GODOT_VARIANT_TYPE_POOL_VECTOR2_ARRAY),
+        	(.vector3Array,         GODOT_VARIANT_TYPE_POOL_VECTOR3_ARRAY),
+        	(.vector4Array,         GODOT_VARIANT_TYPE_POOL_COLOR_ARRAY),
+        ]
+        {
+            guard swift.value == c.rawValue
+            else 
+            {
+                fatalError("Godot.VariantType enum raw value for '\(swift)' does not match definition in c headers. check version compatibility!")
+            }
+        }
+    }
+    fileprivate 
+    func deinitialize() 
+    {
+    }
+    
+    func register<T>(
+        initializer:godot_instance_create_func, 
+        deinitializer:godot_instance_destroy_func, 
+        for _:T.Type, as symbol:String) 
+        where T:Godot.NativeScript
+    {
+        Godot.print("registering \(T.self) as nativescript 'Godot::\(symbol)'")
+        
+        Godot.api.nativescript.1.0.godot_nativescript_register_class(self.handle, 
+            symbol, T.Delegate.symbol, initializer, deinitializer)
+    }
+    
+    func register(method:godot_instance_method, 
+        in script:String, as symbol:String, annotations:[Godot.Annotations.Argument]) 
+    {
+        Godot.print("registering (function) as method 'Godot::\(script)::\(symbol)'")
+        
+        let attributes:godot_method_attributes = .init(
+            rpc_type: GODOT_METHOD_RPC_MODE_DISABLED)
+        Godot.api.nativescript.1.0.godot_nativescript_register_method(self.handle, 
+            script, symbol, attributes, method)
+    }
+    
+    func register(property:(get:godot_property_get_func, set:godot_property_set_func), 
+        in script:String, as symbol:String, annotations:Godot.Annotations.Property) 
+    {
+        Godot.print("registering (function) as property 'Godot::\(script)::\(symbol)'")
+        
+        var attributes:godot_property_attributes = .init(
+            rset_type:          GODOT_METHOD_RPC_MODE_DISABLED, 
+            type:              .init(annotations.type.value), 
+            hint:               GODOT_PROPERTY_HINT_NONE,
+            hint_string:       .init(packing: ""), 
+            usage:              GODOT_PROPERTY_USAGE_DEFAULT, 
+            default_value:     .init())
+        
+        Godot.api.nativescript.1.0.godot_nativescript_register_property(self.handle, 
+            script, symbol, &attributes, property.set, property.get)
+        
+        attributes.hint_string.deinit()
+    }
+    
+    func register(signal:Godot.AnySignal.Type, in script:String) 
+    {
+        Godot.print("registering \(signal) as signal 'Godot::\(script)::\(signal.name)'")
+        
+        var arguments:[godot_signal_argument] = signal.annotations.map 
+        {
+            .init(
+                name:          .init(packing: $0.label), 
+                type:          .init($0.type.value), 
+                hint:           GODOT_PROPERTY_HINT_NONE, 
+                hint_string:   .init(packing: ""), 
+                usage:          GODOT_PROPERTY_USAGE_DEFAULT, 
+                default_value: .init())
+        }
+        arguments.withUnsafeMutableBufferPointer 
+        {
+            var descriptor:godot_signal = .init(name: .init(packing: signal.name), 
+                num_args:           .init($0.count), 
+                args:               $0.baseAddress, 
+                num_default_args:   0, 
+                default_args:       nil)
+            
+            withUnsafePointer(to: descriptor) 
+            {
+                Godot.api.nativescript.1.0
+                    .godot_nativescript_register_signal(self.handle, script, $0)
+            }
+            
+            descriptor.name.deinit()
+        }
+        for i:Int in arguments.indices 
+        {
+            arguments[i].name.deinit()
+            arguments[i].hint_string.deinit()
+        } 
+    }
+}
+extension Godot 
+{
+    enum Annotations 
+    {
+        struct Argument 
+        {
+            let label:Swift.String 
+            let type:Godot.VariantType
+        }
+        struct Property 
+        {
+            let type:Godot.VariantType
+        }
+    }
+    
+    @resultBuilder
+    struct NativeScriptInterface<T> where T:Godot.NativeScript
+    {
+        enum Witness 
+        {
+            typealias Get = (T) -> Godot.Unmanaged.Variant
+            typealias Set = (T,    Godot.Unmanaged.Variant) -> ()
+            
+            typealias Property  = (get:Get, set:Set) 
+            typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.Unmanaged.Variant
+        }
+        
+        typealias Property  = 
+        (
+            symbol:Swift.String,
+            annotations:Annotations.Property,
+            witness:Witness.Property 
+        )
+        #if BUILD_STAGE_INERT
+        typealias Method    = Any.Type
+        #else 
+        typealias Method    = 
+        (
+            symbol:Swift.String,
+            annotations:[Annotations.Argument],
+            witness:Witness.Method
+        )
+        #endif
+        typealias Signal    = Godot.AnySignal.Type
+        
+        private(set)
+        var properties:[Property]
+        private(set)
+        var methods:[Method]
+        
+        let signals:[Signal]
+        
+        init(properties:[Property], methods:[Method], signals:[Signal])
+        {
+            self.properties = properties 
+            self.methods    = methods
+            self.signals    = signals
+        }
+        
+        subscript(property index:Int) -> Property 
+        {
+            _read
+            {
+                yield self.properties[index]
+            }
+        }
+        subscript(method index:Int) -> Method 
+        {
+            _read 
+            {
+                yield self.methods[index]
+            }
+        }
+    }
+}
+
+extension Godot 
+{
+    typealias AnySignal = _GodotAnySignal
+    typealias Signal    = _GodotSignal
+    
+    /// struct Godot.SignalInterface<T> 
+    /// @   resultBuilder 
+    ///     A descriptor specifying how signal fields are read from an 
+    ///     instance of [[`T`]].
+    /// #   (1:godot-signal-usage)
+    @resultBuilder
+    struct SignalInterface<T> 
+    {        
+        typealias Argument =
+        (
+            annotations:Annotations.Argument, 
+            witness:(T) -> Godot.Unmanaged.Variant 
+        )
+        
+        let arguments:[Argument]
+    } 
+}
+protocol _GodotAnySignal 
+{
+    static 
+    var annotations:[Godot.Annotations.Argument]
+    {
+        get
+    } 
+    
+    /// static var Godot.Signal.name:Swift.String { get }
+    /// required 
+    ///     The name of this signal type, as seen by Godot.
+    static 
+    var name:Swift.String
+    {
+        get
+    } 
+}
+/// protocol Godot.Signal 
+///     A type specifying the name and format of a Godot signal.
+/// #   (0:godot-signal-usage)
+protocol _GodotSignal:Godot.AnySignal  
+{
+    /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
+    typealias Interface = Godot.SignalInterface<Value>
+    
+    /// associatedtype Godot.Signal.Value 
+    ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
+    associatedtype Value 
+    
+    /// static var Godot.Signal.interface:Interface { get }
+    /// required 
+    ///     The interface of this signal type, specifying how signal fields 
+    ///     are read from an instance of [[`Value`]]. 
+    static 
+    var interface:Interface
+    {
+        get
+    } 
+}
+extension Godot.Signal 
+{
+    static 
+    var annotations:[Godot.Annotations.Argument]
+    {
+        Self.interface.arguments.map(\.annotations)
+    } 
+} 
+
+// arc sanitizer 
+extension Godot 
+{
+    final 
+    class NativeScriptMetadata
+    {
+    #if ENABLE_ARC_SANITIZER
+        
+        private 
+        let tracker:RetainTracker 
+        let symbol:Swift.String
+        
+        init(symbol:Swift.String, tracker:RetainTracker)
+        {
+            self.symbol     = symbol
+            self.tracker    = tracker
+        }
+        
+        func track() 
+        {
+            self.tracker.table[self.symbol]?.wrappingIncrement(ordering: .relaxed)
+        }
+        func untrack() 
+        {
+            self.tracker.table[self.symbol]?.wrappingDecrement(ordering: .relaxed)
+        }
+        
+    #else 
+        
+        let symbol:Swift.String
+        
+        init(symbol:Swift.String)
+        {
+            self.symbol = symbol
+        }
+    
+    #endif 
+    }
+}
+#if ENABLE_ARC_SANITIZER
+extension Godot 
+{
+    final 
+    class RetainTracker 
+    {
+        private 
+        let type:Godot.AnyNativeScript.Type
+        var table:[Swift.String: ManagedAtomic<Int>] 
+        
+        init(type:Godot.AnyNativeScript.Type, symbols:[Swift.String]) 
+        {
+            self.type   = type 
+            self.table  = .init(uniqueKeysWithValues: symbols.map{ ($0, .init(0)) })
+        }
+        deinit 
+        {
+            func plural(_ count:Int) -> Swift.String 
+            {
+                count == 1 ? "\(count) leaked instance" : "\(count) leaked instances"
+            }
+            
+            let leaked:[Swift.String: Int] = self.table.compactMapValues 
+            {
+                let count:Int = $0.load(ordering: .relaxed)
+                return count != 0 ? count : nil
+            }
+            if !leaked.isEmpty 
+            {
+                Godot.print(warning: 
+                    """
+                    detected \(plural(leaked.values.reduce(0, +))) of \(Swift.String.init(reflecting: self.type)):
+                    \(leaked.sorted{ $0.key < $1.key }.map
+                    { 
+                        "    \(plural($0.value)) of '\($0.key)'" 
+                    }.joined(separator: "\n"))
+                    """)
+            }
+        }
+    }
+}
+#endif 

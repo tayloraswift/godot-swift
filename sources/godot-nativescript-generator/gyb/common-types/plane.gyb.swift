@@ -51,6 +51,7 @@ enum Plane
             /// #   [Creating a plane](vector-plane-initializer-usage)
             /// #   [Converting planes between scalar types](vector-plane-type-conversion-usage)
             /// #   [Getting vector representations of a plane](vector-plane-accessors)
+            /// #   (0:vector-plane)
             /// #   (7:math-types)
             /// #   (21:godot-core-types)
             /// #   (21:)

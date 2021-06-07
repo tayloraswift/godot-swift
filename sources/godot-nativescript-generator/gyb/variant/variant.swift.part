@@ -6,12 +6,83 @@ extension Godot
 }
 /// protocol Godot.VariantRepresentable 
 ///     A type that can be represented by a GDScript variant value.
+/// 
+///     This protocol makes it possible to seamlessly bridge GDScript types to 
+///     multiple Swift types.
+/// 
+///     Most of Swift’s built-in integer types are representable by 
+///     [`Godot::int`](https://docs.godotengine.org/en/stable/classes/class_int.html). 
+///     The numeric conversion will only succeed if the GDScript integer value 
+///     does not overflow the specified Swift type. Otherwise, a runtime error will occur.
+///     Godot stores integer values in 64-bit precision, so if [`Self`] is 
+///     [`Int64`] or [`UInt64`], the numeric conversion will always succeed.
+/// 
+///     Default implementations for this protocol’s requirements are available 
+///     when [`Self`] conforms to both [`FixedWidthInteger`], and one of 
+///     [`SignedInteger`] or [`UnsignedInteger`]. This means you enable support 
+///     for additional integer types by explicitly declaring a conformance 
+///     to this protocol.
+/// 
+///     > warning: 
+///     Despite the availability of “`int`” and “`uint`” type hints, 
+///     GDScript makes no distinction between unsigned and signed integers. 
+///     If [`Self`] is a [`SignedInteger`], this protocol’s default implementations  
+///     will interpret GDScript integers as 64-bit signed integers. Similarly, if 
+///     [`Self`] is an [`UnsignedInteger`], they will interpret GDScript integers 
+///     as 64-bit *un*signed integers.
+/// 
+///     Most of Swift’s built-in floating point types are representable by 
+///     [`Godot::float`](https://docs.godotengine.org/en/stable/classes/class_float.html). 
+///     As long as the original variant value holds an instance of 
+///     [`Godot::float`](https://docs.godotengine.org/en/stable/classes/class_float.html), 
+///     the numeric conversion will always succeed, but may lose precision.
+/// 
+///     Default implementations for this protocol’s requirements are available 
+///     when [`Self`] conforms to [`BinaryFloatingPoint`]. This means you enable 
+///     support for additional floating point types by explicitly declaring a conformance 
+///     to this protocol.
+/// 
+///     > note: 
+///     Floating point types are *not* representable by 
+///     [`Godot::int`](https://docs.godotengine.org/en/stable/classes/class_int.html) 
+///     by default.
+/// 
+///     The *Godot Swift* vector types are conditionally representable by 
+///     [`Godot::Vector2`](https://docs.godotengine.org/en/stable/classes/class_vector2.html), 
+///     [`Godot::Vector3`](https://docs.godotengine.org/en/stable/classes/class_vector2.html), or 
+///     [`Godot::Color`](https://docs.godotengine.org/en/stable/classes/class_color.html), 
+///     depending on their arity and scalar type.
+/// 
+///     The *Godot Swift* rectangle types are conditionally representable by 
+///     [`Godot::Rect2`](https://docs.godotengine.org/en/stable/classes/class_rect2.html), or 
+///     [`Godot::AABB`](https://docs.godotengine.org/en/stable/classes/class_aabb.html), 
+///     depending on their arity and scalar type. 
+/// 
+///     Default implementations for this protocol’s requirements are available 
+///     when [`Self`] conforms to [`VectorFiniteRangeExpression`], and its associated
+///     [`(VectorFiniteRangeExpression).Storage`] type conforms to [`RectangleStorage`]. 
+///     This means you enable support for custom rectangle types by explicitly 
+///     declaring a conformance to this protocol.
+/// 
+///     If [`Self`] is [`VariantRepresentable`], then [[`Optional<Self>`]] is 
+///     representable by the union type of 
+///     [`Godot::null`](https://docs.godotengine.org/en/stable/getting_started/scripting/gdscript/gdscript_basics.html?highlight=null#null) 
+///     and the GDScript type that [`Self`] is representable by.
+///
+///     > note: 
+///     [`Optional`] is not a catchall for “any failed conversion”. 
+///     [`Godot::null`](https://docs.godotengine.org/en/stable/getting_started/scripting/gdscript/gdscript_basics.html?highlight=null#null) 
+///     is the *only* variant value that can generate a `nil` case of [`Optional`].
+///     Failing type conversions will still cause runtime errors, even if the 
+///     destination Swift type is declared as [`Optional`]. 
 /// #   [See also](godot-variant-usage)
 /// #   (0:godot-variant-usage)
 protocol _GodotVariantRepresentable 
 {
     /// static var Godot.VariantRepresentable.variantType:Godot.VariantType { get }
-    /// required 
+    /// defaulted   where Self:FixedWidthInteger
+    /// defaulted   where Self:BinaryFloatingPoint
+    /// defaulted   where Self:VectorFiniteRangeExpression, Self.Storage:Godot.RectangleStorage
     ///     A type hint used by GDScript.
     /// 
     ///     If a conforming type can be represented by more than one GDScript type, 
@@ -26,7 +97,10 @@ protocol _GodotVariantRepresentable
     // generic methods on `Godot.Unmanaged.Variant`.
     
     /// static func Godot.VariantRepresentable.takeUnretained(_:)
-    /// required 
+    /// defaulted   where Self:FixedWidthInteger & SignedInteger 
+    /// defaulted   where Self:FixedWidthInteger & UnsignedInteger 
+    /// defaulted   where Self:BinaryFloatingPoint
+    /// defaulted   where Self:VectorFiniteRangeExpression, Self.Storage:Godot.RectangleStorage
     ///     Attempts to load an instance of [[`Self`]] from an unmanaged variant 
     ///     value, performing an unbalanced retain if successful.
     /// 
@@ -55,7 +129,10 @@ protocol _GodotVariantRepresentable
     static 
     func takeUnretained(_:Godot.Unmanaged.Variant) -> Self?
     /// func Godot.VariantRepresentable.passRetained()
-    /// required 
+    /// defaulted   where Self:FixedWidthInteger & SignedInteger 
+    /// defaulted   where Self:FixedWidthInteger & UnsignedInteger 
+    /// defaulted   where Self:BinaryFloatingPoint
+    /// defaulted   where Self:VectorFiniteRangeExpression, Self.Storage:Godot.RectangleStorage
     ///     Stores `self` as an unmanaged variant value, performing an unbalanced 
     ///     retain.
     /// 
@@ -87,11 +164,30 @@ protocol _GodotVariant:Godot.VariantRepresentable
 
 extension Godot.AnyDelegate:Godot.Variant 
 {
+    /// static var Godot.AnyDelegate.variantType:VariantType { get }
+    /// ?:  Godot.Variant
+    /// #   (0:$infrequently-used)
     static 
     var variantType:Godot.VariantType 
     {
         .delegate
     }
+    /// static func Godot.AnyDelegate.takeUnretained(_:)
+    /// ?:  Godot.Variant 
+    ///     Attempts to load an instance of [`Self`] from a variant value.
+    /// - value :Unmanaged.Variant 
+    /// - ->    :Self? 
+    ///     An instance of [`Self`], if `value` held a delegate 
+    ///     whose dynamic type was a subclass of [`Self`]; `nil` otherwise.
+    /// 
+    ///     > warning: 
+    ///     The *static type* of the return value is [`Self`], but its 
+    ///     *dynamic type* may actually be one of its subclasses. You can 
+    ///     query its dynamic type with the 
+    ///     [`is`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html)  
+    ///     and [`as`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html) 
+    ///     operators, just like any other Swift class.
+    /// #   (0:$infrequently-used)
     static 
     func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
@@ -109,6 +205,11 @@ extension Godot.AnyDelegate:Godot.Variant
             return Godot.type(of: core).init(retaining: core) as? Self
         } ?? nil
     }
+    /// func Godot.AnyDelegate.passRetained()
+    /// ?:  Godot.Variant 
+    ///     Stores this delegate instance as a variant value.
+    /// - ->    :Unmanaged.Variant 
+    /// #   (0:$infrequently-used)
     func passRetained() -> Godot.Unmanaged.Variant 
     {
         withExtendedLifetime(self) 
@@ -128,28 +229,42 @@ extension Godot.AnyDelegate:Godot.Variant
 /// #   (0:)
 extension Bool:Godot.Variant 
 {
+    /// static var Bool.variantType:Godot.VariantType { get }
+    /// ?:  Godot.Variant
     static 
     var variantType:Godot.VariantType 
     {
         .bool
     }
+    /// static func Bool.takeUnretained(_:)
+    /// ?:  Godot.Variant 
+    /// - value :Godot.Unmanaged.Variant 
+    /// - ->    :Self? 
     static 
     func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         value.load(where: Self.variantType, Godot.api.1.0.godot_variant_as_bool)
     }
+    /// func Bool.passRetained()
+    /// ?:  Godot.Variant 
+    /// - ->    :Godot.Unmanaged.Variant 
     func passRetained() -> Godot.Unmanaged.Variant 
     {
         .init(value: self, Godot.api.1.0.godot_variant_new_bool)
     }
 }
-extension FixedWidthInteger where Self:SignedInteger 
+extension Godot.VariantRepresentable 
+    where Self:FixedWidthInteger 
 {
     static 
     var variantType:Godot.VariantType 
     {
         .int
     }
+}
+extension Godot.VariantRepresentable 
+    where Self:FixedWidthInteger & SignedInteger 
+{
     static 
     func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
@@ -161,13 +276,9 @@ extension FixedWidthInteger where Self:SignedInteger
         .init(value: .init(self), Godot.api.1.0.godot_variant_new_int)
     }
 }
-extension FixedWidthInteger where Self:UnsignedInteger 
+extension Godot.VariantRepresentable 
+    where Self:FixedWidthInteger & UnsignedInteger 
 {
-    static 
-    var variantType:Godot.VariantType 
-    {
-        .int
-    }
     static 
     func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
@@ -179,7 +290,8 @@ extension FixedWidthInteger where Self:UnsignedInteger
         .init(value: .init(self), Godot.api.1.0.godot_variant_new_uint)
     }
 }
-extension BinaryFloatingPoint 
+extension Godot.VariantRepresentable 
+    where Self:BinaryFloatingPoint 
 {
     static 
     var variantType:Godot.VariantType 
@@ -197,6 +309,31 @@ extension BinaryFloatingPoint
         .init(value: .init(self), Godot.api.1.0.godot_variant_new_real)
     }
 }
+extension Godot.VariantRepresentable 
+    where Self:VectorFiniteRangeExpression, Self.Storage:Godot.RectangleStorage 
+{
+    static 
+    var variantType:Godot.VariantType 
+    {
+        Storage.RectangleAggregate.variantType
+    }
+    static 
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
+    {
+        Storage.RectangleAggregate.unpacked(variant: value).map
+        {
+            return Self.init(
+                lowerBound: Storage.generalize($0.lowerBound), 
+                upperBound: Storage.generalize($0.upperBound)) 
+        }
+    }
+    func passRetained() -> Godot.Unmanaged.Variant 
+    {
+        Storage.RectangleAggregate.variant(packing: .init(
+            lowerBound: Storage.specialize(self.lowerBound), 
+            upperBound: Storage.specialize(self.upperBound)))
+    }
+}
 
 /// extension Int64
 /// :   Godot.Variant
@@ -208,26 +345,104 @@ extension Int64:Godot.Variant               {}
 /// #   (2:godot-core-types)
 /// #   (2:)
 extension Float64:Godot.Variant             {}
-
+/// extension Float32
+/// :   Godot.VariantRepresentable
+/// #   (2:)
+/// extension Float16
+/// :   Godot.VariantRepresentable
+/// #   (2:)
 extension Float32:Godot.VariantRepresentable{}
 extension Float16:Godot.VariantRepresentable{}
 
+/// extension Int32
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension Int16
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension Int8
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension Int
+/// :   Godot.VariantRepresentable
+/// #   (1:)
 extension Int32:Godot.VariantRepresentable  {}
 extension Int16:Godot.VariantRepresentable  {}
 extension Int8:Godot.VariantRepresentable   {}
 extension Int:Godot.VariantRepresentable    {}
-
+/// extension UInt64
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension UInt32
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension UInt16
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension UInt8
+/// :   Godot.VariantRepresentable
+/// #   (1:)
+/// extension UInt
+/// :   Godot.VariantRepresentable
+/// #   (1:)
 extension UInt64:Godot.VariantRepresentable {}
 extension UInt32:Godot.VariantRepresentable {}
 extension UInt16:Godot.VariantRepresentable {}
 extension UInt8:Godot.VariantRepresentable  {}
 extension UInt:Godot.VariantRepresentable   {}
 
+extension Vector:Godot.VariantRepresentable 
+    where Storage:Godot.VectorStorage
+{
+    /// static var Vector.variantType:Godot.VariantType { get }
+    /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
+    /// #   (0:$infrequently-used)
+    static 
+    var variantType:Godot.VariantType 
+    {
+        Storage.VectorAggregate.variantType
+    }
+    /// static func Vector.takeUnretained(_:)
+    /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
+    /// - value :Godot.Unmanaged.Variant 
+    /// - ->    :Self? 
+    /// #   (0:$infrequently-used)
+    static 
+    func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
+    {
+        Storage.VectorAggregate.unpacked(variant: value).map(Storage.generalize(_:))
+    }
+    /// func Vector.passRetained()
+    /// ?:  Godot.VariantRepresentable where Storage:Godot.VectorStorage
+    /// - ->    :Godot.Unmanaged.Variant 
+    /// #   (0:$infrequently-used)
+    func passRetained() -> Godot.Unmanaged.Variant 
+    {
+        Storage.VectorAggregate.variant(packing: Storage.specialize(self))
+    }
+}
+extension Vector:Godot.Variant where Storage:Godot.VectorStorage, T == Float32 
+{
+}
+
+extension Vector.Rectangle:Godot.Variant 
+    where Storage:Godot.RectangleStorage, T == Float32 
+{
+}
+extension Vector.Rectangle:Godot.VariantRepresentable 
+    where Storage:Godot.RectangleStorage, T:Comparable
+{
+} 
+extension Vector.ClosedRectangle:Godot.VariantRepresentable  
+    where Storage:Godot.RectangleStorage, T:Comparable
+{
+} 
+
 extension Godot.Array:Godot.Variant 
 {
     /// static var Godot.Array.variantType:VariantType { get }
-    /// ?:  VariantRepresentable 
-    /// #   (10:godot-array-infrequently-used-functionality)
+    /// ?:  Godot.VariantRepresentable 
+    /// #   (10:$infrequently-used)
     static 
     var variantType:Godot.VariantType 
     {
@@ -235,7 +450,7 @@ extension Godot.Array:Godot.Variant
     }
     
     /// static func Godot.Array.takeUnretained(_:)
-    /// ?:  VariantRepresentable 
+    /// ?:  Godot.VariantRepresentable 
     ///     Attempts to load a pooled array instance from a variant value.
     /// 
     ///     This function does not (immediately) copy the array storage. 
@@ -244,14 +459,14 @@ extension Godot.Array:Godot.Variant
     ///     not be reflected in the returned Swift instance.
     /// - value :Unmanaged.Variant 
     /// - ->    :Self? 
-    /// #   (10:godot-array-infrequently-used-functionality)
+    /// #   (10:$infrequently-used)
     static 
     func takeUnretained(_ value:Godot.Unmanaged.Variant) -> Self?
     {
         Element.downcast(array: value).map(Self.init(retained:))
     }
     /// func Godot.Array.passRetained()
-    /// ?:  VariantRepresentable 
+    /// ?:  Godot.VariantRepresentable 
     ///     Stores this pooled array instance as a variant value.
     /// 
     ///     This function does not (immediately) copy the array storage. 
@@ -259,7 +474,7 @@ extension Godot.Array:Godot.Variant
     ///     modifications to the returned array in GDScript will not  
     ///     be reflected in the original instance of `self`.
     /// - ->    :Unmanaged.Variant 
-    /// #   (10:godot-array-infrequently-used-functionality)
+    /// #   (10:$infrequently-used)
     func passRetained() -> Godot.Unmanaged.Variant 
     {
         withExtendedLifetime(self)

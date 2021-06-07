@@ -9,7 +9,6 @@ extension Main.Generator
         Source.generate(file: self.outputCommon)
         {
             Source.text(from: "gyb",                    "dsl.swift.part")
-            
             Source.section(name:                        "simd-protocols.swift.part")
             {
                 SIMDProtocols.swift 

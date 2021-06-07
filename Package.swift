@@ -55,6 +55,7 @@ let package = Package(
                 "gyb/synthesizer/common.swift.part",
                 "gyb/dsl.swift.part",
                 "gyb/external.swift.part",
+                "gyb/nativescript.swift.part",
                 "gyb/runtime.swift.part",
             ]),
         .plugin(name: "GodotNativeScript", capability: .buildTool(),

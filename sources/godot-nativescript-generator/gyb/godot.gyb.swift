@@ -31,6 +31,7 @@ extension Godot
         
         Source.text(from:                   "external.swift.part")
         Source.text(from:                   "runtime.swift.part")
+        Source.text(from:                   "nativescript.swift.part")
         
         Source.text(from: "engine-types",   "aggregate.swift.part")
         Source.text(from: "engine-types",   "resource-identifier.swift.part")
@@ -45,17 +46,9 @@ extension Godot
         
         Source.text(from: "variant",        "unmanaged.swift.part")
         Source.text(from: "variant",        "variant.swift.part")
-        Source.section(name:                "variant-raw.swift.part")
+        Source.section(name:                "variant-representations.swift.part")
         {
-            VariantRaw.swift
-        }
-        Source.section(name:                "variant-vector.swift.part")
-        {
-            VariantVector.swift
-        }
-        Source.section(name:                "variant-rectangle.swift.part")
-        {
-            VariantRectangle.swift
+            VariantRepresentations.swift
         }
         Source.section(name:                "constants.swift.part")
         {
@@ -269,14 +262,17 @@ extension Godot.Class.Node
                 /// :   Godot.Variant
                 ///     The base class from which all Godot classes inherit from. 
                 /// 
-                ///     This type correspond to the `Godot::Object` type in GDScript. 
+                ///     This type corresponds to the 
+                ///     [`Godot::\(self.symbol)`](\(self.url)) class in GDScript. 
                 ///     In Swift, the term *object* refers exclusively to 
                 ///     reference-counted values, so *Godot Swift* uses the term 
                 ///     *delegate* to refer to what is otherwise known as an 
                 ///     “object” elsewhere in the Godot world.
                 /// 
                 ///     Reference-counted Godot delegates — that is, classes that 
-                ///     inherit from `Godot::Reference` — correspond to the 
+                ///     inherit from 
+                ///     [`Godot::Reference`](https://docs.godotengine.org/en/stable/classes/class_reference.html) 
+                ///     — correspond to the 
                 ///     *Godot Swift* type [`Godot.AnyObject`], which in turn, 
                 ///     inherits from [`AnyDelegate`].
                 /// 
@@ -286,7 +282,9 @@ extension Godot.Class.Node
                 /// 
                 ///     Godot delegates are fully bridged to Swift’s dynamic type 
                 ///     system. You can dynamically downcast to a subclass using 
-                ///     the `as?` downcast operator.
+                ///     the 
+                ///     [`as?`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html) 
+                ///     downcast operator.
                 /**
                         ```swift 
                         let delegate:Godot.AnyDelegate              = ... 
@@ -298,8 +296,9 @@ extension Godot.Class.Node
                         }
                         ```
                 **/
-                ///     You can upcast to a superclass using the `as` upcast 
-                ///     operator, just like any other Swift `class`. 
+                ///     You can upcast to a superclass using the 
+                ///     [`as`](https://docs.swift.org/swift-book/LanguageGuide/TypeCasting.html) 
+                ///     upcast operator, just like any other Swift class. 
                 /**
                         ```swift 
                         let resource:Godot.Resource = ... 
@@ -395,6 +394,9 @@ extension Godot.Class.Node
                 """
                 ///     The subclass from which all reference-counted Godot 
                 ///     classes inherit from. 
+                /// 
+                ///     This type corresponds to the 
+                ///     [`Godot::\(self.symbol)`](\(self.url)) class in GDScript. 
                 /// #   [Getting the GDScript class name of a delegate](\(self.tag("class", "name", "builtin")))
                 /// #   [Low-level functionality](\(self.tag("builtins")))
                 /// #   [Manual memory management](\(self.tag("manual", "reference", "counting")))

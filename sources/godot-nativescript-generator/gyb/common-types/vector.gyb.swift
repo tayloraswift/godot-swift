@@ -304,6 +304,7 @@ enum Vector
         /// #   [Working with binary representation](vector-binary-representation-usage)
         /// #   [Using vector masks](vector-mask-usage)
         /// #   [Comparing vectors](vector-comparison-usage)
+        /// #   [Working with affine planes](vector-plane)
         /// #   [Testing for region membership](vector-region-test-usage)
         /// #   (0:math-types)
         /// #   (20:godot-core-types)

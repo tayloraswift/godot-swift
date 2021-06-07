@@ -312,7 +312,6 @@ enum PoolArray
         ///     from any instances of this Swift class that hold a reference to 
         ///     it. 
         /// #   [Creating an array](godot-array-initializer-usage)
-        /// #   [Infrequently used functionality](godot-array-infrequently-used-functionality)
         /// #   (12:godot-core-types)
         /// #   (12:)
         extension Godot 
@@ -433,7 +432,7 @@ enum PoolArray
             ///     initializer does not copy the storage of `other`. It has the same 
             ///     semantics as assigning `other` to a new variable.
             /// - other :Self
-            /// #   (0:godot-array-infrequently-used-functionality)
+            /// #   (0:$infrequently-used)
             init(_ other:Self) 
             {
                 self = other
@@ -447,7 +446,7 @@ enum PoolArray
             ///     protocol.
             /// - type  :Self.Type
             /// - ->    :Self
-            /// #   (1:godot-array-infrequently-used-functionality)
+            /// #   (1:$infrequently-used)
             func `as`(_:Self.Type) -> Self 
             {
                 self 
