@@ -368,6 +368,7 @@ p strong
 }
 
 /* syntax colors */
+
 /* raspberry pink */
 code .syntax-keyword, code .signature-highlight, p a
 {
@@ -376,6 +377,11 @@ code .syntax-keyword, code .signature-highlight, p a
 code.signature a
 {
     outline-color: #ff4086;
+}
+/* robot blue */
+.topic-container-symbol.synthesized code .signature-highlight 
+{
+    color: #20c0e0;
 }
 /* dark gray */
 code .syntax-identifier
@@ -469,6 +475,10 @@ a
     {
         text-decoration-color: #ff4086;
     }
+    .topic-container-symbol.synthesized code.signature a span
+    {
+        text-decoration-color: #20d0f0;
+    }
     /* underline style for inline code */
     p code, p code span, p code a
     {
@@ -490,6 +500,10 @@ a
     code.signature a:hover 
     {
         border-bottom: 1px solid #ff4086;
+    }
+    .topic-container-symbol.synthesized code.signature a:hover 
+    {
+        border-bottom: 1px solid #20d0f0;
     }
     p code, p code span, p code a
     {
