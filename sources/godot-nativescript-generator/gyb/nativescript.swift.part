@@ -1,11 +1,14 @@
 /// protocol Godot.NativeLibrary 
 ///     Declares the requirements that [`Godot.Library`] must satisfy. 
 /// 
-///     For your Swift library to compile, you must extend the provided 
-///     [`Godot.Library`] type to provide the required [`interface`]. 
-/// 
-///     Conforming additional types to this protocol has no effect.
-/// #   (2:godot-library-usage)
+///     This protocol is provided for diagnostic purposes to help you complete 
+///     the definition of the provided [`Godot.Library`] type. Conforming additional 
+///     types to this protocol has no effect.
+/// #   (0:godot-library-usage)
+extension Godot 
+{
+    typealias NativeLibrary     = _GodotNativeLibrary 
+}
 protocol _GodotNativeLibrary 
 {
     /// static var Godot.NativeLibrary.interface:Godot.Library.Interface { get }
@@ -16,137 +19,17 @@ protocol _GodotNativeLibrary
         get
     }
 }
-/// protocol Godot.AnyNativeScript 
-///     A type-erased nativescript.
-/// 
-///     The requirements of this protocol change between different build stages 
-///     of *Godot Swift*’s multi-stage build process. *Godot Swift* will synthesize 
-///     implementations for its requirements when compiling your Swift library.
-/// 
-///     Do not manually conform to this protocol.
-/// #   (1:godot-nativescript-usage)
-protocol _GodotAnyNativeScript
-{
-#if BUILD_STAGE_INERT
-    // must provide interfaces as Strings, using actual metatypes crashes the 
-    // swift compiler 
-    static 
-    var __properties__:Int
-    {
-        get 
-    }
-    static 
-    var __methods__:[String]
-    {
-        get 
-    }
-    static 
-    var __signals__:[String]
-    {
-        get 
-    }
-#else 
-    static 
-    func register(_ symbols:[String], with:Godot.Library)
-#endif 
-}
-/// protocol Godot.NativeScript 
-/// :   Godot.AnyNativeScript
-///     A nativescript type.
-/// 
-///     Any Swift type (`class`, `struct`, `enum`) can be used as a Godot 
-///     nativescript by conforming to this protocol. 
-/// 
-///     At a minimum, a conforming type must support an [`init(delegate:)`] 
-///     initializer, which will be called when this nativescript is instantiated, 
-///     and attached to an instance of its associated [`Delegate`] type.
-/// 
-///     You can register signals, properties, and methods to make them accessible 
-///     from GDScript, by specifying a nativescript [`Interface`]. The [`Interface`]
-///     type is its own result builder, which provides a convenient syntax for 
-///     specifying nativescript interfaces:
-/**
-        ```swift 
-        @Interface 
-        static 
-        var interface:Interface 
-        {
-            Interface.signals 
-            {
-                ExampleSignal.self 
-            }
-            Interface.methods 
-            {
-                exampleMethod(delegate:foo:) <- "example_method"
-            }
-            Interface.properties 
-            {
-                \.exampleProperty            <- "example_property"
-            }
-        }
-        ```
-**/
-///     The first parameter of any exported nativescript instance method must 
-///     be labeled `delegate:` and have the static type [`Delegate`]. As its name 
-///     suggests, this parameter provides the nativescript’s means of interacting 
-///     with the game engine.
-/// 
-///     > warning: 
-///     Nativescript delegates are only guaranteed to be alive for the duration 
-///     of the instance method call. A Swift nativescript may outlive, or become 
-///     detached from its original delegate. This is especially important for 
-///     unmanaged delegate types, such as [`Unmanaged.Node`].
-/// 
-///     Conforming types *must* be registered in the [`(Godot.Library).interface`] 
-///     of [`Godot.Library`], otherwise, *Godot Swift* will be unable to 
-///     synthesize its remaining requirements.
-/// #   (0:godot-nativescript-usage)
-protocol _GodotNativeScript:Godot.AnyNativeScript
-{
-    /// typealias Godot.NativeScript.Interface = Godot.NativeScriptInterface<Self>
-    typealias Interface = Godot.NativeScriptInterface<Self>
-    /// associatedtype Godot.NativeScript.Delegate 
-    /// where Delegate:Godot.AnyDelegate
-    ///     The delegate type this nativescript type is meant to be attached to.
-    associatedtype Delegate:Godot.AnyDelegate
-    
-    /// init Godot.NativeScript.init(delegate:)
-    /// required 
-    /// - delegate:Delegate 
-    ///     The delegate instance this nativescript is attached to.
-    init(delegate:Delegate)
-    /// static var Godot.NativeScript.interface:Interface { get }
-    /// defaulted 
-    ///     Specifies the signals, properties, and methods that this nativescript 
-    ///     makes available to GDScript.
-    /// 
-    ///     The default interface exports no GDScript symbols, besides the 
-    ///     mandatory initializer.
-    static 
-    var interface:Interface
-    {
-        get
-    }
-}
-extension Godot.NativeScript 
-{
-    static 
-    var interface:Interface 
-    {
-        .init(properties: [], methods: [], signals: [])
-    }
-}
+
 extension Godot 
 {
-    typealias AnyNativeScript   = _GodotAnyNativeScript
-    typealias NativeScript      = _GodotNativeScript
-    
-    typealias NativeLibrary     = _GodotNativeLibrary 
     /// struct Godot.Library 
     /// :   Godot.NativeLibrary 
-    ///     A type specifying the nativescript types vended by your Swift library.
+    ///     A Swift native library.
     /// 
-    ///     For your Swift library to compile, you must extend this type to 
+    ///     When the Godot engine loads your Swift framework, it creates an instance 
+    ///     of this type, and registers the nativescripts listed in its [`interface`].
+    ///     
+    ///     For your framework to compile, you must extend this type to 
     ///     provide the required library [`interface`]. 
     /**
             ```swift 
@@ -162,7 +45,28 @@ extension Godot
             }
             ```
     **/
-    /// #   (0:godot-library-usage)
+    ///     *Godot Swift* also uses the nativescript declarations listed in the 
+    ///     library [`interface`] to determine which types it should synthesize 
+    ///     the [`(Godot.NativeScript).register(as:with:)`] requirement of 
+    ///     [`Godot.NativeScript`] for. If you declare a conformance to 
+    ///     [`Godot.NativeScript`], but do not add the conforming type to the 
+    ///     library interface, your framework will most likely fail to compile 
+    ///     due to missing protocol requirements. 
+    /// 
+    ///     > important:
+    ///     *Godot Swift* will synthesize the [`(Godot.NativeScript).register(as:with:)`] 
+    ///     method for *all* nativescript types declared in the library interface, 
+    ///     even if the nativescript already has an implementation for this method. 
+    ///     *Godot Swift* cannot override manual implementations of this method 
+    ///     with its synthetic implementations, nor can it allow manual implementations 
+    ///     to override its synthetic implementations. This means that compilation 
+    ///     will fail (due to conflicting implementations) if any types declared 
+    ///     in the library interface contain manual implementations of 
+    ///     [`(Godot.NativeScript).register(as:with:)`]. 
+    /// 
+    ///     Manual [`Godot.NativeScript`] conformances are not currently supported.
+    /// #   (1:godot-library-usage)
+    /// #   [See also](binding-operators)
     struct Library:NativeLibrary 
     {
         private 
@@ -176,50 +80,21 @@ extension Godot
     }
 }
 extension Godot.Library 
-{
-    typealias Initializer = @convention(c)
-        (
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?
-        ) -> UnsafeMutableRawPointer?
-    typealias Deinitializer = @convention(c)
-        (
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?
-        ) -> ()
-    typealias WitnessDeinitializer = @convention(c)
-        (
-            UnsafeMutableRawPointer?
-        ) -> ()
-    typealias Dispatcher = @convention(c) 
-        (
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            Int32, 
-            UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
-        ) -> godot_variant
-    typealias Getter = @convention(c) 
-        (
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer? 
-        ) -> godot_variant
-    typealias Setter = @convention(c) 
-        (
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            UnsafeMutableRawPointer?, 
-            UnsafeMutablePointer<godot_variant>?
-        ) -> ()
-    
+{    
     /// struct Godot.Library.Interface 
     /// @   resultBuilder
-    ///     A list of nativescript types vended by this Swift library. 
+    ///     Specifies the nativescript types vended by this Swift library. 
     ///
+    ///     A library interface consists of zero or more **type descriptors**. 
+    ///     Create a type descriptor using the [`(<-)(type:symbol:)`] 
+    ///     binding operator: 
+    /**
+            ```swift 
+            MyExportedSwiftClass.self <- "MyExportedSwiftClass"
+            ```
+    **/
     ///     This type is its own result builder, which provides a convenient syntax 
-    ///     for specifying library interfaces:
+    ///     for defining library interfaces:
     /**
             ```swift 
             @Interface 
@@ -231,27 +106,81 @@ extension Godot.Library
             }
             ```
     **/
-    ///     It is acceptable for the same Swift type to be registered to more than 
-    ///     one GDScript symbol.
-    /// #   (1:godot-library-usage)
+    ///     It is acceptable for the same nativescript type to be bound to 
+    ///     more than one GDScript class name. The game engine will register 
+    ///     nativescripts under all of the class names they are bound to.
+    /// #   [See also](binding-operators)
+    /// #   (2:godot-library-usage)
     @resultBuilder 
     struct Interface 
     {
-        typealias Binding = (type:Godot.AnyNativeScript.Type, symbol:Swift.String)
+        /// struct Godot.Library.Interface.NativeScriptType 
+        ///     A nativescript type descriptor.
+        /// 
+        ///     Create a type descriptor using the [`(<-)(type:symbol:)`] 
+        ///     binding operator: 
+        /**
+                ```swift 
+                MyExportedSwiftClass.self <- "MyExportedSwiftClass"
+                ```
+        **/
+        /// #   [See also](binding-operators)
+        struct NativeScriptType  
+        {
+            var symbols:[String]
+            let type:Any.Type 
+            
+            #if BUILD_STAGE_INERT
+            let properties:Int
+            let methods:[String]
+            let signals:[String]
+            #else 
+            let register:([String], Godot.Library) -> ()
+            #endif
+            init<T>(type _:T.Type, symbol:String)
+                where T:Godot.NativeScript
+            {
+                self.symbols    = [symbol]
+                self.type       = T.self 
+                #if BUILD_STAGE_INERT
+                self.properties = T.interface.properties.count 
+                self.methods    = T.interface.methods.map
+                { 
+                    "\($0)" 
+                }
+                self.signals    = T.interface.signals.map
+                {
+                    String.init(reflecting: $0.type)
+                }
+                #else 
+                self.register   = 
+                {
+                    (symbols:[String], library:Godot.Library) in 
+                    
+                    T.register(as: symbols, with: library)
+                }
+                #endif 
+            }
+        }
         
-        /// let Godot.Library.Interface.types:[(type:Godot.AnyNativeScript.Type, symbols:[Swift.String])]
-        let types:[(type:Godot.AnyNativeScript.Type, symbols:[Swift.String])]
+        /// let Godot.Library.Interface.types:[NativeScriptType]
+        ///     The type descriptors declared in this library interface. 
+        ///
+        ///     Each Swift type declared in this interface appears exactly once 
+        ///     in this array, even if it was bound to more than one GDScript 
+        ///     class name.
+        let types:[NativeScriptType]
     }
     
     fileprivate 
     func initialize() 
     {
-        for (type, symbols):(Godot.AnyNativeScript.Type, [Swift.String]) in Self.interface.types 
-        {
         #if !BUILD_STAGE_INERT
-            type.register(symbols, with: self)
-        #endif
+        for type:Interface.NativeScriptType in Self.interface.types 
+        {
+            type.register(type.symbols, self)
         }
+        #endif
         
         // assert unsafebitcast memory layouts 
         MemoryLayout<godot_vector2>.assert()
@@ -325,6 +254,44 @@ extension Godot.Library
             symbol, T.Delegate.symbol, initializer, deinitializer)
     }
     
+    func register(signal:Any.Type, // this argument only used for debugging purposes
+        in script:String, as symbol:String, annotations:[Godot.Annotations.Argument]) 
+    {
+        Godot.print("registering \(signal) as signal 'Godot::\(script)::\(symbol)'")
+        
+        var arguments:[godot_signal_argument] = annotations.map 
+        {
+            .init(
+                name:          .init(packing: $0.label), 
+                type:          .init($0.type.value), 
+                hint:           GODOT_PROPERTY_HINT_NONE, 
+                hint_string:   .init(packing: ""), 
+                usage:          GODOT_PROPERTY_USAGE_DEFAULT, 
+                default_value: .init())
+        }
+        arguments.withUnsafeMutableBufferPointer 
+        {
+            var descriptor:godot_signal = .init(name: .init(packing: symbol), 
+                num_args:           .init($0.count), 
+                args:               $0.baseAddress, 
+                num_default_args:   0, 
+                default_args:       nil)
+            
+            withUnsafePointer(to: descriptor) 
+            {
+                Godot.api.nativescript.1.0
+                    .godot_nativescript_register_signal(self.handle, script, $0)
+            }
+            
+            descriptor.name.deinit()
+        }
+        for i:Int in arguments.indices 
+        {
+            arguments[i].name.deinit()
+            arguments[i].hint_string.deinit()
+        } 
+    }
+    
     func register(method:godot_instance_method, 
         in script:String, as symbol:String, annotations:[Godot.Annotations.Argument]) 
     {
@@ -354,44 +321,8 @@ extension Godot.Library
         
         attributes.hint_string.deinit()
     }
-    
-    func register(signal:Godot.AnySignal.Type, in script:String) 
-    {
-        Godot.print("registering \(signal) as signal 'Godot::\(script)::\(signal.name)'")
-        
-        var arguments:[godot_signal_argument] = signal.annotations.map 
-        {
-            .init(
-                name:          .init(packing: $0.label), 
-                type:          .init($0.type.value), 
-                hint:           GODOT_PROPERTY_HINT_NONE, 
-                hint_string:   .init(packing: ""), 
-                usage:          GODOT_PROPERTY_USAGE_DEFAULT, 
-                default_value: .init())
-        }
-        arguments.withUnsafeMutableBufferPointer 
-        {
-            var descriptor:godot_signal = .init(name: .init(packing: signal.name), 
-                num_args:           .init($0.count), 
-                args:               $0.baseAddress, 
-                num_default_args:   0, 
-                default_args:       nil)
-            
-            withUnsafePointer(to: descriptor) 
-            {
-                Godot.api.nativescript.1.0
-                    .godot_nativescript_register_signal(self.handle, script, $0)
-            }
-            
-            descriptor.name.deinit()
-        }
-        for i:Int in arguments.indices 
-        {
-            arguments[i].name.deinit()
-            arguments[i].hint_string.deinit()
-        } 
-    }
 }
+
 extension Godot 
 {
     enum Annotations 
@@ -406,11 +337,125 @@ extension Godot
             let type:Godot.VariantType
         }
     }
+}
+/// protocol Godot.NativeScript 
+///     A Swift nativescript.
+/// 
+///     Any Swift type (`class`, `struct`, `enum`) can be used as a 
+///     nativescript by conforming it to this protocol. 
+/// 
+///     At a minimum, a conforming type must support an [`init(delegate:)`] 
+///     initializer, which will be called when this nativescript is instantiated, 
+///     and attached to an instance of its associated [`Delegate`] type.
+/// 
+///     You can register signals, properties, and methods to make them accessible 
+///     from GDScript, by specifying a nativescript [`Interface`]. The [`Interface`]
+///     type is its own result builder, which provides a convenient syntax for 
+///     specifying nativescript interfaces:
+/**
+        ```swift 
+        @Interface 
+        static 
+        var interface:Interface 
+        {
+            Interface.signals 
+            {
+                ExampleSignal.self 
+            }
+            Interface.methods 
+            {
+                exampleMethod(delegate:foo:) <- "example_method"
+            }
+            Interface.properties 
+            {
+                \.exampleProperty            <- "example_property"
+            }
+        }
+        ```
+**/
+///     The first parameter of any exported nativescript instance method must 
+///     be labeled `delegate:` and have the static type [`Delegate`]. As its name 
+///     suggests, this parameter provides the nativescript’s means of interacting 
+///     with the game engine.
+/// 
+///     > warning: 
+///     Nativescript delegates are only guaranteed to be alive for the duration 
+///     of the instance method call. A Swift nativescript may outlive, or become 
+///     detached from its original delegate. This is especially important for 
+///     unmanaged delegate types, such as [`Unmanaged.Node`].
+/// 
+///     *Godot Swift* will only synthesize the [`register(as:with:)`] requirement 
+///     if the conforming type is listed in the [`(Godot.Library).interface`] 
+///     of [`Godot.Library`].
+/// #   (0:godot-nativescript-usage)
+extension Godot 
+{
+    typealias NativeScript = _GodotNativeScript
+}
+protocol _GodotNativeScript
+{
+    /// typealias Godot.NativeScript.Interface = Godot.NativeScriptInterface<Self>
+    typealias Interface = Godot.NativeScriptInterface<Self>
+    /// associatedtype Godot.NativeScript.Delegate 
+    /// where Delegate:Godot.AnyDelegate
+    ///     The delegate type this nativescript type is meant to be attached to.
+    associatedtype Delegate:Godot.AnyDelegate
     
+    /// init Godot.NativeScript.init(delegate:)
+    /// required 
+    ///     Initializes the script state of an instance of this nativescript type.
+    /// - delegate:Delegate 
+    ///     The delegate instance this nativescript is attached to.
+    init(delegate:Delegate)
+    /// static var Godot.NativeScript.interface:Interface { get }
+    /// defaulted 
+    ///     Specifies the signals, properties, and methods that this nativescript 
+    ///     makes available to GDScript.
+    /// 
+    ///     The default interface exports no GDScript symbols, besides the 
+    ///     mandatory initializer.
+    static 
+    var interface:Interface
+    {
+        get
+    }
+    /// static func Godot.NativeScript.register(as:with:)
+    /// synthesized 
+    ///     Registers this nativescript type with the Godot engine under the 
+    ///     given GDScript class names. 
+    /// 
+    ///     Do not manually implement this method for types declared in 
+    ///     the library [`(Godot.Library).Interface`]. However, it may be useful 
+    ///     to define an implementation stub for this method while prototyping.
+    /// - symbols:[Swift.String]
+    ///     The GDScript class names to register this nativescript as.
+    /// - library:Godot.Library 
+    #if !BUILD_STAGE_INERT 
+    static 
+    func register(as symbols:[String], with library:Godot.Library)
+    #endif 
+}
+extension Godot.NativeScript 
+{
+    static 
+    var interface:Interface 
+    {
+        .init(properties: [], methods: [], signals: [])
+    }
+}
+
+extension Godot 
+{
     /// struct Godot.NativeScriptInterface<T> 
     /// where T:Godot.NativeScript
     /// @   resultBuilder
-    /// #   (2:godot-nativescript-usage)
+    ///     Specifies the signals, instance methods, and instance properties 
+    ///     vended by [`T`].
+    /// 
+    ///     A nativescript interface consists of zero or more **signal descriptors**, 
+    ///     **method descriptors**, or **property descriptors**.
+    /// #   [Defining an interface](godot-nativescript-interface-usage)
+    /// #   (1:godot-nativescript-usage)
     @resultBuilder
     struct NativeScriptInterface<T> where T:Godot.NativeScript
     {
@@ -422,12 +467,20 @@ extension Godot
             typealias Property  = (get:Get, set:Set) 
             typealias Method    = (T, T.Delegate, Godot.VariadicArguments) -> Godot.Unmanaged.Variant
         }
-        
-        typealias Property  = 
+        /// struct Godot.NativeScriptInterface.Signal 
+        ///     A signal descriptor.
+        /// #   (0:)
+        /// struct Godot.NativeScriptInterface.Method 
+        ///     An instance method descriptor.
+        /// #   (1:)
+        /// struct Godot.NativeScriptInterface.Property
+        ///     An instance property descriptor.
+        /// #   (2:)
+        typealias Signal    = 
         (
-            symbol:Swift.String,
-            annotations:Annotations.Property,
-            witness:Witness.Property 
+            symbol:Swift.String, 
+            annotations:[Annotations.Argument], 
+            type:Any.Type 
         )
         #if BUILD_STAGE_INERT
         typealias Method    = Any.Type
@@ -439,14 +492,18 @@ extension Godot
             witness:Witness.Method
         )
         #endif
-        typealias Signal    = Godot.AnySignal.Type
-        
-        private(set)
-        var properties:[Property]
-        private(set)
-        var methods:[Method]
+        typealias Property  = 
+        (
+            symbol:Swift.String,
+            annotations:Annotations.Property,
+            witness:Witness.Property 
+        )
         
         let signals:[Signal]
+        private(set)
+        var methods:[Method]
+        private(set)
+        var properties:[Property]
         
         init(properties:[Property], methods:[Method], signals:[Signal])
         {
@@ -474,8 +531,7 @@ extension Godot
 
 extension Godot 
 {
-    typealias AnySignal = _GodotAnySignal
-    typealias Signal    = _GodotSignal
+    typealias Signal = _GodotSignal
     
     /// struct Godot.SignalInterface<T> 
     /// @   resultBuilder 
@@ -494,13 +550,18 @@ extension Godot
         let arguments:[Argument]
     } 
 }
-protocol _GodotAnySignal 
+
+/// protocol Godot.Signal 
+///     A type specifying the name and format of a Godot signal.
+/// #   (0:godot-signal-usage)
+protocol _GodotSignal  
 {
-    static 
-    var annotations:[Godot.Annotations.Argument]
-    {
-        get
-    } 
+    /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
+    typealias Interface = Godot.SignalInterface<Value>
+    
+    /// associatedtype Godot.Signal.Value 
+    ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
+    associatedtype Value 
     
     /// static var Godot.Signal.name:Swift.String { get }
     /// required 
@@ -510,19 +571,6 @@ protocol _GodotAnySignal
     {
         get
     } 
-}
-/// protocol Godot.Signal 
-///     A type specifying the name and format of a Godot signal.
-/// #   (0:godot-signal-usage)
-protocol _GodotSignal:Godot.AnySignal  
-{
-    /// typealias Godot.Signal.Interface = Godot.SignalInterface<Value> 
-    typealias Interface = Godot.SignalInterface<Value>
-    
-    /// associatedtype Godot.Signal.Value 
-    ///     An arbitrary type which can be used with [`Godot.AnyDelegate.emit(signal:as:)`].
-    associatedtype Value 
-    
     /// static var Godot.Signal.interface:Interface { get }
     /// required 
     ///     The interface of this signal type, specifying how signal fields 
@@ -588,10 +636,10 @@ extension Godot
     class RetainTracker 
     {
         private 
-        let type:Godot.AnyNativeScript.Type
+        let type:Any.Type
         var table:[Swift.String: ManagedAtomic<Int>] 
         
-        init(type:Godot.AnyNativeScript.Type, symbols:[Swift.String]) 
+        init(type:Any.Type, symbols:[Swift.String]) 
         {
             self.type   = type 
             self.table  = .init(uniqueKeysWithValues: symbols.map{ ($0, .init(0)) })

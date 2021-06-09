@@ -1,3 +1,50 @@
+import GodotNative
+
+extension Godot.Library
+{
+    fileprivate 
+    typealias Initializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> UnsafeMutableRawPointer?
+    fileprivate 
+    typealias Deinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?
+        ) -> ()
+    fileprivate 
+    typealias WitnessDeinitializer = @convention(c)
+        (
+            UnsafeMutableRawPointer?
+        ) -> ()
+    fileprivate 
+    typealias Dispatcher = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            Int32, 
+            UnsafeMutablePointer<UnsafeMutablePointer<godot_variant>?>?
+        ) -> godot_variant
+    fileprivate 
+    typealias Getter = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer? 
+        ) -> godot_variant
+    fileprivate 
+    typealias Setter = @convention(c) 
+        (
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutableRawPointer?, 
+            UnsafeMutablePointer<godot_variant>?
+        ) -> ()
+}
 extension Godot 
 {
     struct VariadicArguments

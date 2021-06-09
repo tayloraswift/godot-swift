@@ -1,99 +1,231 @@
 // user-facing DSL
+
+/// infix operator <- : AssignmentPrecedence
+///     Represents a symbol binding. 
+/// #   (0:)
 infix operator <- : AssignmentPrecedence
 
-func <- <T>(_:T.Type, symbol:String) -> Godot.Library.Interface.Binding
-    where T:Godot.AnyNativeScript
+/// func (<-)<T>(type:symbol:)
+/// where T:Godot.NativeScript
+///     Binds a nativescript type to a GDScript class name.
+/// - type  :T.Type 
+/// - symbol:String 
+///     The name to expose [`T`] as in GDScript.
+/// - ->    :Godot.Library.Interface.NativeScriptType
+/// #   (0:binding-operators)
+func <- <T>(_:T.Type, symbol:String) -> Godot.Library.Interface.NativeScriptType
+    where T:Godot.NativeScript
 {
-    (T.self, symbol)
+    .init(type: T.self, symbol: symbol)
 }
 
-extension Godot
-{
-    @resultBuilder
-    enum Declarations<T> 
-    {
-        static 
-        func buildExpression(_ declaration:T) -> [T]
-        {
-            [declaration]
-        }
-        static 
-        func buildBlock(_ declarations:[T]...) -> [T]
-        {
-            .init(declarations.joined())
-        }
-    }
-}
 extension Godot.Library.Interface 
 {
+    /// static func Godot.Library.Interface.buildExpression(_:)
+    /// - declaration   :NativeScriptType 
+    /// - ->            :[NativeScriptType]
+    /// #   (0:$result-builder)
     static 
-    func buildExpression(_ binding:Binding) -> [Binding]
+    func buildExpression(_ declaration:NativeScriptType) -> [NativeScriptType]
     {
-        [binding]
+        [declaration]
     }
+    /// static func Godot.Library.Interface.buildBlock(_:)
+    /// - declarations  :[NativeScriptType]...
+    /// - ->            :[NativeScriptType]
+    /// #   (0:$result-builder)
     static 
-    func buildBlock(_ bindings:[Binding]...) -> [Binding]
+    func buildBlock(_ declarations:[NativeScriptType]...) -> [NativeScriptType]
     {
-        .init(bindings.joined())
+        .init(declarations.joined())
     }
-    
+    /// static func Godot.Library.Interface.buildFinalResult(_:)
+    ///     Creates a library interface from a list of type descriptors.
+    /// 
+    ///     This method will coalesce all type descriptors with the same underlying 
+    ///     Swift type into a single descriptor.
+    /// - declarations  :[NativeScriptType]...
+    /// - ->            :[Self]
+    /// #   (0:$result-builder)
     static 
-    func buildFinalResult(_ bindings:[Binding]) -> Self 
+    func buildFinalResult(_ declarations:[NativeScriptType]) -> Self 
     {
-        let dictionary:[ObjectIdentifier: [Binding]] = 
-            .init(grouping: bindings) 
+        var groups:[ObjectIdentifier: NativeScriptType] = [:]
+        for declaration:NativeScriptType in declarations 
+        {
+            let key:ObjectIdentifier = .init(declaration.type)
+            if  let index:Dictionary<ObjectIdentifier, NativeScriptType>.Index = 
+                groups.index(forKey: key)
             {
-                ObjectIdentifier.init($0.type)
+                groups.values[index].symbols.append(contentsOf: declaration.symbols)
             }
+            else 
+            {
+                groups[key] = declaration 
+            }
+        }
         // sort by type string to provide stability 
-        return .init(types: dictionary.values
-            .map 
-            {
-                ($0[0].type, $0.map(\.symbol))
-            }
-            .sorted 
-            {
-                String.init(reflecting: $0.type) < String.init(reflecting: $1.type)
-            })
+        return .init(types: groups.values.sorted 
+        {
+            String.init(reflecting: $0.type) < String.init(reflecting: $1.type)
+        })
     }
 }
 
 extension Godot.NativeScriptInterface 
 {
-    enum Members 
+    /// enum Godot.NativeScriptInterface.Signals
+    /// @   resultBuilder 
+    ///     Declare signals using an expressive domain-specific language.
+    /// #   (10:godot-nativescript-interface-usage)
+    @resultBuilder
+    enum Signals
     {
-        case properties ([Property])
-        case methods    ([Method])
-        case signals    ([Signal])
+        /// static func Godot.NativeScriptInterface.Signals.buildExpression<T>(_:)
+        /// where T:Godot.Signal 
+        /// - type          :T.Type 
+        /// - ->            :[Signal]
+        /// #   (0:$result-builder)
+        static 
+        func buildExpression<T>(_:T.Type) -> [Signal]
+            where T:Godot.Signal 
+        {
+            [(T.name, T.annotations, T.self)]
+        }
+        /// static func Godot.NativeScriptInterface.Signals.buildBlock(_:)
+        /// - declarations  :[Signal]...
+        /// - ->            :[Signal]
+        /// #   (0:$result-builder)
+        static 
+        func buildBlock(_ declarations:[Signal]...) -> [Signal]
+        {
+            .init(declarations.joined())
+        }
+    }
+    /// enum Godot.NativeScriptInterface.Methods
+    /// @   resultBuilder 
+    ///     Declare instance methods using an expressive domain-specific language.
+    /// #   (11:godot-nativescript-interface-usage)
+    @resultBuilder
+    enum Methods
+    {
+        /// static func Godot.NativeScriptInterface.Methods.buildExpression(_:)
+        /// - declaration   :Method 
+        /// - ->            :[Method]
+        /// #   (0:$result-builder)
+        static 
+        func buildExpression(_ declaration:Method) -> [Method]
+        {
+            [declaration]
+        }
+        /// static func Godot.NativeScriptInterface.Methods.buildBlock(_:)
+        /// - declarations  :[Method]...
+        /// - ->            :[Method]
+        /// #   (0:$result-builder)
+        static 
+        func buildBlock(_ declarations:[Method]...) -> [Method]
+        {
+            .init(declarations.joined())
+        }
+    }
+    /// enum Godot.NativeScriptInterface.Properties
+    /// @   resultBuilder 
+    ///     Declare instance properties using an expressive domain-specific language.
+    /// #   (12:godot-nativescript-interface-usage)
+    @resultBuilder
+    enum Properties
+    {
+        /// static func Godot.NativeScriptInterface.Properties.buildExpression(_:)
+        /// - declaration   :Property 
+        /// - ->            :[Property]
+        /// #   (0:$result-builder)
+        static 
+        func buildExpression(_ declaration:Property) -> [Property]
+        {
+            [declaration]
+        }
+        /// static func Godot.NativeScriptInterface.Properties.buildBlock(_:)
+        /// - declarations  :[Property]...
+        /// - ->            :[Property]
+        /// #   (0:$result-builder)
+        static 
+        func buildBlock(_ declarations:[Property]...) -> [Property]
+        {
+            .init(declarations.joined())
+        }
     }
     
+    /// enum Godot.NativeScriptInterface.Members 
+    ///     A group of nativescript interface declarations.
+    enum Members 
+    {
+        /// case Godot.NativeScriptInterface.Members.signals(_:)
+        /// - _ :[Signal]
+        /// #   (0:)
+        case signals    ([Signal])
+        /// case Godot.NativeScriptInterface.Members.methods(_:)
+        /// - _ :[Method]
+        /// #   (1:)
+        case methods    ([Method])
+        /// case Godot.NativeScriptInterface.Members.properties(_:)
+        /// - _ :[Property]
+        /// #   (2:)
+        case properties ([Property])
+    }
+    
+    /// static func Godot.NativeScriptInterface.signals(_:)
+    ///     Declares a group of signals.
+    /// -   @Signals declarations:() -> [Signal]
+    /// -   -> :Members 
+    /// #   (20:godot-nativescript-interface-usage)
     static 
-    func signals(@Godot.Declarations<Signal> _ declarations:() -> [Signal]) -> Members 
+    func signals(@Signals _ declarations:() -> [Signal]) -> Members 
     {
         .signals(declarations())
     }
+    /// static func Godot.NativeScriptInterface.methods(_:)
+    ///     Declares a group of instance methods.
+    /// -   @Methods declarations:() -> [Method]
+    /// -   -> :Members 
+    /// #   (21:godot-nativescript-interface-usage)
     static 
-    func methods(@Godot.Declarations<Method> _ declarations:() -> [Method]) -> Members 
+    func methods(@Methods _ declarations:() -> [Method]) -> Members 
     {
         .methods(declarations())
     }
+    /// static func Godot.NativeScriptInterface.properties(_:)
+    ///     Declares a group of instance properties.
+    /// -   @Properties declarations:() -> [Property]
+    /// -   -> :Members 
+    /// #   (22:godot-nativescript-interface-usage)
     static 
-    func properties(@Godot.Declarations<Property> _ declarations:() -> [Property]) -> Members 
+    func properties(@Properties _ declarations:() -> [Property]) -> Members 
     {
         .properties(declarations())
     }
     
+    /// static func Godot.NativeScriptInterface.buildExpression(_:)
+    /// - group :Members 
+    /// - ->    :[Members]
+    /// #   (0:$result-builder)
     static 
     func buildExpression(_ group:Members) -> [Members]
     {
         [group]
     }
+    /// static func Godot.NativeScriptInterface.buildBlock(_:)
+    /// - groups:[Members]... 
+    /// - ->    :[Members]
+    /// #   (0:$result-builder)
     static 
     func buildBlock(_ groups:[Members]...) -> [Members]
     {
         .init(groups.joined())
     }
-    
+    /// static func Godot.NativeScriptInterface.buildFinalResult(_:)
+    /// - groups:[Members]... 
+    /// - ->    :Self
+    /// #   (0:$result-builder)
     static 
     func buildFinalResult(_ groups:[Members]) -> Self 
     {

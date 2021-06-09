@@ -223,7 +223,7 @@ enum Vector
         /// postfix operator * 
         ///     Represents a transpose operation. This operator can be used to 
         ///     express vectors and matrices as tuple literals.
-        /// #   (0:)
+        /// #   (1:)
         
         /// infix operator ~<  : ComparisonPrecedence 
         ///     Represents a region membership test.
