@@ -370,7 +370,7 @@ p strong
 /* syntax colors */
 
 /* raspberry pink */
-code .syntax-keyword, code .signature-highlight, p a
+code .syntax-keyword, code .signature-highlight, p a, p a code
 {
     color: #ff4086;
 }
@@ -402,6 +402,11 @@ code .syntax-punctuation
 code .syntax-literal
 {
     color: #8060ff;
+}
+/* neon pink */
+code .syntax-pseudo-identifier 
+{
+    color: #f060f0;
 }
 /* medium gray */
 code .syntax-operator
