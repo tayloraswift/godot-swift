@@ -7,6 +7,7 @@
 *Godot Swift* is a [Swift Package Manager](https://swift.org/package-manager/) plugin that builds and packages Swift projects as [Godot Native](https://docs.godotengine.org/en/latest/tutorials/scripting/gdnative/what_is_gdnative.html) libraries.
 
 ```swift 
+final 
 class MySwiftClass:Godot.NativeScript
 {
     var foo:Int = 5
