@@ -152,10 +152,115 @@ protocol _GodotVariantRepresentable
 }
 /// protocol Godot.Variant
 /// :   Godot.VariantRepresentable 
-///     A type-erased GDScript variant.
+///     A type-erased GDScript variant value.
 /// 
+///     > important:
 ///     Do not conform additional types to this protocol; conform custom
 ///     types to [`Godot.VariantRepresentable`] instead.
+///     
+///     All variables in GDScript have the type 
+///     [`Godot::Variant`](https://docs.godotengine.org/en/stable/classes/class_variant.html), 
+///     which is a union type abstracting over 27 distinct 
+///     [**core types**](https://docs.godotengine.org/en/stable/getting_started/scripting/gdscript/gdscript_basics.html#built-in-types). 
+///     This is true even when GDScript is written with type annotations.
+/**
+        ```text 
+        Godot::Variant    ::= Godot::null
+                            | Godot::bool 
+                            | Godot::int 
+                            | Godot::float
+
+                            | Godot::String
+                            | Godot::Array
+                            | Godot::Dictionary  
+            
+                            | Godot::Vector2
+                            | Godot::Vector3
+                            | Godot::Color 
+                            | Godot::Rect2 
+                            | Godot::AABB  
+                            | Godot::Quat 
+                            | Godot::Plane 
+                            | Godot::Transform2D 
+                            | Godot::Transform 
+                            | Godot::Basis  
+
+                            | Godot::RID
+                            | Godot::NodePath
+                            | Godot::Object
+
+                            | Godot::PoolByteArray
+                            | Godot::PoolIntArray
+                            | Godot::PoolRealArray
+                            | Godot::PoolVector2Array
+                            | Godot::PoolVector3Array
+                            | Godot::PoolColorArray
+                            | Godot::PoolStringArray
+        ```
+**/
+///     In *Godot Swift*, variants are modeled as [[`Godot.Variant?`]] existentials. 
+///     Each core type (except for [`Godot::null`](https://docs.godotengine.org/en/stable/getting_started/scripting/gdscript/gdscript_basics.html#null)) 
+///     is modeled by a concrete type conforming to the protocol [`Godot.Variant`]:
+/**
+        ```swift 
+        _ as Bool                               is Godot.Variant
+        _ as Int64                              is Godot.Variant
+        _ as Float64                            is Godot.Variant
+        ```
+**/
+/**
+        ```swift 
+        _ as Godot.String                       is Godot.Variant
+        _ as Godot.List                         is Godot.Variant
+        _ as Godot.Map                          is Godot.Variant
+        ```
+**/
+/**
+        ```swift 
+        _ as Vector2<Float32>                   is Godot.Variant
+        _ as Vector3<Float32>                   is Godot.Variant
+        _ as Vector4<Float32>                   is Godot.Variant
+        _ as Vector2<Float32>.Rectangle         is Godot.Variant
+        _ as Vector3<Float32>.Rectangle         is Godot.Variant
+        _ as Vector3<Float32>.Plane             is Godot.Variant
+        _ as Quaternion<Float32>                is Godot.Variant
+
+        _ as Godot.Transform2<Float32>.Affine   is Godot.Variant
+        _ as Godot.Transform3<Float32>.Affine   is Godot.Variant
+        _ as Godot.Transform3<Float32>.Linear   is Godot.Variant
+        ```
+**/
+/**
+        ```swift 
+        _ as Godot.ResourceIdentifier           is Godot.Variant
+        _ as Godot.NodePath                     is Godot.Variant
+        _ as Godot.AnyDelegate                  is Godot.Variant
+        ```
+**/
+/**
+        ```swift 
+        _ as Godot.Array<UInt8>                 is Godot.Variant
+        _ as Godot.Array<Int32>                 is Godot.Variant
+        _ as Godot.Array<Float32>               is Godot.Variant
+        _ as Godot.Array<Vector2<Float32>>      is Godot.Variant
+        _ as Godot.Array<Vector3<Float32>>      is Godot.Variant
+        _ as Godot.Array<Vector4<Float32>>      is Godot.Variant
+        _ as Godot.Array<Swift.String>          is Godot.Variant
+        ```
+**/
+///     The [`Godot::null`](https://docs.godotengine.org/en/stable/getting_started/scripting/gdscript/gdscript_basics.html#null) 
+///     type in GDScript corresponds to [`Void`] in Swift 
+///     (sometimes written as the empty tuple [[`()`]]). This type is represented 
+///     by the `nil` case of [[`Optional<Godot.Variant>`]], which completes the 
+///     fully-unified existential type.
+/// 
+///     > note:
+///     Keep in mind that [`Void`] is not a type case of [`Godot.Variant`], which 
+///     is why we refer to the *optional* type [[`Godot.Variant?`]] as 
+///     corresponding to 
+///     [`Godot::Variant`](https://docs.godotengine.org/en/stable/classes/class_variant.html). 
+///     In other words, the wrapped [`Godot.Variant`] existential models the 
+///     26 non-null GDScript types only.
 /// #   [See also](godot-variant-usage)
 /// #   (1:godot-variant-usage)
 protocol _GodotVariant:Godot.VariantRepresentable

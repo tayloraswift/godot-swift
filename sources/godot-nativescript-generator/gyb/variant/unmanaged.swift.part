@@ -1,7 +1,7 @@
 extension Godot.Unmanaged 
 {
     /// struct Godot.Unmanaged.Variant 
-    ///     An unmanaged variant value.
+    ///     An unmanaged GDScript variant value.
     /// #   [Loading values](godot-unmanaged-variant-take)
     /// #   [Storing values](godot-unmanaged-variant-pass)
     /// #   [Assigning values](godot-unmanaged-variant-assign)

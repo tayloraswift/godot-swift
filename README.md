@@ -6,13 +6,57 @@
 
 *Godot Swift* is a [Swift Package Manager](https://swift.org/package-manager/) plugin that builds and packages Swift projects as [Godot Native](https://docs.godotengine.org/en/latest/tutorials/scripting/gdnative/what_is_gdnative.html) libraries.
 
+```swift 
+class MySwiftClass:Godot.NativeScript
+{
+    var foo:Int = 5
+    
+    init(delegate _:Godot.Unmanaged.Spatial)
+    {
+    }
+    func bar(delegate _:Godot.Unmanaged.Spatial, x:Int) -> Int 
+    {
+        self.foo * x
+    }
+    
+    @Interface 
+    static var interface:Interface 
+    {
+        Interface.properties 
+        {
+            \.foo <- "foo"
+        }
+        Interface.methods 
+        {
+            bar(delegate:x:) <- "bar"
+        }
+    }
+}
+
+extension Godot.Library 
+{
+    @Interface 
+    static var interface:Interface 
+    {
+        MySwiftClass.self <- "MyExportedSwiftClass"
+    }
+}
+```
+
 ### getting started 
 
 *Godot Swift* uses the experimental Swift [package plugins](https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md) feature, which is currently only available in recent [nightly Swift toolchains](https://swift.org/download/#snapshots). Because this feature is in active development, we *strongly recommend* using the following Swift toolchain version to avoid compilation issues:
 
 * **`DEVELOPMENT-SNAPSHOT-2021-05-18-a`**
 
-> **Note:** We recommend using [`swiftenv`](https://github.com/kylef/swiftenv) to manage multiple Swift toolchain installations. You can install a custom toolchain using `swiftenv` by downloading it from [swift.org](https://swift.org/download/#snapshots) (possibly under “*Older Snapshots*”), and adding it to the `~/.swiftenv/versions/` directory, even if the snapshot is not available in `swiftenv`’s own snapshot repository.
+We recommend using [`swiftenv`](https://github.com/kylef/swiftenv) to manage multiple Swift toolchain installations. You can install a custom toolchain using `swiftenv` by passing the `swiftenv install` command the url of the toolchain on [swift.org](https://swift.org). 
+
+For example, to install the `2021-05-18-a` snapshot on Ubuntu 20.04 x86_64, run: 
+
+```bash 
+swiftenv install \
+https://swift.org/builds/development/ubuntu2004/swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a/swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a-ubuntu20.04.tar.gz
+```
 
 *Godot Swift* builds native libraries for [**Godot 3.3.0**](https://downloads.tuxfamily.org/godotengine/). 
 
