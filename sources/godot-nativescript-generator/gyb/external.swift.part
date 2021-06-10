@@ -6,9 +6,20 @@ import GodotNative
 ///     *Godot Swift* is a [Swift Package Manager](https://swift.org/package-manager/) 
 ///     plugin that builds and packages Swift frameworks as Godot native libraries.
 /// 
+///     > important:
+///     For Godot to be able to load a Swift framework, it must be compiled as 
+///     a dynamic library. You can use the 
+///     [`dynamic`](https://developer.apple.com/documentation/swift_packages/product/library/librarytype/dynamic) 
+///     option make the Swift Package Manager compile a dynamic library product.
+///
 ///     To use *Godot Swift* in a project, add it as a dependency in `Package.swift`, 
 ///     and add the `GodotNative` module and the `GodotNativeScript` plugin to 
 ///     your build target.
+/**
+        ```swift
+        .library(name: "example", type: .dynamic, targets: ["GodotSwiftExample"])
+        ```
+**/
 /**
         ```swift
         .package(url: "https://github.com/kelvin13/godot-swift", .exact("0.1.0")) 
@@ -19,12 +30,12 @@ import GodotNative
         .target(name: "GodotSwiftExample", 
             dependencies: 
             [
-                .product(name: "GodotNative", package: "godot-swift"),
+                .product(name: "GodotNative",       package: "godot-swift"),
             ], 
             plugins: 
             [
-                "GodotNativeScript"
-            ]),
+                .plugin(name:  "GodotNativeScript", package: "godot-swift"),
+            ])
         ```
 **/
 ///     > note:

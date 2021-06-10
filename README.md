@@ -62,6 +62,41 @@ https://swift.org/builds/development/ubuntu2004/swift-DEVELOPMENT-SNAPSHOT-2021-
 
 > **Warning:** Although *Godot Swift* libraries should be compatible with later Godot versions, we *strongly recommend* using Godot 3.3.0 to avoid unrecognized-symbol errors at runtime.
 
+To use *Godot Swift* in a project, add it as a dependency in `Package.swift`, and add the `GodotNative` module and the `GodotNativeScript` plugin to your build target.
+
+```swift 
+// swift-tools-version:5.5
+import PackageDescription
+
+let package = Package(
+    name: "example",
+    products: 
+    [
+        .library(name: "godot-swift-example", type: .dynamic, 
+            targets: 
+            [
+                "GodotSwiftExample"
+            ])
+    ],
+    dependencies: 
+    [
+        .package(url: "https://github.com/kelvin13/godot-swift/", .branch("master"))
+    ],
+    targets: 
+    [
+        .target(name: "GodotSwiftExample", 
+            dependencies: 
+            [
+                .product(name: "GodotNative",      package: "godot-swift")
+            ],
+            plugins: 
+            [
+                .plugin(name: "GodotNativeScript", package: "godot-swift")
+            ])
+    ]
+)
+```
+
 ### [tutorials and example programs](examples/)
 
 1. [basic usage](examples#basic-usage) ([`sources`](examples/swift/basic-usage.swift))
