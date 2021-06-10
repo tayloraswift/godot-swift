@@ -31,6 +31,16 @@ extension Godot
     ///     
     ///     For your framework to compile, you must extend this type to 
     ///     provide the required library [`interface`]. 
+    ///     A library interface consists of zero or more **type descriptors**. 
+    ///     Create a type descriptor using the [`(<-)(type:symbol:)`] 
+    ///     binding operator: 
+    /**
+            ```swift 
+            MyExportedSwiftClass.self <- "MyExportedSwiftClass"
+            ```
+    **/
+    ///     The [`Interface`] type is its own result builder, which provides a 
+    ///     convenient syntax for defining library interfaces:
     /**
             ```swift 
             extension Godot.Library 
@@ -45,6 +55,10 @@ extension Godot
             }
             ```
     **/
+    ///     It is acceptable for the same nativescript type to be bound to 
+    ///     more than one GDScript class name. The Godot engine will register 
+    ///     nativescripts under all of the class names they are bound to.
+    /// 
     ///     *Godot Swift* also uses the nativescript declarations listed in the 
     ///     library [`interface`] to determine which types it should synthesize 
     ///     the [`(Godot.NativeScript).register(as:with:)`] requirement of 
@@ -65,8 +79,9 @@ extension Godot
     ///     [`(Godot.NativeScript).register(as:with:)`]. 
     /// 
     ///     Manual [`Godot.NativeScript`] conformances are not currently supported.
-    /// #   (1:godot-library-usage)
     /// #   [See also](binding-operators)
+    /// #   (1:godot-library-usage)
+    /// #   (0:getting-started)
     struct Library:NativeLibrary 
     {
         private 
@@ -84,31 +99,6 @@ extension Godot.Library
     /// struct Godot.Library.Interface 
     /// @   resultBuilder
     ///     Specifies the nativescript types vended by this Swift library. 
-    ///
-    ///     A library interface consists of zero or more **type descriptors**. 
-    ///     Create a type descriptor using the [`(<-)(type:symbol:)`] 
-    ///     binding operator: 
-    /**
-            ```swift 
-            MyExportedSwiftClass.self <- "MyExportedSwiftClass"
-            ```
-    **/
-    ///     This type is its own result builder, which provides a convenient syntax 
-    ///     for defining library interfaces:
-    /**
-            ```swift 
-            @Interface 
-            static 
-            var interface:Interface 
-            {
-                MyExportedSwiftClass.self       <- "MyExportedSwiftClass"
-                MyOtherExportedSwiftClass.self  <- "MyOtherExportedSwiftClass"
-            }
-            ```
-    **/
-    ///     It is acceptable for the same nativescript type to be bound to 
-    ///     more than one GDScript class name. The game engine will register 
-    ///     nativescripts under all of the class names they are bound to.
     /// #   [See also](binding-operators)
     /// #   (2:godot-library-usage)
     @resultBuilder 
@@ -349,30 +339,46 @@ extension Godot
 ///     and attached to an instance of its associated [`Delegate`] type.
 /// 
 ///     You can register signals, properties, and methods to make them accessible 
-///     from GDScript, by specifying a nativescript [`Interface`]. The [`Interface`]
-///     type is its own result builder, which provides a convenient syntax for 
-///     specifying nativescript interfaces:
+///     from GDScript, by specifying a nativescript [`Interface`]. 
+///     A nativescript interface consists of zero or more **signal descriptors**, 
+///     **method descriptors**, or **property descriptors**. The default interface 
+///     is an empty interface which exports no symbols.
+/// 
+///     Declare signals using the [`Interface.signals(_:)`] method. The closure  
+///     argument of this method is transformed by the [`Interface.Signals`] result 
+///     builder, and it accepts zero or more [`Godot.Signal`] metatypes. 
 /**
         ```swift 
-        @Interface 
-        static 
-        var interface:Interface 
+        Interface.signals 
         {
-            Interface.signals 
-            {
-                ExampleSignal.self 
-            }
-            Interface.methods 
-            {
-                exampleMethod(delegate:foo:) <- "example_method"
-            }
-            Interface.properties 
-            {
-                \.exampleProperty            <- "example_property"
-            }
+            ExampleSignal.self 
+            AnotherSignal.self 
         }
         ```
 **/
+///     > note: 
+///     Signal descriptors are not written with a `<-` binding operator because 
+///     the GDScript name of a signal is specified by its [`(Godot.Signal).name`]
+///     property. 
+///     
+///     Declare instance methods using the [`Interface.methods(_:)`] method. Its 
+///     closure argument is transformed by the [`Interface.Methods`] result builder, 
+///     and it accepts zero or more method descriptors. Create a method descriptor 
+///     using the templated [`(<-)(method:symbol:)`] binding operator. 
+/**
+        ```swift 
+        Interface.methods 
+        {
+            exampleMethod(delegate:foo:)        <- "example_method"
+            anotherMethod(delegate:foo:bar:)    <- "another_method"
+        }
+        ```
+**/
+///     > note: 
+///     If `exampleMethod(delegate:foo:)` is an instance method of [`Self`], then 
+///     the `exampleMethod(delegate:foo:)` expression in the above example refers 
+///     to a *curried* static method on [`Self`]. 
+/// 
 ///     The first parameter of any exported nativescript instance method must 
 ///     be labeled `delegate:` and have the static type [`Delegate`]. As its name 
 ///     suggests, this parameter provides the nativescript’s means of interacting 
@@ -384,10 +390,71 @@ extension Godot
 ///     detached from its original delegate. This is especially important for 
 ///     unmanaged delegate types, such as [`Unmanaged.Node`].
 /// 
-///     *Godot Swift* will only synthesize the [`register(as:with:)`] requirement 
-///     if the conforming type is listed in the [`(Godot.Library).interface`] 
-///     of [`Godot.Library`].
+///     The bound functions do not have to be member functions of [`Self`]; any 
+///     function with an appropriate signature can be registered in a nativescript 
+///     interface.
+/// 
+///     Declare instance properties using the [`Interface.properties(_:)`] method. 
+///     Its closure argument is transformed by the [`Interface.Properties`] 
+///     result builder, and it accepts zero or more property descriptors. 
+///     Create a property descriptor using the [`(<-)(property:symbol:)#(get)`]
+///     binding operator. 
+/**
+        ```swift 
+        Interface.properties  
+        {
+            \.exampleProperty               <- "example_property"
+            \.anotherProperty               <- "another_property"
+        }
+        ```
+**/
+///     If [`Self`] is a Swift class, you can register mutable properties using 
+///     the [`(<-)(property:symbol:)#(get-set)`] overload, which takes 
+///     a [`ReferenceWritableKeyPath`] for its left-hand operand. The Swift type 
+///     inferencer will prefer this overload if possible.
+///     
+///     The [`Interface`] type is its own result builder, which provides a 
+///     convenient syntax for declaring groups of signals, methods, and properties.
+/**
+        ```swift 
+        @Interface 
+        static 
+        var interface:Interface 
+        {
+            Interface.signals 
+            {
+                ExampleSignal.self 
+                AnotherSignal.self 
+            }
+            Interface.methods 
+            {
+                exampleMethod(delegate:foo:)        <- "example_method"
+                anotherMethod(delegate:foo:bar:)    <- "another_method"
+            }
+            Interface.properties  
+            {
+                \.exampleProperty                   <- "example_property"
+                \.anotherProperty                   <- "another_property"
+            }
+        }
+        ```
+**/
+///     You can declare more than one group of signals, methods, or properties, 
+///     and the member groups can appear in any order. 
+/// 
+///     Signals cannot occur more than once per nativescript interface. However, 
+///     methods and properties can be bound to more than one GDScript symbol. 
+/// 
+///     > important: 
+///     If more than one method or property is bound to the *same* GDScript symbol, 
+///     only the last declaration will be used.
+///
+///     This protocol has a synthetic [`register(as:with:)`] requirement. 
+///     *Godot Swift* will only synthesize an implementation for this requirement  
+///     if [`Self`] is listed in the [`(Godot.Library).interface`] of [`Godot.Library`].
+/// #   [See also](binding-operators)
 /// #   (0:godot-nativescript-usage)
+/// #   (1:getting-started)
 extension Godot 
 {
     typealias NativeScript = _GodotNativeScript
@@ -451,10 +518,8 @@ extension Godot
     /// @   resultBuilder
     ///     Specifies the signals, instance methods, and instance properties 
     ///     vended by [`T`].
-    /// 
-    ///     A nativescript interface consists of zero or more **signal descriptors**, 
-    ///     **method descriptors**, or **property descriptors**.
     /// #   [Defining an interface](godot-nativescript-interface-usage)
+    /// #   [See also](binding-operators)
     /// #   (1:godot-nativescript-usage)
     @resultBuilder
     struct NativeScriptInterface<T> where T:Godot.NativeScript
@@ -470,11 +535,32 @@ extension Godot
         /// struct Godot.NativeScriptInterface.Signal 
         ///     A signal descriptor.
         /// #   (0:)
+        
         /// struct Godot.NativeScriptInterface.Method 
         ///     An instance method descriptor.
+        /// 
+        ///     Create a method descriptor 
+        ///     using the templated [`(<-)(method:symbol:)`] binding operator. 
+        /**
+                ```swift 
+                exampleMethod(delegate:foo:) <- "example_method"
+                ```
+        **/
         /// #   (1:)
+        
         /// struct Godot.NativeScriptInterface.Property
         ///     An instance property descriptor.
+        /// 
+        ///     Create a get-only property descriptor using the 
+        ///     [`(<-)(property:symbol:)#(get)`] binding operator. 
+        /**
+                ```swift 
+                \.exampleProperty <- "example_property"
+                }
+                ```
+        **/
+        ///     Use the [`(<-)(property:symbol:)#(get-set)`] overload to create 
+        ///     a settable property descriptor.
         /// #   (2:)
         typealias Signal    = 
         (
@@ -499,9 +585,18 @@ extension Godot
             witness:Witness.Property 
         )
         
+        /// let Godot.NativeScriptInterface.signals:[Signal]
+        ///     The signal descriptors declared in this library interface. 
+        /// #   (0:)
         let signals:[Signal]
+        /// var Godot.NativeScriptInterface.methods:[Method] { get }
+        ///     The method descriptors declared in this library interface. 
+        /// #   (1:)
         private(set)
         var methods:[Method]
+        /// var Godot.NativeScriptInterface.properties:[Property] { get }
+        ///     The property descriptors declared in this library interface. 
+        /// #   (2:)
         private(set)
         var properties:[Property]
         
@@ -532,27 +627,50 @@ extension Godot
 extension Godot 
 {
     typealias Signal = _GodotSignal
-    
-    /// struct Godot.SignalInterface<T> 
-    /// @   resultBuilder 
-    ///     A descriptor specifying how signal fields are read from an 
-    ///     instance of [[`T`]].
-    /// #   (1:godot-signal-usage)
-    @resultBuilder
-    struct SignalInterface<T> 
-    {        
-        typealias Argument =
-        (
-            annotations:Annotations.Argument, 
-            witness:(T) -> Godot.Unmanaged.Variant 
-        )
-        
-        let arguments:[Argument]
-    } 
 }
-
 /// protocol Godot.Signal 
 ///     A type specifying the name and format of a Godot signal.
+/// 
+///     A signal type must provide a signal [`name`] and an [`interface`] 
+///     specifying how fields are read from an instance of the associated 
+///     [`Value`] type. A signal interface consists of zero or more 
+///     **argument descriptors**. Create an argument descriptor using the 
+///     [`(<-)(accessor:label:)`] binding operator. 
+/**
+        ```swift 
+        \.foo <- "foo"
+        ```
+**/
+///     The [`Interface`] type is its own result builder, which provides a 
+///     convenient syntax for declaring signal fields. The following example 
+///     defines a signal named `"my_signal"` with two fields, of types [`Int`] 
+///     and [`Float64`]:
+/**
+        ```swift 
+        enum MySignal:Godot.Signal 
+        {
+            typealias Value = (foo:Int, bar:Float64)
+            
+            @Interface 
+            static 
+            var interface:Interface 
+            {
+                \.foo <- "foo"
+                \.bar <- "bar"
+            }
+            static 
+            var name:String 
+            {
+                "my_signal"
+            }
+        }
+        ```
+**/
+///     You can emit a signal from a delegate by calling its 
+///     [`(AnyDelegate).emit(signal:as:)`] method.
+/// 
+///     Signal listeners will receive signal arguments in the order that 
+///     that the corresponding signal fields are declared in the signal interface.
 /// #   (0:godot-signal-usage)
 protocol _GodotSignal  
 {
@@ -589,6 +707,37 @@ extension Godot.Signal
         Self.interface.arguments.map(\.annotations)
     } 
 } 
+extension Godot 
+{
+    /// struct Godot.SignalInterface<T> 
+    /// @   resultBuilder 
+    ///     Specifies how signal fields are read from an instance of [`T`].
+    /// #   [See also](signal-binding-operators)
+    /// #   (1:godot-signal-usage)
+    @resultBuilder
+    struct SignalInterface<T> 
+    {
+        /// struct Godot.SignalInterface.Argument 
+        ///     A signal argument descriptor.
+        /// 
+        ///     Create an argument descriptor using the 
+        ///     [`(<-)(accessor:label:)`] binding operator. 
+        /**
+                ```swift 
+                \.foo <- "foo"
+                ```
+        **/
+        typealias Argument =
+        (
+            annotations:Annotations.Argument, 
+            witness:(T) -> Godot.Unmanaged.Variant 
+        )
+        
+        /// let Godot.SignalInterface.arguments:[Argument]
+        ///     The argument descriptors declared in this signal interface. 
+        let arguments:[Argument]
+    } 
+}
 
 // arc sanitizer 
 extension Godot 

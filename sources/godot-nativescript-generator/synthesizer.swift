@@ -1165,7 +1165,7 @@ extension Main.Synthesizer
                         {
                             """
                             operator '<-' cannot bind function of type '\($0.signature)' \
-                            (swift cannot recieve variadic arguments dynamically)
+                            (swift cannot receive variadic arguments dynamically)
                             """
                         }
                         diagnostics.note 

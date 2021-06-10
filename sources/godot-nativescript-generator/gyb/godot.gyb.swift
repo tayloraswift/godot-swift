@@ -147,7 +147,7 @@ extension Godot
             }
             """
             /// enum Godot.Singleton 
-            ///     A namespace for Godot singleton types.
+            ///     A namespace for singleton types.
             /// #   (2:godot-toplevel-namespaces)
             enum Singleton 
             """

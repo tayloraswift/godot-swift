@@ -263,6 +263,32 @@ extension Godot.NativeScriptInterface
     }
 }
 
+/// func (<-)<T, __, _>(method:symbol:)
+/// where T:Godot.NativeScript, __:Godot.VariantRepresentable, _:Godot.VariantRepresentable 
+///     Binds a method to a GDScript method name. This operator is a variadic-generic 
+///     template. *Godot Swift* will synthesize overloads for arbitrary numbers 
+///     and patterns of generic parameters as needed. 
+/// - method:@escaping (T) -> (T.Delegate, __) -> _ 
+///     A curried function, which can generate an instance method given an instance 
+///     of [`T`].
+/// - symbol:String 
+///     The name to expose the method as in GDScript.
+/// - ->    :Godot.NativeScriptInterface<T>.Method 
+/// #   (0:binding-operators)
+
+/// func (<-)<T, Value>(property:symbol:)
+/// where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+///     Binds a property to a GDScript property name.
+/// 
+///     The property will be exported as a get-only property, even if the bound 
+///     Swift property is mutable.
+/// - property:KeyPath<T, Value>
+///     A keypath to a property stored in an instance of [`T`].
+/// - symbol:String 
+///     The name to expose the property as in GDScript.
+/// - ->    :Godot.NativeScriptInterface<T>.Property
+/// #   (0:binding-operators)
+/// #   (get)
 func <- <T, Value>(property:KeyPath<T, Value>, symbol:String) 
     -> Godot.NativeScriptInterface<T>.Property
     where T:Godot.NativeScript, Value:Godot.VariantRepresentable
@@ -287,6 +313,16 @@ func <- <T, Value>(property:KeyPath<T, Value>, symbol:String)
         )
     )
 } 
+/// func (<-)<T, Value>(property:symbol:)
+/// where T:Godot.NativeScript, Value:Godot.VariantRepresentable
+///     Binds a property to a GDScript property name.
+/// - property:ReferenceWritableKeyPath<T, Value>
+///     A writable keypath to a property stored in an instance of [`T`].
+/// - symbol:String 
+///     The name to expose the property as in GDScript.
+/// - ->    :Godot.NativeScriptInterface<T>.Property
+/// #   (0:binding-operators)
+/// #   (get-set)
 func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String) 
     -> Godot.NativeScriptInterface<T>.Property
     where T:Godot.NativeScript, Value:Godot.VariantRepresentable
@@ -321,6 +357,15 @@ func <- <T, Value>(property:ReferenceWritableKeyPath<T, Value>, symbol:String)
     )
 } 
 
+/// func (<-)<T, U>(accessor:label:)
+/// where U:Godot.VariantRepresentable
+///     Binds a signal parameter to a GDScript argument label.
+/// - accessor:KeyPath<T, U>
+///     A keypath to a parameter of type [`U`] stored in a signal value of type [`T`].
+/// - label:String 
+///     The label to expose the parameter as in GDScript.
+/// - ->    :Godot.SignalInterface<T>.Argument 
+/// #   (1:signal-binding-operators)
 func <- <T, U>(accessor:KeyPath<T, U>, label:String) 
     -> Godot.SignalInterface<T>.Argument
     where U:Godot.VariantRepresentable
@@ -338,16 +383,28 @@ func <- <T, U>(accessor:KeyPath<T, U>, label:String)
 
 extension Godot.SignalInterface
 {
+    /// static func Godot.SignalInterface.buildExpression(_:)
+    /// - argument  :Argument 
+    /// - ->        :[Argument]
+    /// #   (0:$result-builder)
     static 
     func buildExpression(_ argument:Argument) -> [Argument]
     {
         [argument]
     }
+    /// static func Godot.SignalInterface.buildBlock(_:)
+    /// - arguments :[Argument]... 
+    /// - ->        :[Argument]
+    /// #   (0:$result-builder)
     static 
     func buildBlock(_ arguments:[Argument]...) -> [Argument]
     {
         .init(arguments.joined())
     }
+    /// static func Godot.SignalInterface.buildFinalResult(_:)
+    /// - arguments :[Argument] 
+    /// - ->        :Self
+    /// #   (0:$result-builder)
     static 
     func buildFinalResult(_ arguments:[Argument]) -> Self 
     {

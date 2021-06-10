@@ -265,6 +265,35 @@ enum Vector
         /// :   Godot.Variant               where Storage:Godot.VectorStorage, T == Float32 
         /// where Storage:SIMD, T:SIMDScalar, T == Storage.Scalar 
         ///     An SIMD-backed vector.
+        /// 
+        ///     Create a vector from a tuple literal using the postfix 
+        ///     [`(*)(row:)`] operator: 
+        /**     
+                ```swift 
+                let x:Vector4<Int> = (1, 2, 3, 4)*
+                ```
+        **/
+        ///     Matrices are represented by tuples of vectors, where each vector 
+        ///     forms a column of the matrix:
+        /**     
+                ```swift 
+                let a:Vector3<Double>           = (1.0, 2.0, 3.0)*,
+                    b:Vector3<Double>           = (3.0, 2.0, 1.5)*,
+                    c:Vector3<Double>           = (2.0, 0.5, 2.0)*,
+                    d:Vector3<Double>           = (0.0, 1.0, 2.0)*
+                
+                let A:Vector3<Double>.Matrix4   = (a, b, c, d)
+                ```
+        **/
+        ///     You can extend vectors using the [`(Vector).(||)(prefix:tail:)`] 
+        ///     operator, and perform matrix multiplications using one of the 
+        ///     `><` operators. 
+        /**     
+                ```swift 
+                let w:Vector3<Double>   = (0.5, 0.75, 1.0)* 
+                let y:Vector3<Double>   =  A >< (w || 1.0)
+                ```
+        **/
         /// #   [Vector types](vector-fixed-length-specializations)
         /// #   [Matrix types](vector-matrix-types)
         /// #   [Creating vectors](vector-initializer-usage)
@@ -1265,7 +1294,12 @@ enum Vector
                 ///     by the given parameter. 
                 /// 
                 ///     Calling this method is equivalent to writing 
-                ///     the code `(self.start * (1 - t)).addingProduct(self.end, t)`.
+                ///     the following code: 
+                /** 
+                        ```swift 
+                        (self.start * (1 - t)).addingProduct(self.end, t)
+                        ```
+                **/
                 /// - t :T
                 ///     The interpolation parameter. It is acceptable to pass 
                 ///     values less than `0`, or greater than `1`.

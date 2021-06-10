@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Godot",
+    name: "godot-swift",
     products: 
     [
         .plugin(    name: "GodotNativeScript",                      targets: ["GodotNativeScript"]),
