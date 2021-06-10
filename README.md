@@ -47,15 +47,15 @@ extension Godot.Library
 
 *Godot Swift* uses the experimental Swift [package plugins](https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md) feature, which is currently only available in recent [nightly Swift toolchains](https://swift.org/download/#snapshots). Because this feature is in active development, we *strongly recommend* using the following Swift toolchain version to avoid compilation issues:
 
-* **`DEVELOPMENT-SNAPSHOT-2021-05-18-a`**
+* **`DEVELOPMENT-SNAPSHOT-2021-06-01-a`**
 
 We recommend using [`swiftenv`](https://github.com/kylef/swiftenv) to manage multiple Swift toolchain installations. You can install a custom toolchain using `swiftenv` by passing the `swiftenv install` command the url of the toolchain on [swift.org](https://swift.org). 
 
-For example, to install the `2021-05-18-a` snapshot on Ubuntu 20.04 x86_64, run: 
+For example, to install the `2021-06-01-a` snapshot on Ubuntu 20.04 x86_64, run: 
 
 ```bash 
 swiftenv install \
-https://swift.org/builds/development/ubuntu2004/swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a/swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a-ubuntu20.04.tar.gz
+https://swift.org/builds/development/ubuntu2004/swift-DEVELOPMENT-SNAPSHOT-2021-06-01-a/swift-DEVELOPMENT-SNAPSHOT-2021-06-01-a-ubuntu20.04.tar.gz
 ```
 
 *Godot Swift* builds native libraries for [**Godot 3.3.0**](https://downloads.tuxfamily.org/godotengine/). 
