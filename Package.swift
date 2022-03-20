@@ -8,8 +8,6 @@ let package = Package(
         .plugin(name: "GodotNativeScript", targets: ["GodotNativeScript"]),
         .executable(name: "GodotNativeScriptGenerator", targets: ["GodotNativeScriptGenerator"]),
         .library(name: "GodotNative", targets: ["GodotNative"]),
-        // examples
-        // .library(name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
     ],
     dependencies: [
         .package(url: "git@github.com:apple/swift-package-manager.git", branch: "release/5.6"),
@@ -64,13 +62,5 @@ let package = Package(
                 "GodotNativeScriptGenerator",
             ]
         ),
-
-        // examples
-        // .target(name: "Examples", dependencies:
-        //     [
-        //         "GodotNative",
-        //     ],
-        //     path: "examples/swift",
-        //     plugins: ["GodotNativeScript"]),
     ]
 )
