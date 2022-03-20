@@ -2,6 +2,7 @@ import ArgumentParser
 import PackageModel
 import PackageLoading
 import TSCBasic
+import TSCUtility
 
 extension Main.Synthesizer 
 {
