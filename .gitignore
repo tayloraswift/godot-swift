@@ -4,3 +4,6 @@
 /.gyb
 /documentation
 /examples/game/libraries/
+
+.swiftpm
+.vscode

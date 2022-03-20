@@ -9,4 +9,4 @@ echo 'eval "$(swiftenv init -)"' >> ~/.bash_profile
 
 source ~/.bash_profile
 
-swiftenv install "https://swift.org/builds/development/ubuntu2004/swift-$(cat .swift-version)/swift-$(cat .swift-version)-ubuntu20.04.tar.gz"
+swiftenv install "https://download.swift.org/swift-5.6-release/ubuntu2004/swift-5.6-RELEASE/swift-5.6-RELEASE-ubuntu20.04.tar.gz"
