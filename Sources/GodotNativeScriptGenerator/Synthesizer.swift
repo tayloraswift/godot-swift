@@ -4,7 +4,26 @@ import PackageLoading
 import TSCBasic
 import TSCUtility
 
-extension Main.Synthesizer 
+struct Synthesizer: ParsableCommand {
+    @Option(help: "the workspace directory for this tool")
+    var workspace: AbsolutePath
+    
+    @Option(help: "the stage-dependent output file to generate")
+    var output: AbsolutePath
+    
+    @Option(help: "the name of the target")
+    var target: String
+    // @Option(help: "the name of the module")
+    // var module:String
+    @Option(help: "the path to the package")
+    var packagePath: AbsolutePath
+    
+    static var configuration: CommandConfiguration = .init(
+        commandName: "synthesize",
+        abstract: "Generate stage-dependent code.")
+}
+
+extension Synthesizer
 {
     enum Error:Swift.Error 
     {
@@ -50,7 +69,7 @@ extension Main.Synthesizer
 
 import Workspace
 
-extension Main.Synthesizer.Interface:CustomStringConvertible 
+extension Synthesizer.Interface:CustomStringConvertible
 {
     var description:String 
     {
@@ -64,7 +83,7 @@ extension Main.Synthesizer.Interface:CustomStringConvertible
         """
     }
 }
-extension Main.Synthesizer.Interface 
+extension Synthesizer.Interface
 {
     private final 
     class OutputBuffer 
@@ -154,20 +173,20 @@ extension Main.Synthesizer.Interface
         guard case .terminated(code: 0) = result.exitStatus
         else 
         {
-            throw Main.Synthesizer.Error.subBuildFailed
+            throw Synthesizer.Error.subBuildFailed
         }
         
         guard let library:DLHandle = try? dlopen("\(path.product)", mode: [.now, .local]) 
         else 
         {
-            throw Main.Synthesizer.Error.couldNotOpenSubBuildProduct("\(path.product)")
+            throw Synthesizer.Error.couldNotOpenSubBuildProduct("\(path.product)")
         } 
         
         guard let entrypoint:@convention(c) () -> UnsafeMutableRawPointer = 
             dlsym(library, symbol: Self.entrypoint) 
         else 
         {
-            throw Main.Synthesizer.Error.missingSubBuildProductSymbol(Self.entrypoint)
+            throw Synthesizer.Error.missingSubBuildProductSymbol(Self.entrypoint)
         }
         
         print(bold: "inspecting sub-build product '\(path.product.basename)'")
@@ -178,7 +197,7 @@ extension Main.Synthesizer.Interface
         guard let interfaces:[Self] = (description as? [Tuple])?.map(Self.init(_:))
         else 
         {
-            throw Main.Synthesizer.Error.invalidSubBuildInterfaceFormat(Swift.type(of: description), 
+            throw Synthesizer.Error.invalidSubBuildInterfaceFormat(Swift.type(of: description),
                 expected: [Tuple].self)
         }
         
@@ -220,7 +239,7 @@ extension Main.Synthesizer.Interface
 }
 #endif 
 
-extension Main.Synthesizer 
+extension Synthesizer
 {
     func run() throws
     {
@@ -398,7 +417,7 @@ extension Main.Synthesizer
 
 #if BUILD_STAGE_INERT 
 
-extension Main.Synthesizer 
+extension Synthesizer
 {
     func synthesize()
     {
@@ -441,7 +460,7 @@ extension Main.Synthesizer
 
 #else 
 
-extension Main.Synthesizer 
+extension Synthesizer
 {    
     final 
     class Diagnostics 
@@ -732,7 +751,7 @@ extension Main.Synthesizer
         }
     }
 }
-extension Main.Synthesizer.Form 
+extension Synthesizer.Form
 {
     var types:[String] 
     {
@@ -899,12 +918,12 @@ extension Main.Synthesizer.Form
         }
     }
 }
-extension Main.Synthesizer.Form.Parameter 
+extension Synthesizer.Form.Parameter
 {
     static 
     func tree(_ domain:[Self], nodes list:(label:String, type:String)) -> String? 
     {
-        func lists(root:Main.Synthesizer.Form) -> String 
+        func lists(root:Synthesizer.Form) -> String
         {
             switch root 
             {
@@ -915,7 +934,7 @@ extension Main.Synthesizer.Form.Parameter
             }
         }
         
-        let body:String = domain.map{      Main.Synthesizer.Form.tree($0.type) }.joined(separator: ", ")
+        let body:String = domain.map{      Synthesizer.Form.tree($0.type) }.joined(separator: ", ")
         let tail:String = domain.map{ $0.inout ? lists(root: $0.type) : "Void" }.joined(separator: ", ")
         if domain.isEmpty 
         {
@@ -945,15 +964,15 @@ extension Main.Synthesizer.Form.Parameter
         }
     }
 }
-extension Main.Synthesizer.FunctionParameterization
+extension Synthesizer.FunctionParameterization
 {
     var signature:String 
     {
         let domain:[String] = [self.exclude] + self.domain.map 
         {
-            "\($0.inout ? "inout " : "")\(Main.Synthesizer.Form.tree($0.type))"
+            "\($0.inout ? "inout " : "")\(Synthesizer.Form.tree($0.type))"
         }
-        let range:String = Main.Synthesizer.Form.tree(self.range)
+        let range:String = Synthesizer.Form.tree(self.range)
         return "(\(domain.joined(separator: ", "))) -> \(range)"
     }
     
@@ -1004,7 +1023,7 @@ extension Main.Synthesizer.FunctionParameterization
                     """
                     Source.block(delimiters: ("[", "], "))
                     {
-                        for type:Main.Synthesizer.Form in self.domain.map(\.type)
+                        for type:Synthesizer.Form in self.domain.map(\.type)
                         {
                             """
                             Godot.Annotations.Argument.init(label: "", type: \(type.variantType)), 
@@ -1028,7 +1047,7 @@ extension Main.Synthesizer.FunctionParameterization
                         """
                         
                         if let domain:String = 
-                            Main.Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
+                            Synthesizer.Form.Parameter.tree(self.domain, nodes: ("list", "Godot.List"))
                         {
                             if self.domain.contains(where: \.inout) 
                             {
@@ -1051,7 +1070,7 @@ extension Main.Synthesizer.FunctionParameterization
                                 """
                             }
                         }
-                        for (position, parameter):(Int, Main.Synthesizer.Form.Parameter) in 
+                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in
                             self.domain.enumerated() 
                         {
                             parameter.type.destructure(nodes: ("arguments", "list", "Godot.List"), 
@@ -1060,11 +1079,11 @@ extension Main.Synthesizer.FunctionParameterization
                         
                         """
                         
-                        let output:\(Main.Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
+                        let output:\(Synthesizer.Form.tree(self.range)) = \(self.call("method", with: ("delegate", "inputs")))
                         
                         """
                         
-                        for (position, parameter):(Int, Main.Synthesizer.Form.Parameter) in 
+                        for (position, parameter):(Int, Synthesizer.Form.Parameter) in
                             self.domain.enumerated() 
                             where parameter.inout 
                         {
@@ -1080,7 +1099,7 @@ extension Main.Synthesizer.FunctionParameterization
         }
     }
 }
-extension Main.Synthesizer 
+extension Synthesizer 
 {
     func synthesize(interfaces:[Interface])
     {
