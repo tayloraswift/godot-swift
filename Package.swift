@@ -12,7 +12,7 @@ let package = Package(
         // .library(name: "godot-swift-examples", type: .dynamic, targets: ["Examples"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-package-manager.git", branch: "main"),
+        .package(url: "git@github.com:apple/swift-package-manager.git", branch: "release/5.6"),
         .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/apple/swift-numerics", .upToNextMinor(from: "1.0.0")),
         .package(url: "https://github.com/apple/swift-atomics", .upToNextMinor(from: "1.0.0")),
